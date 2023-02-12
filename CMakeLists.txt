@@ -35,7 +35,7 @@ add_compile_definitions(MINI_CASE_SENSITIVE)
 # Add Boost and CUDA include directories
 include_directories(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ./include ./src ./src/shapes)
 # Add subfolders
-add_subdirectory(./src/diff_grad)
+add_subdirectory(./src/dMRI)
 add_subdirectory(./src/phantom)
 add_subdirectory(./src/config)
 add_subdirectory(./src/sim)

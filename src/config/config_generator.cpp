@@ -103,12 +103,20 @@ bool generate_default_config(uint32_t TE_us, uint32_t timestep_us, std::vector<s
     ss << "; scale PHANTOM length to simulate different sample sizes" << "\n";
     ss << "FOV_SCALE[0] = 1.0" << "\n";
     
-    std::ofstream myFile(output);
+    auto output_file = std::filesystem::absolute(std::filesystem::path(output));
+    try {
+        std::filesystem::create_directories(output_file.parent_path());
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(error) << "Creating directory " << output_file.parent_path().string() << " failed. " << e.what();
+        return false;
+    }
+
+    std::ofstream myFile(output_file.string());
     if (myFile.is_open()) {
         myFile << ss.str();
         myFile.close();
     } else {
-       BOOST_LOG_TRIVIAL(error) << "Wriing default config to file " << output << " failed";
+       BOOST_LOG_TRIVIAL(error) << "Writing default config to file " << output << " failed";
        return false;
     }
 

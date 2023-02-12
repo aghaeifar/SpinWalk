@@ -25,7 +25,6 @@ namespace config {
         };
 
         // Lookup and call the corresponding function
-        std::cout << "Sequence name: " << seq_name  << " " << args.seq_name << '\n';
         auto it = function_map.find(seq_name);
         if (it != function_map.end()) {
             if(it->second(args.TE_us, args.timestep_us, args.phantoms, output) == false) // Call the function with the arguments

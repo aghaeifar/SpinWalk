@@ -5,7 +5,7 @@
 #include "pgse.h"
 
 
-namespace diff_grad {
+namespace dMRI {
     bool handler::execute(const execute_args& args) {        
         std::cout << "Generating PGSE for b-value = " << args.b_value << " s/mm\u00B2\n";
         pgse gg;

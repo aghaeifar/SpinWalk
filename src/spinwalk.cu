@@ -27,7 +27,7 @@
 #include "sim/monte_carlo.cuh"
 #include "sim/device_helper.cuh"
 #include "phantom/handler.h"
-#include "diff_grad/handler.h"
+#include "dMRI/handler.h"
 #include "config/handler.h"
 
 namespace bl = boost::log;
@@ -65,7 +65,7 @@ int main(int argc, char * argv[])
     auto subcommand_phantom = app.add_subcommand("phantom", "Generate numerical phantom");
     subcommand_phantom->add_flag("-c,--cylinder", arg_cyl, "Fill phantom with cylinders");
     subcommand_phantom->add_flag("-s,--sphere", arg_sphere, "Fill phantom with spheres");
-    subcommand_phantom->add_option("-r,--radius", arg_radius, "Radius of the cylinders/spheres in \u00B5m (negative value = random radius)")->capture_default_str();
+    subcommand_phantom->add_option("-r,--radius", arg_radius, "Radius of the cylinders/spheres in \u00B5m (negative value = allowing smaller radiuses too)")->capture_default_str();
     subcommand_phantom->add_option("-n,--orientation", arg_ori, "Orientation of the cylinders in degree with respect to B0")->capture_default_str();
     subcommand_phantom->add_option("-v,--volume_fraction", arg_vol_fra, "Fraction of shapes volume to FoV volume in % <0.0 100.0>")->capture_default_str();
     subcommand_phantom->add_option("-f,--fov", arg_fov, "Voxel field of view in \u00B5m (isotropic)")->mandatory(true)->check(CLI::PositiveNumber);
@@ -77,15 +77,15 @@ int main(int argc, char * argv[])
 
     auto subcommand_config = app.add_subcommand("config", "Generate configuration file");
     subcommand_config->add_option("-s,--seq_name", arg_seqname, "Sequence name: GRE, SE, bSSFP, default")->mandatory(true); 
-    subcommand_config->add_option("-p,--phantoms", phantom_files, "Path to phantom files as many as you want. e.g. -p phantom1.h5 phantom2.h5 ... phantomN.h5")->mandatory(true)->check(CLI::ExistingFile);
+    subcommand_config->add_option("-p,--phantoms", phantom_files, "Path to phantom files as many as you want. e.g. -p phantom1.h5 phantom2.h5 ... phantomN.h5")->mandatory(true); // must not check for existing file here, its path is relative to config file location
     subcommand_config->add_option("-e,--TE", TE_us, "Echo time in \u00B5s")->mandatory(true)->check(CLI::PositiveNumber);; 
     subcommand_config->add_option("-t,--timestep", timestep_us, "timestep in \u00B5s")->mandatory(true)->check(CLI::PositiveNumber);; 
     subcommand_config->add_option("-o,--output",config_file, "Path to save the configuration file")->mandatory(true);
 
-    auto subcommand_diffgrad = app.add_subcommand("diff_grad", "Generate diffusion gradient table");
+    auto subcommand_diffgrad = app.add_subcommand("dMRI", "Generate diffusion gradient table");
     subcommand_diffgrad->add_option("-b,--bvalue", bvalue, "b-value (s/mm\u00B2)")->mandatory(true);
-    subcommand_diffgrad->add_option("-v,--bvector", bvector, "Gradient direction: X Y Z, e.g. 0.2 0.6 0.4")->mandatory(true)->expected(3);
-    subcommand_diffgrad->add_option("-d,--delta", bdelta, "start time, \xCE\xB4 and \xCE\x94 in ms")->mandatory(true)->expected(3);
+    subcommand_diffgrad->add_option("-v,--bvector", bvector, "Gradient direction: X Y Z, e.g. 0.267 0.534 0.801")->mandatory(true)->expected(3);
+    subcommand_diffgrad->add_option("-d,--delta", bdelta, "start time, \xCE\xB4 and \xCE\x94 in ms, e.g. 10 3 5 ")->mandatory(true)->expected(3);
     subcommand_diffgrad->add_option("-c,--config", config_file, "input config file to insert PGSE gradients and excitation and refocusing RF")->mandatory(true)->check(CLI::ExistingFile);
 
     CLI11_PARSE(app, argc, argv);
@@ -112,7 +112,7 @@ int main(int argc, char * argv[])
 
     // ========== generate diffusion gradients ==========
     if (subcommand_diffgrad->parsed())
-        if (diff_grad::handler::execute({.b_value=bvalue, .start_ms=bdelta[0], .delta_ms=bdelta[1], .DELTA_ms=bdelta[2], .dir=bvector, .output=config_file}) == false){
+        if (dMRI::handler::execute({.b_value=bvalue, .start_ms=bdelta[0], .delta_ms=bdelta[1], .DELTA_ms=bdelta[2], .dir=bvector, .output=config_file}) == false){
             std::cout << ERR_MSG << "Diffusion gradient generation failed. See the log file " << log_filename <<", Aborting...!" << "\n";
             return 1;
         }

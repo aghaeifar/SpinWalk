@@ -10,7 +10,7 @@
 #include "ini.h"
 #include "definitions.h"
 
-namespace diff_grad
+namespace dMRI
 {
 
 std::string read(std::string config_file, std::string section, std::string key)
@@ -102,7 +102,7 @@ bool pgse::run(std::string config_file)
     ini["SCAN_PARAMETERS"]["RF_FA[0]"] = "90";
     ini["SCAN_PARAMETERS"]["RF_FA[1]"] = "180";
     ini["SCAN_PARAMETERS"]["RF_PH[0]"] = "0";
-    ini["SCAN_PARAMETERS"]["RF_PH[1]"] = "0";
+    ini["SCAN_PARAMETERS"]["RF_PH[1]"] = "90";
     ini["SCAN_PARAMETERS"]["RF_T[0]"]  = "0";
     ini["SCAN_PARAMETERS"]["RF_T[1]"]  = std::to_string(start_us + delta_ms*1000 + (DELTA_ms-delta_ms)*1000/2);
 
@@ -126,5 +126,5 @@ bool pgse::run(std::string config_file)
     return true;
 }
 
-} // namespace diff_grad
+} // namespace dMRI
 

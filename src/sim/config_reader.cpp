@@ -80,7 +80,7 @@ bool config_reader::read(std::string config_filename_path)
     output_dir = ini["FILES"]["OUTPUT_DIR"].empty() ? output_dir : ini["FILES"]["OUTPUT_DIR"]; 
     if (std::filesystem::path(output_dir).is_relative())
         output_dir = std::filesystem::weakly_canonical(std::filesystem::absolute(config_filename).parent_path() / output_dir).string();
-     
+
     // ============== reading section SCAN_PARAMETERS ==============
     param->TR_us = ini["SCAN_PARAMETERS"]["TR"].empty() ? param->TR_us : std::stoi(ini["SCAN_PARAMETERS"]["TR"]);
     param->timestep_us = ini["SCAN_PARAMETERS"]["TIME_STEP"].empty() ? param->timestep_us : std::stoi(ini["SCAN_PARAMETERS"]["TIME_STEP"]);
@@ -216,6 +216,14 @@ bool config_reader::check()
     // resize for consistency
     files_container.at("XYZ0").resize(files_container.at("PHANTOM").size(), "");
     files_container.at("M0").resize(files_container.at("PHANTOM").size(), "");
+    
+    // create output directory
+    try {
+        std::filesystem::create_directories(std::filesystem::path(output_dir));
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(error) << "Creating directory " << output_dir << " failed. " << e.what();
+        return false;
+    } 
     
     // generate names for output
     output_files.clear();
