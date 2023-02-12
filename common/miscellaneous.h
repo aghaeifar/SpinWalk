@@ -58,6 +58,19 @@ typedef struct simulation_parameters
     }
 } simulation_parameters;
 
+typedef struct output_header
+{
+    int32_t n_spins, n_fieldmaps, n_sample_length, device_count;
+    output_header(int32_t a, int32_t b, int32_t c, int32_t d): n_spins(a), n_fieldmaps(b), n_sample_length(c), device_count(d){}
+} output_header;
+
+typedef struct input_header
+{
+    int32_t size[3];
+    float sample_length;
+    input_header(int32_t *a, float b): sample_length(b){memcpy(size, a, 3*sizeof(int32_t));}
+} input_header;
+
 bool file_exist(std::string fname)
 {
     std::ifstream f(fname.c_str());
