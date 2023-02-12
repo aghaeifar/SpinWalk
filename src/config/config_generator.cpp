@@ -171,7 +171,7 @@ bool generate_se(uint32_t TE_us, uint32_t timestep_us, std::vector<std::string> 
     ini["SCAN_PARAMETERS"]["RF_PH[0]"]  = "0";
     ini["SCAN_PARAMETERS"]["RF_PH[1]"]  = "90";
     ini["SCAN_PARAMETERS"]["RF_T[0]"]   = "0";
-    ini["SCAN_PARAMETERS"]["RF_T[0]"]   = std::to_string(TE_us/2);
+    ini["SCAN_PARAMETERS"]["RF_T[1]"]   = std::to_string(TE_us/2);
     ini["SCAN_PARAMETERS"]["TIME_STEP"] = std::to_string(timestep_us);
 
 
