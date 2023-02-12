@@ -1,0 +1,9 @@
+{
+  "files.exclude": {
+    "LICENSE" : true,
+    "lib" : true,
+    "build" : true,
+    "others" : true
+  },
+"cmake.configureOnOpen": false
+}
