@@ -11,7 +11,7 @@
 
 #include <sstream>
 #include <random>
-
+#include <filesystem>
 #include <thrust/random.h>
 
 #include "../common/miscellaneous.h"
@@ -32,7 +32,7 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
                                        float *d_random_walk_xyz_init_scaled,  // 3 * param.n_spins
                                        float *spin_mxyz);
 __global__ void generate_initial_position_cuda(float *, simulation_parameters *, bool *);
-__global__ void scale_initial_positions(float *, float *, float, int);
+__global__ void scale_initial_positions(float *, float *, float, int32_t);
 
 using namespace std;
 
@@ -76,7 +76,7 @@ int main()
 
     // concatenate all fieldmaps
     pFieldMap = new float[param.matrix_length * param.n_fieldmaps];
-    for (int i = 0; i < param.n_fieldmaps; i++)
+    for (int32_t i = 0; i < param.n_fieldmaps; i++)
     {
         std::ifstream in_field(filenames.at("fieldmap")[i], std::ios::in | std::ios::binary);
         in_field.seekg(sizeof(int) * 3 + sizeof(float) * 2); // skip header
@@ -94,14 +94,15 @@ int main()
     // ========== Dump Settings ==========
     if(param.enDebug)
     {
-        std::cout << "Dumping what were read:" << std::endl;
-        for (int i = 0; i < param.n_fieldmaps; i++)
-            std::cout << filenames.at("fieldmap")[i] << std::endl;
+        std::cout << "Dumping settings:" << std::endl;
+        for (int32_t i = 0; i < param.n_fieldmaps; i++)
+            std::cout << "Fieldmap " << i+1 << " = " << filenames.at("fieldmap")[i] << std::endl;
         
-        for (int i = 0; i < param.n_sample_length; i++)
-            std::cout << sample_length_all[i] << std::endl;
+        for (int32_t i = 0; i < param.n_sample_length; i++)
+            std::cout << "Sample size " << i+1 << " = " << sample_length_all[i] * 1e6 << " um" << std::endl;
 
         param.dump();
+        std::cout<< std::string(30, '-')  << std::endl;
     }
 
     // ========== Preparation ==========
@@ -121,9 +122,10 @@ int main()
     {
         float m0t[3], m1t[3], s_cycl;
         std::copy(m0_init, m0_init + 3, m0t);
-        std::cout << "M0 after alpha/2 pulse & TR/2 relaxation = [" << m0t[0] << " " << m0t[1] << " " << m0t[2] << "]" << std::endl;
-        for (int rep = 0; rep < 3; rep++)
-            for (int dummy_scan = 0; dummy_scan < param.n_dummy_scan; dummy_scan++)
+        std::cout<< "Steady-state report:" << std::endl;
+        std::cout << "\tM0 after alpha/2 pulse & TR/2 relaxation = [" << m0t[0] << " " << m0t[1] << " " << m0t[2] << "]" << std::endl;
+        for (int32_t rep = 0; rep < 3; rep++)
+            for (int32_t dummy_scan = 0; dummy_scan < param.n_dummy_scan; dummy_scan++)
             {
                 s_cycl = (dummy_scan % 2 == 0) ? -param.s : param.s;
                 xrot(s_cycl, param.c, m0t, m1t);
@@ -132,15 +134,16 @@ int main()
                 else
                 {
                     relax(param.e12, param.e22, m1t);
-                    std::cout << "Magnetization after " <<param. n_dummy_scan * (rep + 1) << " RF shots = [" << m1t[0] << " " << m1t[1] << " " << m1t[2] << "]" << std::endl;
+                    std::cout << "\tMagnetization after " <<param. n_dummy_scan * (rep + 1) << " RF shots = [" << m1t[0] << " " << m1t[1] << " " << m1t[2] << "]" << std::endl;
                     relax(param.e12, param.e22, m1t);
                 }
                 std::copy(m1t, m1t + 3, m0t);
             }
+        std::cout<< std::string(30, '-')  << std::endl;
     }
 
     // ========== outputs ==========
-    int device_count;
+    int32_t device_count;
     checkCudaErrors(cudaGetDeviceCount(&device_count));
     std::cout << "Number of GPU(s): " << device_count << std::endl;
     
@@ -153,7 +156,7 @@ int main()
 
     checkCudaErrors(cudaEventRecord (start_0));
     #pragma omp parallel for
-    for(int d=0; d<device_count; d++)
+    for(int32_t d=0; d<device_count; d++)
     {
         checkCudaErrors(cudaSetDevice(d));
         cudaStream_t   stream;
@@ -177,7 +180,7 @@ int main()
         memcpy(&param_local, &param, sizeof(simulation_parameters));
 
         // ========== run ==========
-        int numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
+        int32_t numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
         float elapsedTime;
         cudaEvent_t start;
         cudaEvent_t end;
@@ -190,11 +193,11 @@ int main()
 
         float sample_length_ref = param.sample_length;
         
-        for (int sl = 0; sl < param.n_sample_length; sl++)
+        for (int32_t sl = 0; sl < param.n_sample_length; sl++)
         {        
             float sample_length_scale = sample_length_all[sl] / sample_length_ref;
             if (param.n_sample_length > 1)
-                printf("%d, %d ) Simulating sample size = %.2f um, scale to reference = %.2f\n", d, sl, sample_length_all[sl]*1e6, sample_length_scale);
+                printf("%d, %2d) Simulating sample size = %8.2f um, scale to reference = %7.2f\n", d, sl, sample_length_all[sl]*1e6, sample_length_scale);
 
             param_local.sample_length = sample_length_all[sl];    
             param_local.scale2grid = (param_local.fieldmap_size[0] - 1.) / param_local.sample_length;    
@@ -216,7 +219,7 @@ int main()
         checkCudaErrors(cudaEventRecord(end));
         checkCudaErrors(cudaDeviceSynchronize());
         checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start, end));
-        std::cout << d << ") Simulation took " << elapsedTime/1000 << " seconds" << std::endl;
+        std::cout << d << ") Simulation took " << (int32_t)elapsedTime/1000 << " seconds" << std::endl;
 
         // ========== clean up GPU ==========
         checkCudaErrors(cudaFree(d_param));
@@ -234,11 +237,12 @@ int main()
     checkCudaErrors(cudaEventRecord(end_0));
     checkCudaErrors(cudaDeviceSynchronize());
     checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start_0, end_0));
-    std::cout << "Entire simulation over " << device_count << " GPU(s) took " << elapsedTime/1000 << " seconds" << std::endl;
+    std::cout << "Entire simulation over " << device_count << " GPU(s) took " << (int32_t)elapsedTime/1000 << " seconds" << std::endl;
     checkCudaErrors(cudaEventDestroy(start_0));
     checkCudaErrors(cudaEventDestroy(end_0));
     
     // ========== save results ========== 
+    std::cout << "Saving results to " << std::filesystem::absolute(filenames.at("output")[0]) << std::endl;
     output_header oh(param.n_spins, param.n_fieldmaps, param.n_sample_length, device_count);
     std::fstream out_spin_xyz(filenames.at("output")[0], std::ios::out | std::ios::binary);
     out_spin_xyz.write((char*)&oh, sizeof(output_header));
@@ -257,7 +261,7 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
                                        float *d_random_walk_xyz_init_scaled,  // 3 * param.n_spins
                                        float *d_mxyz)
 {
-    int spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
+    int32_t spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     __shared__ simulation_parameters param;
     if(threadIdx.x == 0)
         memcpy(&param, param_orig, sizeof(simulation_parameters));
@@ -275,7 +279,7 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
     float field[MAX_N_FIELDMAP];
     float m0[3*MAX_N_FIELDMAP], m1[3*MAX_N_FIELDMAP]; // m0[0,1,2] * nfieldmap - please note array size is hard-coded! works for now, but limits flexibility.
     float xyz[3], xyz_new[3];
-    for(int i=0; i<3; i++)
+    for(int32_t i=0; i<3; i++)
         xyz[i] = d_random_walk_xyz_init_scaled[3*spin_no + i];
 
     thrust::minstd_rand  gen(seed);
@@ -283,7 +287,7 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
     gen.discard(seed);
 
     // alpha/2 RF pulse (along x-axis) + TR/2 relaxation
-    for(int i=0; i<param.n_fieldmaps; i++)
+    for(int32_t i=0; i<param.n_fieldmaps; i++)
     {
         m0[3*i+0] = 0;
         m0[3*i+1] = -param.s2 * param.e22;
@@ -291,28 +295,28 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
     }
 
     bool is_lastdummy = false;
-    for (int dummy_scan = 0; dummy_scan < param.n_dummy_scan + 1; dummy_scan++)
+    for (int32_t dummy_scan = 0; dummy_scan < param.n_dummy_scan + 1; dummy_scan++)
     {
         is_lastdummy = (dummy_scan == param.n_dummy_scan);
         n_timepoints_local = is_lastdummy ? (param.n_timepoints) / 2 : (param.n_timepoints); // random walk till TR/2 in the final execution of the loop
         
         // alpha RF pulse (along x-axis) + TR or TR/2 relaxation
         float s_cycl = (dummy_scan % 2 == 0) ? -param.s : param.s; // PI phase cycling, starts with -FA (since we have +FA/2 above)
-        for (int i = 0; i< param.n_fieldmaps; i++)
+        for (int32_t i = 0; i< param.n_fieldmaps; i++)
             xrot(s_cycl, param.c, m0 + 3*i, m1 + 3*i);
 
         // copy m1 to m0
-        for(int i=0; i<3*param.n_fieldmaps; i++)
+        for(int32_t i=0; i<3*param.n_fieldmaps; i++)
             m0[i] = m1[i];
 
         // random walk with boundries and accomulate phase
         int32_t ind=0, ind_old=-1;
         int16_t current_timepoint = 0;
-        for(int i=0; i<param.n_fieldmaps; i++)
+        for(int32_t i=0; i<param.n_fieldmaps; i++)
             accumulated_phase[i] = 0;
         while (current_timepoint < n_timepoints_local)
         {
-            for (int i=0; i<3; i++)
+            for (int32_t i=0; i<3; i++)
             {
                 xyz_new[i] = xyz[i] + dist_random_walk_xyz(gen); // new spin position after random-walk
                 if (xyz_new[i] < 0)
@@ -332,41 +336,41 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
                 ind_old = ind; 
             }
 
-            for (int i = 0; i<param.n_fieldmaps; i++)            
+            for (int32_t i = 0; i<param.n_fieldmaps; i++)            
                 accumulated_phase[i] += field[i];
 
-            for (int i = 0; i < 3; i++)
+            for (int32_t i = 0; i < 3; i++)
                 xyz[i] = xyz_new[i];
  
             current_timepoint++;            
         }
 
-        for (int i=0; i<param.n_fieldmaps; i++)
+        for (int32_t i=0; i<param.n_fieldmaps; i++)
         {            
             accumulated_phase[i] *= param.B0 * GAMMA * param.dt; // Fieldmap per Tesla to radian     
             zrot(accumulated_phase[i], m0 + 3*i, m1 + 3*i); // dephase
             relax(is_lastdummy ? param.e12 : param.e1, is_lastdummy ? param.e22 : param.e2, m1 + 3*i);
         }
         // copy m1 to m0 for the next iteration
-        for(int i=0; i<3*param.n_fieldmaps; i++)
+        for(int32_t i=0; i<3*param.n_fieldmaps; i++)
             m0[i] = m1[i];
     }
 
-    for (int i=0; i<param.n_fieldmaps; i++)
+    for (int32_t i=0; i<param.n_fieldmaps; i++)
     {  
-        int ind = 3*param.n_spins*i + 3*spin_no;
+        int32_t ind = 3*param.n_spins*i + 3*spin_no;
         d_mxyz[ind + 0] = m1[3*i + 0];
         d_mxyz[ind + 1] = m1[3*i + 1];
         d_mxyz[ind + 2] = m1[3*i + 2];
     }
 }
 
-__global__ void scale_initial_positions(float *d_scaled_xyz, float *d_initial_xyz, float scale, int size)
+__global__ void scale_initial_positions(float *d_scaled_xyz, float *d_initial_xyz, float scale, int32_t size)
 {
-    int n = blockIdx.x * blockDim.x + threadIdx.x ;
+    int32_t n = blockIdx.x * blockDim.x + threadIdx.x ;
     if(n < size)
     {
-        int ind = 3*n;
+        int32_t ind = 3*n;
         d_scaled_xyz[ind+0] = d_initial_xyz[ind+0] * scale;
         d_scaled_xyz[ind+1] = d_initial_xyz[ind+1] * scale;
         d_scaled_xyz[ind+2] = d_initial_xyz[ind+2] * scale;
@@ -377,7 +381,7 @@ __global__ void scale_initial_positions(float *d_scaled_xyz, float *d_initial_xy
 __global__ void generate_initial_position_cuda(float *d_spin_position_xyz, simulation_parameters *param, bool *pMask)
 {
     // prepare random generator engine
-    int spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
+    int32_t spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     if(spin_no >= param->n_spins)
         return;
 
@@ -390,7 +394,7 @@ __global__ void generate_initial_position_cuda(float *d_spin_position_xyz, simul
     float *spin_position_xyz = d_spin_position_xyz + 3*spin_no;
     do
     {
-        for (int i = 0; i < 3; i++)
+        for (int32_t i = 0; i < 3; i++)
             spin_position_xyz[i] = dist_initial_point(gen);
         index = sub2ind(ROUND(spin_position_xyz[0]*scale2grid), ROUND(spin_position_xyz[1]*scale2grid), ROUND(spin_position_xyz[2]*scale2grid), param->fieldmap_size[0], param->fieldmap_size[1]);
     }while (pMask[index] == true);
