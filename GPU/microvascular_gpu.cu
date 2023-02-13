@@ -7,15 +7,12 @@
  * Descrip  : simulating BOLD in microvascular network
  * -------------------------------------------------------------------------- */
 
-// compile :  nvcc microvascular_gpu.cu -Xptxas -v -O3  -arch=compute_86 -code=sm_86
+// compile :  nvcc microvascular_gpu.cu -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler -fopenmp
 
 #include <sstream>
 #include <random>
 
 #include <thrust/random.h>
-#include <thrust/device_vector.h>
-#include <thrust/random/linear_congruential_engine.h>
-#include <thrust/random/normal_distribution.h>
 
 #include "../common/miscellaneous.h"
 #include "../common/helper_cuda.h"
@@ -26,7 +23,7 @@
 #define GAMMA           267515315. // rad/s.T
 #define MAX_N_FIELDMAP  3
 #define CONFIG_FILE     "../inputs/config.ini"
-
+#define THREADS_PER_BLOCK       64
 
 
 __global__ void simulation_kernel_cuda(simulation_parameters *param_orig, 
@@ -94,7 +91,7 @@ int main()
     in_mask.read((char *)&pMask[0], sizeof(bool) * param.matrix_length);
     in_mask.close();
 
-    // ========== Dump ==========
+    // ========== Dump Settings ==========
     if(param.enDebug)
     {
         std::cout << "Dumping what were read:" << std::endl;
@@ -107,7 +104,7 @@ int main()
         param.dump();
     }
 
-    // ========== preparation ==========
+    // ========== Preparation ==========
     param.n_timepoints = param.TR / param.dt; // includes start point
     if (param.n_dummy_scan % 2 != 0)
     {
@@ -145,94 +142,113 @@ int main()
     // ========== outputs ==========
     int device_count;
     checkCudaErrors(cudaGetDeviceCount(&device_count));
-    std::cout << "Number of GPU(s): " << device_count << ", using device: " << param.gpu_device_id+1 << std::endl;
-    checkCudaErrors(cudaSetDevice(param.gpu_device_id));
-
-    float *p_spin_xyz = new float[3 * param.n_spins * param.n_fieldmaps * param.n_sample_length];
-
-    simulation_parameters *d_param;
-    float *d_pFieldMap, *d_random_walk_xyz_init, *d_random_walk_xyz_init_scaled;
-    float*d_mxyz;
-    bool *d_pMask;
+    std::cout << "Number of GPU(s): " << device_count << std::endl;
     
-    checkCudaErrors(cudaMalloc((void**)&d_param,                sizeof(simulation_parameters)));
-    checkCudaErrors(cudaMalloc((void**)&d_pFieldMap,            sizeof(float) * param.matrix_length * param.n_fieldmaps));    
-    checkCudaErrors(cudaMalloc((void**)&d_random_walk_xyz_init, sizeof(float) * 3 * param.n_spins));
-    checkCudaErrors(cudaMalloc((void**)&d_random_walk_xyz_init_scaled, sizeof(float) * 3 * param.n_spins));
-    checkCudaErrors(cudaMalloc((void**)&d_mxyz,                 sizeof(float) * 3 * param.n_spins * param.n_fieldmaps));
-    checkCudaErrors(cudaMalloc((void**)&d_pMask,                sizeof(bool) * param.matrix_length));
+    cudaEvent_t start_0, end_0;
+    checkCudaErrors(cudaEventCreate (&start_0));
+    checkCudaErrors(cudaEventCreate (&end_0));
 
-    checkCudaErrors(cudaMemcpy(d_pFieldMap, pFieldMap, sizeof(float) * param.matrix_length * param.n_fieldmaps, cudaMemcpyHostToDevice)); 
-    checkCudaErrors(cudaMemcpy(d_pMask, pMask, sizeof(bool) * param.matrix_length, cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_param, &param, sizeof(simulation_parameters), cudaMemcpyHostToDevice));
+    param.n_spins /= device_count; // spins will be distributed to multiple GPUs (if there is). We hope it is divisible 
+    float *p_spin_xyz = new float[3 * param.n_spins * param.n_fieldmaps * param.n_sample_length * device_count];
 
-    delete[] pFieldMap;
-    delete[] pMask;
-    
-    // ========== run ==========
-    int threadsPerBlock = 64;
-    int numBlocks = (param.n_spins + threadsPerBlock - 1) / threadsPerBlock;
+    checkCudaErrors(cudaEventRecord (start_0));
+    #pragma omp parallel for
+    for(int d=0; d<device_count; d++)
+    {
+        checkCudaErrors(cudaSetDevice(d));
+        cudaStream_t   stream;
+        cudaStreamCreate(&stream);
 
-    float elapsedTime;
-    cudaEvent_t start;
-    cudaEvent_t end;
-    checkCudaErrors(cudaEventCreate (&start));
-    checkCudaErrors(cudaEventCreate (&end));
-    checkCudaErrors(cudaEventRecord(start));
-    // generate initial spatial position for spins, based on sample_length_ref
-    generate_initial_position_cuda<<<numBlocks, threadsPerBlock>>>(d_random_walk_xyz_init, d_param, d_pMask);
-    gpuCheckKernelExecutionError( __FILE__, __LINE__);
-    checkCudaErrors(cudaEventRecord(end));
-    checkCudaErrors(cudaDeviceSynchronize());
-    checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start, end));
-    std::cout << "Spins placement took " << elapsedTime << " ms" << std::endl;
-    
-    checkCudaErrors(cudaEventRecord(start));
-    float sample_length_ref = param.sample_length;
-    
-    for (int sl = 0; sl < param.n_sample_length; sl++)
-    {        
-        float sample_length_scale = sample_length_all[sl] / sample_length_ref;
-        if (param.n_sample_length > 1)
-            std::cout << param.gpu_device_id << " " << sl << ") Simulating sample size = " << sample_length_all[sl]*1e6 << " um, scale = " << sample_length_scale << std::endl;
+        simulation_parameters *d_param, param_local;
+        float *d_pFieldMap, *d_random_walk_xyz_init, *d_random_walk_xyz_init_scaled;
+        float*d_mxyz;
+        bool *d_pMask;
 
-        param.sample_length = sample_length_all[sl];    
-        param.scale2grid = (param.fieldmap_size[0] - 1.) / param.sample_length;    
-        cudaMemcpy(d_param, &param, sizeof(simulation_parameters), cudaMemcpyHostToDevice);
+        checkCudaErrors(cudaMalloc((void**)&d_param,                sizeof(simulation_parameters)));
+        checkCudaErrors(cudaMalloc((void**)&d_pFieldMap,            sizeof(float) * param.matrix_length * param.n_fieldmaps));    
+        checkCudaErrors(cudaMalloc((void**)&d_random_walk_xyz_init, sizeof(float) * 3 * param.n_spins));
+        checkCudaErrors(cudaMalloc((void**)&d_random_walk_xyz_init_scaled, sizeof(float) * 3 * param.n_spins));
+        checkCudaErrors(cudaMalloc((void**)&d_mxyz,                 sizeof(float) * 3 * param.n_spins * param.n_fieldmaps));
+        checkCudaErrors(cudaMalloc((void**)&d_pMask,                sizeof(bool) * param.matrix_length));
 
-        scale_initial_positions<<<numBlocks, threadsPerBlock>>>(d_random_walk_xyz_init_scaled, d_random_walk_xyz_init, sample_length_scale, param.n_spins);
+        checkCudaErrors(cudaMemcpyAsync(d_pFieldMap, pFieldMap, sizeof(float) * param.matrix_length * param.n_fieldmaps, cudaMemcpyHostToDevice, stream)); 
+        checkCudaErrors(cudaMemcpyAsync(d_pMask, pMask, sizeof(bool) * param.matrix_length, cudaMemcpyHostToDevice, stream));
+        checkCudaErrors(cudaMemcpyAsync(d_param, &param, sizeof(simulation_parameters), cudaMemcpyHostToDevice, stream));
+        memcpy(&param_local, &param, sizeof(simulation_parameters));
+
+        // ========== run ==========
+        int numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
+        float elapsedTime;
+        cudaEvent_t start;
+        cudaEvent_t end;
+        checkCudaErrors(cudaEventCreate (&start));
+        checkCudaErrors(cudaEventCreate (&end));
+        checkCudaErrors(cudaEventRecord (start));
+        // generate initial spatial position for spins, based on sample_length_ref
+        generate_initial_position_cuda<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>(d_random_walk_xyz_init, d_param, d_pMask);
         gpuCheckKernelExecutionError( __FILE__, __LINE__);
 
-        simulation_kernel_cuda<<<numBlocks, threadsPerBlock>>>(d_param, 
-                                                               d_pFieldMap, 
-                                                               d_pMask, 
-                                                               d_random_walk_xyz_init_scaled, 
-                                                               d_mxyz);
-        gpuCheckKernelExecutionError( __FILE__, __LINE__);                                                       
-        checkCudaErrors(cudaMemcpy(p_spin_xyz + 3*param.n_spins*param.n_fieldmaps*sl, d_mxyz, sizeof(float)*3*param.n_spins*param.n_fieldmaps, cudaMemcpyDeviceToHost));
-    }    
+        float sample_length_ref = param.sample_length;
+        
+        for (int sl = 0; sl < param.n_sample_length; sl++)
+        {        
+            float sample_length_scale = sample_length_all[sl] / sample_length_ref;
+            if (param.n_sample_length > 1)
+                printf("%d, %d ) Simulating sample size = %.2f um, scale to reference = %.2f\n", d, sl, sample_length_all[sl]*1e6, sample_length_scale);
 
-    checkCudaErrors(cudaEventRecord(end));
+            param_local.sample_length = sample_length_all[sl];    
+            param_local.scale2grid = (param_local.fieldmap_size[0] - 1.) / param_local.sample_length;    
+            cudaMemcpy(d_param, &param_local, sizeof(simulation_parameters), cudaMemcpyHostToDevice);
+
+            scale_initial_positions<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>(d_random_walk_xyz_init_scaled, d_random_walk_xyz_init, sample_length_scale, param.n_spins);
+            gpuCheckKernelExecutionError( __FILE__, __LINE__);
+
+            simulation_kernel_cuda<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>(d_param, 
+                                                                                d_pFieldMap, 
+                                                                                d_pMask, 
+                                                                                d_random_walk_xyz_init_scaled, 
+                                                                                d_mxyz);
+            gpuCheckKernelExecutionError( __FILE__, __LINE__);                                                       
+            checkCudaErrors(cudaMemcpyAsync(p_spin_xyz + 3*param.n_spins*param.n_fieldmaps*sl + 3*param.n_spins*param.n_fieldmaps*param.n_sample_length*d
+                                            , d_mxyz, sizeof(float)*3*param.n_spins*param.n_fieldmaps, cudaMemcpyDeviceToHost, stream));
+        }    
+
+        checkCudaErrors(cudaEventRecord(end));
+        checkCudaErrors(cudaDeviceSynchronize());
+        checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start, end));
+        std::cout << d << ") Simulation took " << elapsedTime/1000 << " seconds" << std::endl;
+
+        // ========== clean up GPU ==========
+        checkCudaErrors(cudaFree(d_param));
+        checkCudaErrors(cudaFree(d_pFieldMap));
+        checkCudaErrors(cudaFree(d_pMask));
+        checkCudaErrors(cudaFree(d_random_walk_xyz_init));
+        checkCudaErrors(cudaFree(d_random_walk_xyz_init_scaled));
+        checkCudaErrors(cudaFree(d_mxyz));
+        checkCudaErrors(cudaEventDestroy(start));
+        checkCudaErrors(cudaEventDestroy(end));
+        checkCudaErrors(cudaStreamDestroy(stream));
+    }
+
+    float elapsedTime;
+    checkCudaErrors(cudaEventRecord(end_0));
     checkCudaErrors(cudaDeviceSynchronize());
-    checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start, end));
-    std::cout << "Simulation took " << elapsedTime/1000 << " seconds" << std::endl;
-
+    checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start_0, end_0));
+    std::cout << "Entire simulation over " << device_count << " GPU(s) took " << elapsedTime/1000 << " seconds" << std::endl;
+    checkCudaErrors(cudaEventDestroy(start_0));
+    checkCudaErrors(cudaEventDestroy(end_0));
+    
     // ========== save results ========== 
-    std::fstream out_spin_xyz(filenames.at("output")[0]+"_"+std::to_string(param.gpu_device_id), std::ios::out | std::ios::binary);
-    out_spin_xyz.write((char*)&p_spin_xyz[0], sizeof(float) * 3 * param.n_spins * param.n_fieldmaps * param.n_sample_length);
+    output_header oh(param.n_spins, param.n_fieldmaps, param.n_sample_length, device_count);
+    std::fstream out_spin_xyz(filenames.at("output")[0], std::ios::out | std::ios::binary);
+    out_spin_xyz.write((char*)&oh, sizeof(output_header));
+    out_spin_xyz.write((char*)&p_spin_xyz[0], sizeof(float) * 3 * param.n_spins * param.n_fieldmaps * param.n_sample_length * device_count);
     out_spin_xyz.close();
 
-    // ========== clean up ==========
+    // ========== clean up CPU ==========
     delete[] p_spin_xyz;
-    checkCudaErrors(cudaFree(d_param));
-    checkCudaErrors(cudaFree(d_pFieldMap));
-    checkCudaErrors(cudaFree(d_pMask));
-    checkCudaErrors(cudaFree(d_random_walk_xyz_init));
-    checkCudaErrors(cudaFree(d_random_walk_xyz_init_scaled));
-    checkCudaErrors(cudaFree(d_mxyz));
-    checkCudaErrors(cudaEventDestroy(start));
-    checkCudaErrors(cudaEventDestroy(end));
-    
+    delete[] pFieldMap;
+    delete[] pMask;
 }
 
 __global__ void simulation_kernel_cuda(simulation_parameters *param_orig, 
@@ -241,9 +257,6 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
                                        float *d_random_walk_xyz_init_scaled,  // 3 * param.n_spins
                                        float *d_mxyz)
 {
-    // if (threadIdx.x + blockIdx.x * blockDim.x == 500)
-    //     printf("Hello World from the GPU! %f %d\n", param->sample_length, threadIdx.x + blockIdx.x * blockDim.x);
-    
     int spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     __shared__ simulation_parameters param;
     if(threadIdx.x == 0)
@@ -258,7 +271,7 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
     int16_t n_timepoints_local;
     int32_t seed  = param.seed + spin_no;
 
-    float accumulated_phase[2] = {0.}; // please note array size is hard-coded! works for now, but limits flexibility.
+    float accumulated_phase[MAX_N_FIELDMAP] = {0.}; // please note array size is hard-coded! works for now, but limits flexibility.
     float field[MAX_N_FIELDMAP];
     float m0[3*MAX_N_FIELDMAP], m1[3*MAX_N_FIELDMAP]; // m0[0,1,2] * nfieldmap - please note array size is hard-coded! works for now, but limits flexibility.
     float xyz[3], xyz_new[3];
