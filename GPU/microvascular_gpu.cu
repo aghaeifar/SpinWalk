@@ -26,12 +26,12 @@
 #define THREADS_PER_BLOCK       64
 
 
-__global__ void simulation_kernel_cuda(simulation_parameters *param_orig, 
+__global__ void simulation_kernel(simulation_parameters *param_orig, 
                                        float *d_pFieldMap, 
                                        bool *d_pMask,
                                        float *d_random_walk_xyz_init_scaled,  // 3 * param.n_spins
                                        float *spin_mxyz);
-__global__ void generate_initial_position_cuda(float *, simulation_parameters *, bool *);
+__global__ void generate_initial_position(float *, simulation_parameters *, bool *);
 __global__ void scale_initial_positions(float *, float *, float, int32_t);
 
 using namespace std;
@@ -125,8 +125,9 @@ int main(int argc, char * argv[])
     // alpha/2 RF pulse (along x-axis) + TE=TR/2 relaxation
     float m0_init[3] = {0., 0., 1.};
     if (param.n_dummy_scan != 0)
-    {
-        float m0_init[3] = {0., -sinf(-param.FA/2.), cosf(-param.FA/2.)}; // -alpha/2 RF pulse (along x-axis) + TE=TR/2 relaxation
+    {   // -alpha/2 RF pulse (along x-axis) + TE=TR/2 relaxation
+        m0_init[1] = -sinf(-param.FA/2.);
+        m0_init[2] =  cosf(-param.FA/2.); 
         relax(param.e12, param.e22, m0_init);
     }
 
@@ -201,7 +202,7 @@ int main(int argc, char * argv[])
         checkCudaErrors(cudaEventCreate (&end));
         checkCudaErrors(cudaEventRecord (start));
         // generate initial spatial position for spins, based on sample_length_ref
-        generate_initial_position_cuda<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>(d_random_walk_xyz_init, d_param, d_pMask);
+        generate_initial_position<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>(d_random_walk_xyz_init, d_param, d_pMask);
         gpuCheckKernelExecutionError( __FILE__, __LINE__);
 
         float sample_length_ref = param.sample_length;
@@ -219,7 +220,7 @@ int main(int argc, char * argv[])
             scale_initial_positions<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>(d_random_walk_xyz_init_scaled, d_random_walk_xyz_init, sample_length_scale, param.n_spins);
             gpuCheckKernelExecutionError( __FILE__, __LINE__);
 
-            simulation_kernel_cuda<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>(d_param, 
+            simulation_kernel<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>(d_param, 
                                                                                 d_pFieldMap, 
                                                                                 d_pMask, 
                                                                                 d_random_walk_xyz_init_scaled, 
@@ -268,7 +269,7 @@ int main(int argc, char * argv[])
     delete[] pMask;
 }
 
-__global__ void simulation_kernel_cuda(simulation_parameters *param_orig, 
+__global__ void simulation_kernel(simulation_parameters *param_orig, 
                                        float *d_pFieldMap, 
                                        bool *d_pMask,
                                        float *d_random_walk_xyz_init_scaled,  // 3 * param.n_spins
@@ -303,9 +304,10 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
     // alpha/2 RF pulse (along x-axis) + TR/2 relaxation
     for(int32_t i=0; i<param.n_fieldmaps; i++)
     {
-        m0[3*i+0] = 0;
-        m0[3*i+1] = -param.s2 * param.e22;
-        m0[3*i+2] =  1. + param.e12 * (param.c2 - 1.);
+        m0[3*i+0] = 0.;
+        m0[3*i+1] = (param.n_dummy_scan == 0) ? 0. : (-param.s2 * param.e22);
+        m0[3*i+2] = (param.n_dummy_scan == 0) ? 1. : (1. + param.e12 * (param.c2 - 1.));
+        relax(param.e12, param.e22, m0 + 3*i);
     }
 
     bool is_lastdummy = false;
@@ -328,6 +330,7 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
         int16_t current_timepoint = 0;
         for(int32_t i=0; i<param.n_fieldmaps; i++)
             accumulated_phase[i] = 0;
+
         while (current_timepoint < n_timepoints_local)
         {
             for (int32_t i=0; i<3; i++)
@@ -396,7 +399,7 @@ __global__ void scale_initial_positions(float *d_scaled_xyz, float *d_initial_xy
 }
 
 // generate random initial position
-__global__ void generate_initial_position_cuda(float *d_spin_position_xyz, simulation_parameters *param, bool *pMask)
+__global__ void generate_initial_position(float *d_spin_position_xyz, simulation_parameters *param, bool *pMask)
 {
     // prepare random generator engine
     int32_t spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
