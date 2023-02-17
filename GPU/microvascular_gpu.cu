@@ -36,20 +36,27 @@ __global__ void scale_initial_positions(float *, float *, float, int32_t);
 
 using namespace std;
 
-int main()
+int main(int argc, char * argv[])
 {
+    std::string config_file = CONFIG_FILE;
+    if(argc > 2)
+    {
+        std::cout << "Usage: " << argv[0] << " <config_file>" << std::endl;
+        return 1;
+    }
+    if(argc == 2)
+        config_file = argv[1];
+
     map<string, vector<string> > filenames = {{"fieldmap", vector<string>()},
                                               {"mask", vector<string>()},
                                               {"output", vector<string>()} }; 
-
     std::vector<float> sample_length_all;
-
     simulation_parameters param;
     float *pFieldMap = NULL;
     bool *pMask = NULL;
 
     // ========== read config file ==========
-    if(read_config(CONFIG_FILE, param, sample_length_all, filenames) == false)
+    if(read_config(config_file, param, sample_length_all, filenames) == false)
     {
         std::cout << "Reading config file failed. Aborting...!" << std::endl;
         return 1;
@@ -59,7 +66,9 @@ int main()
         std::cout << "Due to some memory issues, we don't support more than 3 field-maps at the moment" << std::endl;
         return 1;
     }
-    param.seed = std::random_device{}();
+
+    if (param.seed == 0)
+        param.seed = std::random_device{}();
 
     // ========== load field-maps ==========
     std::ifstream in(filenames.at("fieldmap")[0], std::ios::in | std::ios::binary);
@@ -114,11 +123,15 @@ int main()
     }
 
     // alpha/2 RF pulse (along x-axis) + TE=TR/2 relaxation
-    float m0_init[3] = {0., -sinf(param.FA/2.), cosf(param.FA/2.)}; // alpha/2 RF pulse (along x-axis) + TE=TR/2 relaxation
-    relax(param.e12, param.e22, m0_init);
+    float m0_init[3] = {0., 0., 1.};
+    if (param.n_dummy_scan != 0)
+    {
+        float m0_init[3] = {0., -sinf(-param.FA/2.), cosf(-param.FA/2.)}; // -alpha/2 RF pulse (along x-axis) + TE=TR/2 relaxation
+        relax(param.e12, param.e22, m0_init);
+    }
 
     // ========== simulating steady-state signal ==========
-    if(param.enSteadyStateSimulation)
+    if(param.enSteadyStateSimulation && param.n_dummy_scan != 0)
     {
         float m0t[3], m1t[3], s_cycl;
         std::copy(m0_init, m0_init + 3, m0t);
@@ -237,7 +250,7 @@ int main()
     checkCudaErrors(cudaEventRecord(end_0));
     checkCudaErrors(cudaDeviceSynchronize());
     checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start_0, end_0));
-    std::cout << "Entire simulation over " << device_count << " GPU(s) took " << (int32_t)elapsedTime/1000 << " seconds" << std::endl;
+    std::cout << "Entire simulation over " << device_count << " GPU(s) took " << (int32_t)elapsedTime/1000 << " second(s)" << std::endl;
     checkCudaErrors(cudaEventDestroy(start_0));
     checkCudaErrors(cudaEventDestroy(end_0));
     
@@ -282,8 +295,9 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
     for(int32_t i=0; i<3; i++)
         xyz[i] = d_random_walk_xyz_init_scaled[3*spin_no + i];
 
-    thrust::minstd_rand  gen(seed);
-    thrust::normal_distribution<float> dist_random_walk_xyz(0.f, sqrt(6 * param.diffusion_const * param.dt)); // running duration: 280 sec
+    thrust::minstd_rand gen(seed);
+    thrust::normal_distribution<float> dist_random_walk_xyz(0.f, sqrt(6 * param.diffusion_const * param.dt));
+    //thrust::uniform_real_distribution<float> dist_random_walk_xyz(-sqrt(6 * param.diffusion_const * param.dt), sqrt(6 * param.diffusion_const * param.dt));
     gen.discard(seed);
 
     // alpha/2 RF pulse (along x-axis) + TR/2 relaxation
@@ -301,7 +315,7 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
         n_timepoints_local = is_lastdummy ? (param.n_timepoints) / 2 : (param.n_timepoints); // random walk till TR/2 in the final execution of the loop
         
         // alpha RF pulse (along x-axis) + TR or TR/2 relaxation
-        float s_cycl = (dummy_scan % 2 == 0) ? -param.s : param.s; // PI phase cycling, starts with -FA (since we have +FA/2 above)
+        float s_cycl = (dummy_scan % 2 == 0) ? param.s : -param.s; // PI phase cycling, starts with +FA (since we have -FA/2 above as the first pulse)
         for (int32_t i = 0; i< param.n_fieldmaps; i++)
             xrot(s_cycl, param.c, m0 + 3*i, m1 + 3*i);
 
@@ -336,8 +350,12 @@ __global__ void simulation_kernel_cuda(simulation_parameters *param_orig,
                 ind_old = ind; 
             }
 
-            for (int32_t i = 0; i<param.n_fieldmaps; i++)            
+            for (int32_t i = 0; i<param.n_fieldmaps; i++)    
+            {        
                 accumulated_phase[i] += field[i];
+                if(param.enRefocusing180 && current_timepoint == param.n_timepoints/4)
+                    accumulated_phase[i] *= -1; // 180 degree refocusing pulse
+            }
 
             for (int32_t i = 0; i < 3; i++)
                 xyz[i] = xyz_new[i];
