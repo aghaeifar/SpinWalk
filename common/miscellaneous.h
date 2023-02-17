@@ -28,7 +28,7 @@ typedef struct simulation_parameters
     int16_t n_dummy_scan, n_timepoints, n_sample_length, n_fieldmaps;
     int32_t n_spins, fieldmap_size[3], seed, gpu_device_id;
     int64_t matrix_length;
-    bool enDebug, enSteadyStateSimulation;
+    bool enDebug, enSteadyStateSimulation, enRefocusing180;
     void dump()
     {
         std::cout<<"T1="<<T1<<'\t'<<"T2="<<T2<<'\t'<<"FA="<<FA<<'\t'<<"TE="<<TE<<'\t'<<"TR="<<TR<<'\t'<<"dt="<<dt<<'\t'<<"B0="<<B0<<'\n';
@@ -116,20 +116,22 @@ bool read_config(std::string config_filename, simulation_parameters &param, std:
         return false;
     filenames.at("output").push_back(ini.get("FILES").get("OUTPUTS"));
 
-    param.TE = std::stof(ini.get("SCAN_PARAMETERS").get("TE"));
     param.dt = std::stof(ini.get("SCAN_PARAMETERS").get("DWELL_TIME"));
     param.n_dummy_scan = std::stoi(ini.get("SCAN_PARAMETERS").get("DUMMY_SCAN"));
     param.setTRT1T2(std::stof(ini.get("SCAN_PARAMETERS").get("TR")),
                     std::stof(ini.get("TISSUE_PARAMETERS").get("T1")),
                     std::stof(ini.get("TISSUE_PARAMETERS").get("T2"))
                     );
+    param.TE = param.TR/2.;// std::stof(ini.get("SCAN_PARAMETERS").get("TE"));
     param.setFA(std::stof(ini.get("SCAN_PARAMETERS").get("FA")) * M_PI / 180.); // convert to radian
 
     param.B0 = std::stof(ini.get("SIMULATION_PARAMETERS").get("B0"));
+    param.seed = std::stoi(ini.get("SIMULATION_PARAMETERS").get("SEED"));
     //en_phase_cycling = std::stoi(ini.get("SIMULATION_PARAMETERS").get("ENABLE_PHASE_CYCLING")) > 0;
     //en_180_refocusing = std::stoi(ini.get("SIMULATION_PARAMETERS").get("ENABLE_180_REFOCUSING")) > 0;
     param.n_spins = std::stof(ini.get("SIMULATION_PARAMETERS").get("NUMBER_OF_SPINS"));
     param.diffusion_const = std::stof(ini.get("SIMULATION_PARAMETERS").get("DIFFUSION_CONSTANT"));
+    param.enRefocusing180 = ini.get("SIMULATION_PARAMETERS").get("ENABLE_180_REFOCUSING").compare("0") != 0;
 
     for (int i = 0; ini.get("SIMULATION_PARAMETERS").has("SAMPLE_LENGTH[" + std::to_string(i) + "]"); i++)
         sample_length.push_back(std::stof(ini.get("SIMULATION_PARAMETERS").get("SAMPLE_LENGTH[" + std::to_string(i) + "]")));
