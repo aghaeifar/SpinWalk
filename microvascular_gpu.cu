@@ -13,7 +13,8 @@
 #include <random>
 #include <filesystem>
 
-#include "../common/kernels.h"
+#include "./common/kernels.h"
+#include "./common/miscellaneous.h"
 
 
 #define CONFIG_FILE     "../inputs/config.ini"

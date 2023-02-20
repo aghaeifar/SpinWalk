@@ -18,8 +18,8 @@
 #include <numeric> // std::inner_product, std::iota
 #include <chrono>
 #include <string.h>
-#include "../common/kernels.h"
-#include "../common/miscellaneous.h"
+#include "./common/kernels.h"
+#include "./common/miscellaneous.h"
 
 #define CONFIG_FILE     "../inputs/config.ini"
 
