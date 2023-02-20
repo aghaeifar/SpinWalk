@@ -143,7 +143,6 @@ bool read_config(std::string config_filename, simulation_parameters &param, std:
         sample_length_scales.push_back(std::stof(ini.get("SIMULATION_PARAMETERS").get("SAMPLE_LENGTH_SCALES[" + std::to_string(i) + "]")));
     param.n_sample_length_scales = sample_length_scales.size();
 
-    param.gpu_device_id = std::stoi(ini.get("DEBUG").get("GPU_DEVICE_ID"));
     param.enDebug = ini.get("DEBUG").get("DUMP_INFO").compare("0") != 0;
     param.enSteadyStateSimulation = ini.get("DEBUG").get("SIMULATE_STEADYSTATE").compare("0") != 0;
     return true;
