@@ -1,12 +1,15 @@
 
 /* --------------------------------------------------------------------------
- * Project: 
- * File: 
+ * Project: Microvascular
+ * File: rotation.h
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
  * Descrip  : 
  * -------------------------------------------------------------------------- */
+
+#ifndef __ROTATION_H__
+#define __ROTATION_H__
 
 #include <cmath>
 
@@ -76,3 +79,5 @@ void relax(float e1, float e2, float *m)
     m[1] *= e2;
     m[2] = 1. + e1*(m[2] - 1.);
 }
+
+#endif // __ROTATION_H__
