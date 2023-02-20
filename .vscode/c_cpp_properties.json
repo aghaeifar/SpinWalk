@@ -9,7 +9,7 @@
                 "/usr/include/",
                 "/usr/local/MATLAB/R2022b/extern/include"
             ],
-            "defines": [],
+            "defines": ["__CUDACC__"],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c11",
             "cppStandard": "c++17",
@@ -20,10 +20,9 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${ONEAPI_ROOT}/mkl/latest/include/",
-                "${ONEAPI_ROOT}/tbb/latest/include/"
+                "${CUDA_PATH}/include"
             ],
-            "defines": [],
+            "defines": ["__CUDACC__"],
             "configurationProvider": "ms-vscode.cmake-tools"
         }
     ],
