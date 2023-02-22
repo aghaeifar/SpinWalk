@@ -11,8 +11,7 @@
 
 #undef __CUDACC__
 
-#include <sstream>
-#include <random>
+#include <random> 
 #include <filesystem>
 #include <execution>
 #include <numeric> // std::inner_product, std::iota
@@ -140,8 +139,8 @@ int main(int argc, char * argv[])
             });
         }    
 
-        auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - start);
-        std::cout << "Simulation took " << elapsedTime.count() << " second(s)" << std::endl;
+        auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - start);
+        std::cout << "Simulation took " << std::fixed << std::setprecision(2) << elapsedTime.count()/1000. << " second(s)" << std::endl;
         
         // ========== save results ==========      
         std::string append = std::filesystem::path(filenames.at("fieldmap")[fieldmap_no]).stem().string(); // Thanks to C++17, we can use std::filesystem

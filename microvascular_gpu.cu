@@ -9,7 +9,6 @@
 
 // compile :  nvcc microvascular_gpu.cu -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler -fopenmp
 
-#include <sstream>
 #include <random>
 #include <filesystem>
 
@@ -134,7 +133,7 @@ int main(int argc, char * argv[])
             checkCudaErrors(cudaMemcpyAsync(d_pMask, pMask, sizeof(bool) * param.matrix_length, cudaMemcpyHostToDevice, stream));
             checkCudaErrors(cudaMemcpyAsync(d_param, &param, sizeof(simulation_parameters), cudaMemcpyHostToDevice, stream));
             memcpy(&param_local, &param, sizeof(simulation_parameters));
-            std::cout<< "Memory allocated on GPU " << d << std::endl;
+            //std::cout<< "Memory allocated on GPU " << d << std::endl;
 
             // ========== run ==========
             int32_t numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
@@ -145,15 +144,15 @@ int main(int argc, char * argv[])
             checkCudaErrors(cudaEventCreate (&end));
             checkCudaErrors(cudaEventRecord (start));
             // generate initial spatial position for spins, based on sample_length_ref
-            std::cout<< d << ") Generating random initial position for spins... " ;
+            //std::cout<< d << ") Generating random initial position for spins... " ;
             generate_initial_position<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>(d_position_start, d_param, d_pMask);
             gpuCheckKernelExecutionError( __FILE__, __LINE__);
-            std::cout << "Done!" << std::endl;
+            //std::cout << "Done!" << std::endl;
             
             for (int32_t sl = 0; sl < param.n_sample_length_scales; sl++)
             {        
-                if (param.n_sample_length_scales > 1) 
-                    printf("%d, %2d) Simulating sample scale = %8.5f\n", d, sl, sample_length_scales[sl]);
+                // if (param.n_sample_length_scales > 1) 
+                //     printf("%d, %2d) Simulating sample scale = %8.5f\n", d, sl, sample_length_scales[sl]);
 
                 for(int i=0; i<3; i++)
                 {
@@ -178,7 +177,7 @@ int main(int argc, char * argv[])
             checkCudaErrors(cudaEventRecord(end));
             checkCudaErrors(cudaDeviceSynchronize());
             checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start, end));
-            std::cout << d << ") Simulation took " << (int32_t)elapsedTime/1000 << " seconds" << std::endl;
+            printf("%d) Simulation took = %.2f seconds\n", d, elapsedTime/1000.);
 
             // ========== clean up GPU ==========
             checkCudaErrors(cudaFree(d_param));
@@ -196,7 +195,7 @@ int main(int argc, char * argv[])
         checkCudaErrors(cudaEventRecord(end_0));
         checkCudaErrors(cudaDeviceSynchronize());
         checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start_0, end_0));
-        std::cout << "Entire simulation over " << device_count << " GPU(s) took " << (int32_t)elapsedTime/1000 << " second(s)" << std::endl;
+        std::cout << "Entire simulation over " << device_count << " GPU(s) took " << std::fixed << std::setprecision(2) << elapsedTime/1000. << " second(s)" << std::endl;
         checkCudaErrors(cudaEventDestroy(start_0));
         checkCudaErrors(cudaEventDestroy(end_0));
         
