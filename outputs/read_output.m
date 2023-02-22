@@ -4,8 +4,8 @@ rad_ref_um = 53.367;
 fname{1} = './results_gre_fieldmap1.dat';
 fname{2} = './results_gre_fieldmap2.dat';
 
-% fname{1} = './outputs/results_ssfp_fieldmap1.dat';
-% fname{2} = './outputs/results_ssfp_fieldmap2.dat';
+fname{1} = './results_ssfp_fieldmap1.dat';
+fname{2} = './results_ssfp_fieldmap2.dat';
 
 spins_xy = [];
 for i=1:numel(fname)
