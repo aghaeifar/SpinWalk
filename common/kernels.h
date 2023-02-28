@@ -27,15 +27,15 @@ __host__  __device__ __forceinline__
 #else
 inline
 #endif
-int64_t sub2ind(int32_t x, int32_t y, int32_t z, int32_t lenx, int32_t leny)
+uint64_t sub2ind(uint32_t x, uint32_t y, uint32_t z, uint32_t lenx, uint32_t leny)
 {
-    return (int64_t(z*lenx*leny) + y*lenx + x);
+    return (uint64_t(z*lenx*leny) + y*lenx + x);
 }
 
 #ifdef __CUDACC__
 __global__ 
 #endif
-void simulation_kernel(simulation_parameters *param, float *pFieldMap, bool *pMask, float *random_walk_xyz_init_scaled, float *mxyz, int32_t spin_no = -1)
+void simulation_kernel(const simulation_parameters *param, const float *pFieldMap, const bool *pMask, const float *XYZ0, float *M1, float *XYZ1, uint32_t spin_no = 0)
 {
 #ifdef __CUDACC__
     spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
@@ -51,12 +51,12 @@ void simulation_kernel(simulation_parameters *param, float *pFieldMap, bool *pMa
     std::normal_distribution<float> dist_random_walk_xyz(0.f, sqrt(6 * param->diffusion_const * param->dt));
 #endif
 
-    int16_t n_timepoints_local;
+    uint16_t n_timepoints_local;
     float accumulated_phase = 0., field = 0.; 
-    float m0[3] = {0., 0., 1.}, m1[3]; 
+    float m0[3] = {0., 0., 1.}, m1[3] = {0., 0., 1.}; 
     float xyz[3], xyz_new[3];
-    for(int32_t i=0; i<3; i++)
-        xyz[i] = random_walk_xyz_init_scaled[3*spin_no + i];
+    for(uint32_t i=0; i<3; i++)
+        xyz[i] = XYZ0[3*spin_no + i];
 
     // -alpha/2 RF pulse (along x-axis) + TR/2 relaxation
     if (param->n_dummy_scan != 0)
@@ -67,7 +67,7 @@ void simulation_kernel(simulation_parameters *param, float *pFieldMap, bool *pMa
     }
 
     bool is_lastdummy = false;
-    for (int32_t dummy_scan = 0; dummy_scan < param->n_dummy_scan + 1; dummy_scan++)
+    for (uint32_t dummy_scan = 0; dummy_scan < param->n_dummy_scan + 1; dummy_scan++)
     {
         is_lastdummy = (dummy_scan == param->n_dummy_scan);
         n_timepoints_local = is_lastdummy ? (param->n_timepoints) / 2 : (param->n_timepoints); // random walk till TR/2 in the final execution of the loop
@@ -77,17 +77,17 @@ void simulation_kernel(simulation_parameters *param, float *pFieldMap, bool *pMa
         xrot(s_cycl, param->c, m0, m1);
 
         // copy m1 to m0
-        for(int32_t i=0; i<3; i++)
+        for(uint8_t i=0; i<3; i++)
             m0[i] = m1[i];
 
         // random walk with boundries and accomulate phase
-        int64_t ind=0, ind_old=-1;
-        int16_t current_timepoint = 0;
+        uint64_t ind=0, ind_old=param->matrix_length+1;
+        uint16_t current_timepoint = 0;
         accumulated_phase = 0;
 
         while (current_timepoint < n_timepoints_local)
         {
-            for (int32_t i=0; i<3; i++)
+            for (uint8_t i=0; i<3; i++)
             {
                 xyz_new[i] = xyz[i] + dist_random_walk_xyz(gen); // new spin position after random-walk
                 if (xyz_new[i] < 0)
@@ -110,7 +110,7 @@ void simulation_kernel(simulation_parameters *param, float *pFieldMap, bool *pMa
             if(param->enRefocusing180 && current_timepoint == param->n_timepoints/4)
                 accumulated_phase *= -1; // 180 degree refocusing pulse
 
-            for (int32_t i = 0; i < 3; i++)
+            for (uint8_t i = 0; i < 3; i++)
                 xyz[i] = xyz_new[i];
  
             current_timepoint++;            
@@ -121,23 +121,25 @@ void simulation_kernel(simulation_parameters *param, float *pFieldMap, bool *pMa
         relax(is_lastdummy ? param->e12 : param->e1, is_lastdummy ? param->e22 : param->e2, m1);
 
         // copy m1 to m0 for the next iteration
-        for(int32_t i=0; i<3; i++)
+        for(uint8_t i=0; i<3; i++)
             m0[i] = m1[i];
     }
 
-    int32_t ind = 3*spin_no;
-    for (int32_t i=0; i<3; i++)
-        mxyz[ind + i] = m1[i];
-
+    uint32_t ind = 3*spin_no;
+    for (uint32_t i=0; i<3; i++)
+    {
+        M1[ind + i] = m1[i];
+        XYZ1[ind + i] = xyz[i];
+    }
 }
 
 #ifdef __CUDACC__
-__global__ void scale_initial_positions(float *scaled_xyz, float *initial_xyz, float scale, int32_t size)
+__global__ void scale_initial_positions(float *scaled_xyz, float *initial_xyz, float scale, uint32_t size)
 {
     int n = blockIdx.x * blockDim.x + threadIdx.x ;
     if(n < size)
     {
-        int32_t ind = 3*n;
+        uint32_t ind = 3*n;
         scaled_xyz[ind+0] = initial_xyz[ind+0] * scale;
         scaled_xyz[ind+1] = initial_xyz[ind+1] * scale;
         scaled_xyz[ind+2] = initial_xyz[ind+2] * scale;
@@ -149,7 +151,7 @@ __global__ void scale_initial_positions(float *scaled_xyz, float *initial_xyz, f
 #ifdef __CUDACC__
 __global__ 
 #endif
-void generate_initial_position(float *spin_position_xyz, simulation_parameters *param, bool *pMask, int32_t spin_no = -1)
+void generate_initial_position(float *spin_position_xyz, simulation_parameters *param, bool *pMask, uint32_t spin_no = 0)
 {
 #ifdef __CUDACC__
     spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
@@ -168,11 +170,11 @@ void generate_initial_position(float *spin_position_xyz, simulation_parameters *
     for(int i=0; i<3; i++)
         scale2grid[i] = (param->fieldmap_size[i]-1.) / param->sample_length[i];
 
-    int32_t index = 0;
+    uint64_t index = 0;
     float *xyz = spin_position_xyz + 3*spin_no;
     do
     {
-        for (int32_t i = 0; i < 3; i++)
+        for (uint8_t i = 0; i < 3; i++)
             xyz[i] = dist_initial_point(gen) * param->sample_length[i];
         index = sub2ind(ROUND(xyz[0]*scale2grid[0]), ROUND(xyz[1]*scale2grid[1]), ROUND(xyz[2]*scale2grid[2]), param->fieldmap_size[0], param->fieldmap_size[1]);
     }while (pMask[index] == true);
@@ -196,8 +198,8 @@ void simulate_steady_state(simulation_parameters param)
     std::cout << "Steady-state report:" << std::endl;
     std::cout << "\tM0 after alpha/2 pulse & TR/2 relaxation = [" << m0t[0]
               << " " << m0t[1] << " " << m0t[2] << "]" << std::endl;
-    for (int32_t rep = 0; rep < 3; rep++)
-        for (int32_t dummy_scan = 0; dummy_scan < param.n_dummy_scan; dummy_scan++)
+    for (uint32_t rep = 0; rep < 3; rep++)
+        for (uint32_t dummy_scan = 0; dummy_scan < param.n_dummy_scan; dummy_scan++)
         {
             s_cycl = (dummy_scan % 2 == 0) ? -param.s : param.s;
             xrot (s_cycl, param.c, m0t, m1t);
