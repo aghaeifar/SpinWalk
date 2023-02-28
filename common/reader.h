@@ -36,15 +36,15 @@ bool read_config(std::string  config_file, simulation_parameters& param, std::ve
     }
 
     // reading section FILES
-    if(ini.has("FILES"))
+    if(ini.has("files"))
     {
-        if (ini.get("FILES").has("FIELD_MAP[0]"))
+        if (ini.get("files").has("FIELD_MAP[0]"))
         {
             filenames.at("fieldmap").clear();
-            for (int i = 0; ini.get("FILES").has("FIELD_MAP[" + std::to_string(i) + "]"); i++)
+            for (int i = 0; ini.get("files").has("FIELD_MAP[" + std::to_string(i) + "]"); i++)
             {
                 filenames.at("fieldmap")
-                    .push_back(ini.get("FILES").get("FIELD_MAP["
+                    .push_back(ini.get("files").get("FIELD_MAP["
                         + std::to_string(i) + "]"));
                 if (std::filesystem::exists(filenames.at("fieldmap").back())
                     == false)
@@ -57,22 +57,28 @@ bool read_config(std::string  config_file, simulation_parameters& param, std::ve
         }
         param.n_fieldmaps = filenames.at("fieldmap").size();
 
-        if (ini.get("FILES").has("M0"))
+        if (ini.get("files").has("m0"))
         {
-            filenames.at("M0").clear();
-            filenames.at("M0").push_back(ini.get("FILES").get("M0"));
-            if (std::filesystem::exists(filenames.at("M0").back()) == false)
-            {
-                std::cout << "File does not exist: " << filenames.at("M0").back()
-                    << std::endl;
-                return false;
-            }
+            filenames.at("m0").clear();            
+            if (std::filesystem::exists(ini.get("files").get("m0")) == false)
+                std::cout << "File does not exist: " << ini.get("files").get("m0") << std::endl;
+            else
+                filenames.at("m0").push_back(ini.get("files").get("m0"));
         }
 
-        if (ini.get("FILES").has("OUTPUTS"))
+        if (ini.get("files").has("xyz0"))
+        {
+            filenames.at("xyz0").clear();            
+            if (std::filesystem::exists(ini.get("files").get("xyz0")) == false)
+                std::cout << "File does not exist: " << ini.get("files").get("xyz0") << std::endl;
+            else
+                filenames.at("xyz0").push_back(ini.get("files").get("xyz0"));
+        }
+
+        if (ini.get("files").has("OUTPUTS"))
         {
             filenames.at("output").clear();
-            filenames.at("output").push_back(ini.get("FILES").get("OUTPUTS"));
+            filenames.at("output").push_back(ini.get("files").get("OUTPUTS"));
         }
     }
 
@@ -139,7 +145,7 @@ bool read_config(std::string  config_file, simulation_parameters& param, std::ve
 bool read_fieldmap(std::string fieldmap_file, std::vector<float> &fieldmap, std::vector<char> &mask, simulation_parameters& param)
 {
     input_header hdr_in;
-    std::cout << "Loading fieldmap : " << fieldmap_file << std::endl;
+    std::cout << "Loading fieldmap: " << fieldmap_file << std::endl;
     std::ifstream in_field(fieldmap_file, std::ios::in | std::ios::binary);
     if (!in_field.is_open()) 
     {
@@ -160,10 +166,15 @@ bool read_fieldmap(std::string fieldmap_file, std::vector<float> &fieldmap, std:
         fieldmap.resize(param.matrix_length);
         mask.resize(param.matrix_length);
     }
-    
+
     in_field.read((char*)fieldmap.data(), sizeof(float) * param.matrix_length);
     in_field.read((char*)mask.data(), sizeof(bool) * param.matrix_length);
     in_field.close();
+    return true;
+}
+
+bool read_m0()
+{
     return true;
 }
 
