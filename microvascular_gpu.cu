@@ -13,7 +13,7 @@
 #include <filesystem>
 
 #include "./common/kernels.h"
-#include "./common/config_reader.h"
+#include "./common/reader.h"
 
 
 #define CONFIG_DEFAULT     "./inputs/config_default.ini"
@@ -39,13 +39,12 @@ int main(int argc, char * argv[])
     std::vector<float> sample_length_scales, fieldmap;
     std::vector<char> mask;
     simulation_parameters param;
-    input_header hdr_in;
 
     // ========== read config file ==========
     param.fieldmap_size[0] = param.fieldmap_size[1] = param.fieldmap_size[2] = 0;
     param.sample_length[0] = param.sample_length[1] = param.sample_length[2] = 0.f;
     for(uint8_t cnf_fl=0; cnf_fl<config_files.size(); cnf_fl++)
-        if(read_config(config_files[cnf_fl], param, sample_length_scales, filenames) == false)
+        if(reader::read_config(config_files[cnf_fl], param, sample_length_scales, filenames) == false)
         {
             std::cout << "Reading config file failed. Aborting...!" << std::endl;
             return 1;
@@ -92,25 +91,8 @@ int main(int argc, char * argv[])
     {
         // ========== load field-maps ==========
         std::string fieldmap_file = filenames.at("fieldmap")[fieldmap_no];
-        std::cout << "Loading fieldmap " << fieldmap_no << " = " << fieldmap_file << std::endl;
-        std::ifstream in_field(fieldmap_file, std::ios::in | std::ios::binary);
-        in_field.read((char *)&hdr_in, sizeof(input_header));
-        std::copy(hdr_in.fieldmap_size, hdr_in.fieldmap_size+3, param.fieldmap_size);
-        std::copy(hdr_in.sample_length, hdr_in.sample_length+3, param.sample_length);
-        param.matrix_length = param.fieldmap_size[0] * param.fieldmap_size[1] * param.fieldmap_size[2];
-        if(fieldmap.size() != param.matrix_length)
-        {
-            std::cout << "Fieldmap size changed. Re-allocating memory..." << std::endl;
-            std::cout << "Old size: " << fieldmap.size() << std::endl;
-            std::cout << "New size: " << param.matrix_length << std::endl;
-            std::cout << "New length (um): " << param.sample_length[0]*1e6 << " " << param.sample_length[1]*1e6 << " " << param.sample_length[2]*1e6 << std::endl;
-            fieldmap.resize(param.matrix_length);
-            mask.resize(param.matrix_length);
-        }
-        in_field.read((char *)fieldmap.data(), sizeof(float) * param.matrix_length);
-        in_field.read((char *)mask.data(),     sizeof(bool)  * param.matrix_length);
-        in_field.close();
-
+        reader::read_fieldmap(fieldmap_file, fieldmap, mask, param);
+        
         for(int i=0; i<3; i++)
             param.scale2grid[i] = (param.fieldmap_size[i] - 1.) / param.sample_length[i];
 

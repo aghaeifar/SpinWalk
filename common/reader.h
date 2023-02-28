@@ -15,6 +15,8 @@
 #include "ini.h"
 #include "miscellaneous.h"
 
+namespace reader
+{
 
 bool read_config(std::string  config_file, simulation_parameters& param, std::vector<float>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames)
 {
@@ -133,4 +135,37 @@ bool read_config(std::string  config_file, simulation_parameters& param, std::ve
     return true;
 }
 
+
+bool read_fieldmap(std::string fieldmap_file, std::vector<float> &fieldmap, std::vector<char> &mask, simulation_parameters& param)
+{
+    input_header hdr_in;
+    std::cout << "Loading fieldmap : " << fieldmap_file << std::endl;
+    std::ifstream in_field(fieldmap_file, std::ios::in | std::ios::binary);
+    if (!in_field.is_open()) 
+    {
+        std::cout << "Error opening file " << fieldmap_file << std::endl;
+        return false;
+    }
+
+    in_field.read((char*)&hdr_in, sizeof(input_header));
+    std::copy(hdr_in.fieldmap_size, hdr_in.fieldmap_size + 3, param.fieldmap_size);
+    std::copy(hdr_in.sample_length, hdr_in.sample_length + 3, param.sample_length);
+    param.matrix_length = param.fieldmap_size[0] * param.fieldmap_size[1] * param.fieldmap_size[2];
+    if (fieldmap.size() != param.matrix_length)
+    {
+        std::cout << "Fieldmap size changed. Re-allocating memory..." << std::endl;
+        std::cout << "Old size: " << fieldmap.size() << std::endl;
+        std::cout << "New size: " << param.matrix_length << std::endl;
+        std::cout << "New length (um): " << param.sample_length[0] * 1e6 << " " << param.sample_length[1] * 1e6 << " " << param.sample_length[2] * 1e6 << std::endl;
+        fieldmap.resize(param.matrix_length);
+        mask.resize(param.matrix_length);
+    }
+    
+    in_field.read((char*)fieldmap.data(), sizeof(float) * param.matrix_length);
+    in_field.read((char*)mask.data(), sizeof(bool) * param.matrix_length);
+    in_field.close();
+    return true;
+}
+
+}
 #endif  // __CONFIG_READER_H__
