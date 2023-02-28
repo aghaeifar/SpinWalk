@@ -1,11 +1,15 @@
 clear
 clc
 rad_ref_um = 53.367;
-fname{1} = './results_gre_fieldmap1.dat';
-fname{2} = './results_gre_fieldmap2.dat';
+fname{1} = './results_gre_M1_0_fieldmap1.dat';
+fname{2} = './results_gre_M1_1_fieldmap2.dat';
 
-fname{1} = './results_ssfp_fieldmap1.dat';
-fname{2} = './results_ssfp_fieldmap2.dat';
+% fname{1} = './results_ssfp_M1_0_fieldmap1.dat';
+% fname{2} = './results_ssfp_M1_1_fieldmap2.dat';
+
+% fname{1} = './results_se_M1_0_fieldmap1.dat';
+% fname{2} = './results_se_M1_1_fieldmap2.dat';
+
 
 spins_xy = [];
 for i=1:numel(fname)
@@ -19,8 +23,7 @@ for i=1:numel(fname)
     m_xyz = fread(fileID, prod(dims), 'single=>single');
     fclose(fileID);
     m_xyz = reshape(m_xyz, dims(:)');
-    m_xyz = permute(m_xyz, [1 2 4 3]);
-    m_xyz = reshape(m_xyz, [dims(1), dims(2)*dims(4), dims(3)]);
+    m_xyz = reshape(m_xyz, [dims(1), dims(2)*dims(3), dims(4)]);
     spins_xy = cat(4, spins_xy, m_xyz);
 end
 
@@ -30,7 +33,7 @@ spins_xy = squeeze(complex(sum(spins_xy(1,:,:,:), 2), sum(spins_xy(2,:,:,:), 2) 
 signal_magnitude = abs(spins_xy);
 relative_signal = 100 * (1 - signal_magnitude(:,1)./ signal_magnitude(:,2));
 
-disp(relative_signal')
+% disp(relative_signal')
 
 vessel_radius = rad_ref_um * scales;
 
