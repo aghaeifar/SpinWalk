@@ -34,8 +34,8 @@ int main(int argc, char * argv[])
 
     map<string, vector<string> > filenames = {{"fieldmap", vector<string>()},
                                               {"output", vector<string>()},
-                                              {"XYZ0", vector<string>()},
-                                              {"M0", vector<string>()} }; 
+                                              {"xyz0", vector<string>()},
+                                              {"m0", vector<string>()} }; 
     std::vector<float> sample_length_scales, fieldmap;
     std::vector<char> mask;
     simulation_parameters param;
@@ -81,6 +81,7 @@ int main(int argc, char * argv[])
     checkCudaErrors(cudaGetDeviceCount(&device_count));
     std::cout << "Number of GPU(s): " << device_count << std::endl;
     param.n_spins /= device_count; // spins will be distributed in multiple GPUs (if there is). We hope it is divisible 
+    int32_t numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
     std::vector<float> M0(3 * param.n_spins * param.n_sample_length_scales * device_count, 0.f);
     std::vector<float> M1(3 * param.n_spins * param.n_sample_length_scales * device_count, 0.f);
@@ -92,107 +93,105 @@ int main(int argc, char * argv[])
         // ========== load field-maps ==========
         std::string fieldmap_file = filenames.at("fieldmap")[fieldmap_no];
         reader::read_fieldmap(fieldmap_file, fieldmap, mask, param);
-        
+
         for(int i=0; i<3; i++)
             param.scale2grid[i] = (param.fieldmap_size[i] - 1.) / param.sample_length[i];
-
+         
         // ========== distributing between devices ==========
-        cudaEvent_t start_0, end_0;
-        checkCudaErrors(cudaEventCreate (&start_0));
-        checkCudaErrors(cudaEventCreate (&end_0));
-        checkCudaErrors(cudaEventRecord (start_0));
+        std::vector<float *> d_pFieldMap(device_count, NULL), d_position_start(device_count, NULL), d_position_start_scaled(device_count, NULL);
+        std::vector<float *> d_M1(device_count, NULL), d_XYZ1(device_count, NULL);
+        std::vector<bool *> d_pMask(device_count, NULL);
+        std::vector<simulation_parameters *> d_param(device_count, NULL);
+        std::vector<cudaStream_t> streams(device_count, NULL);
+
         #pragma omp parallel for
         for(int32_t d=0; d<device_count; d++)
         {
-            cudaStream_t stream;
             checkCudaErrors(cudaSetDevice(d));            
-            checkCudaErrors(cudaStreamCreate(&stream));
+            checkCudaErrors(cudaStreamCreate(&streams[d]));
 
-            simulation_parameters *d_param, param_local;
-            float *d_pFieldMap, *d_position_start, *d_position_start_scaled;
-            float *d_M1, *d_XYZ1;
-            bool  *d_pMask;
-
-            checkCudaErrors(cudaMalloc((void**)&d_param,                sizeof(simulation_parameters)));
-            checkCudaErrors(cudaMalloc((void**)&d_pFieldMap,            fieldmap.size() * sizeof(fieldmap[0])));   
-            checkCudaErrors(cudaMalloc((void**)&d_pMask,                mask.size() * sizeof(mask[0]))); 
-            checkCudaErrors(cudaMalloc((void**)&d_position_start,       sizeof(float) * param.n_spins * 3));
-            checkCudaErrors(cudaMalloc((void**)&d_position_start_scaled,sizeof(float) * param.n_spins * 3));
-            checkCudaErrors(cudaMalloc((void**)&d_M1,                   sizeof(float) * param.n_spins * 3));
-            checkCudaErrors(cudaMalloc((void**)&d_XYZ1,                 sizeof(float) * param.n_spins * 3));
+            checkCudaErrors(cudaMalloc((void**)&d_param[d],             sizeof(simulation_parameters)));
+            checkCudaErrors(cudaMalloc((void**)&d_pFieldMap[d],         sizeof(fieldmap[0]) * fieldmap.size()));   
+            checkCudaErrors(cudaMalloc((void**)&d_pMask[d],             sizeof(mask[0]) * mask.size())); 
+            checkCudaErrors(cudaMalloc((void**)&d_position_start[d],    sizeof(float) * param.n_spins * 3));
+            checkCudaErrors(cudaMalloc((void**)&d_position_start_scaled[d],sizeof(float) * param.n_spins * 3));
+            checkCudaErrors(cudaMalloc((void**)&d_M1[d],                sizeof(float) * param.n_spins * 3));
+            checkCudaErrors(cudaMalloc((void**)&d_XYZ1[d],              sizeof(float) * param.n_spins * 3));
             
-            checkCudaErrors(cudaMemcpyAsync(d_pFieldMap, fieldmap.data(), fieldmap.size() * sizeof(fieldmap[0]), cudaMemcpyHostToDevice, stream));
-            checkCudaErrors(cudaMemcpyAsync(d_pMask,     mask.data(),     mask.size() * sizeof(mask[0]),         cudaMemcpyHostToDevice, stream));
-            checkCudaErrors(cudaMemcpyAsync(d_param,     &param,          sizeof(simulation_parameters),         cudaMemcpyHostToDevice, stream));
-            memcpy(&param_local, &param, sizeof(simulation_parameters));
-
-            // ========== run ==========
-            int32_t numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
-            float elapsedTime;
-            cudaEvent_t start;
-            cudaEvent_t end;
-            checkCudaErrors(cudaEventCreate (&start));
-            checkCudaErrors(cudaEventCreate (&end));
-            checkCudaErrors(cudaEventRecord (start));
+            checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(), fieldmap.size() * sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
+            checkCudaErrors(cudaMemcpyAsync(d_pMask[d],     mask.data(),     mask.size() * sizeof(mask[0]),         cudaMemcpyHostToDevice, streams[d]));
+            checkCudaErrors(cudaMemcpyAsync(d_param[d],     &param,          sizeof(simulation_parameters),         cudaMemcpyHostToDevice, streams[d]));
 
             // generate initial spatial position for spins, based on sample_length_ref
             printf("GPU %d) Generating random initial position for spins... ", d);
-            generate_initial_position<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>(d_position_start, d_param, d_pMask);
+            generate_initial_position<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_position_start[d], d_param[d], d_pMask[d]);
             gpuCheckKernelExecutionError( __FILE__, __LINE__);
             printf("Done!\n");
-            
-            for (int32_t sl = 0; sl < param.n_sample_length_scales; sl++)
-            {        
-                if (param.n_sample_length_scales > 1) 
+        }
+
+        // ========== run ==========        
+        cudaEvent_t start;
+        cudaEvent_t end;
+        checkCudaErrors(cudaEventCreate(&start));
+        checkCudaErrors(cudaEventCreate(&end));
+        checkCudaErrors(cudaEventRecord(start));
+        
+        simulation_parameters param_local;
+        memcpy(&param_local, &param, sizeof(simulation_parameters));
+        for (int32_t sl = 0; sl < param.n_sample_length_scales; sl++)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                param_local.sample_length[i] = sample_length_scales[sl] * param.sample_length[i];
+                param_local.scale2grid[i] = (param_local.fieldmap_size[i] - 1.) / param_local.sample_length[i];
+            }
+
+            #pragma omp parallel for
+            for (int32_t d = 0; d < device_count; d++)
+            {
+                if (param.n_sample_length_scales > 1)
                     printf("GPU %d) Simulating sample scale %2d = %8.5f\n", d, sl, sample_length_scales[sl]);
+                checkCudaErrors(cudaSetDevice(d));
+                cudaMemcpy(d_param[d], &param_local, sizeof(simulation_parameters), cudaMemcpyHostToDevice);
 
-                for(int i=0; i<3; i++)
-                {
-                    param_local.sample_length[i] = sample_length_scales[sl] * param.sample_length[i];    
-                    param_local.scale2grid[i] = (param_local.fieldmap_size[i] - 1.) / param_local.sample_length[i];
-                }   
-                cudaMemcpy(d_param, &param_local, sizeof(simulation_parameters), cudaMemcpyHostToDevice);
+                scale_initial_positions << <numBlocks, THREADS_PER_BLOCK, 0, streams[d] >> > (d_position_start_scaled[d], d_position_start[d], sample_length_scales[sl], param.n_spins);
+                gpuCheckKernelExecutionError(__FILE__, __LINE__);
 
-                scale_initial_positions<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>(d_position_start_scaled, d_position_start, sample_length_scales[sl], param.n_spins);
-                gpuCheckKernelExecutionError( __FILE__, __LINE__);
+                simulation_kernel << <numBlocks, THREADS_PER_BLOCK, 0, streams[d] >> > (d_param[d], d_pFieldMap[d], d_pMask[d], d_position_start_scaled[d], d_M1[d], d_XYZ1[d]);
+                gpuCheckKernelExecutionError(__FILE__, __LINE__);
 
-                simulation_kernel<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>(d_param, d_pFieldMap, d_pMask, d_position_start_scaled, d_M1, d_XYZ1);
-                gpuCheckKernelExecutionError( __FILE__, __LINE__);    
-
-                int shift = 3*param.n_spins*sl + 3*param.n_spins*param.n_sample_length_scales*d ;                                        
-                checkCudaErrors(cudaMemcpyAsync(M1.data()   + shift, d_M1,   sizeof(float)*3*param.n_spins, cudaMemcpyDeviceToHost, stream));
-                checkCudaErrors(cudaMemcpyAsync(XYZ1.data() + shift, d_XYZ1, sizeof(float)*3*param.n_spins, cudaMemcpyDeviceToHost, stream));
-            }    
-
-            checkCudaErrors(cudaEventRecord(end));
-            checkCudaErrors(cudaDeviceSynchronize());
-            checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start, end));
-            printf("%d) Simulation took = %.2f second(s)\n", d, elapsedTime/1000.);
-
-            // ========== clean up GPU ==========
-            checkCudaErrors(cudaFree(d_param));
-            checkCudaErrors(cudaFree(d_pFieldMap));
-            checkCudaErrors(cudaFree(d_pMask));
-            checkCudaErrors(cudaFree(d_position_start));
-            checkCudaErrors(cudaFree(d_position_start_scaled));
-            checkCudaErrors(cudaFree(d_M1));
-            checkCudaErrors(cudaFree(d_XYZ1));
-            checkCudaErrors(cudaEventDestroy(start));
-            checkCudaErrors(cudaEventDestroy(end));
-            checkCudaErrors(cudaStreamDestroy(stream));
+                int shift = 3*param.n_spins*device_count*sl + 3*param.n_spins*d;
+                checkCudaErrors(cudaMemcpyAsync(M1.data()   + shift, d_M1[d]  , sizeof(float) * 3 * param.n_spins, cudaMemcpyDeviceToHost, streams[d]));
+                checkCudaErrors(cudaMemcpyAsync(XYZ1.data() + shift, d_XYZ1[d], sizeof(float) * 3 * param.n_spins, cudaMemcpyDeviceToHost, streams[d]));
+            }
         }
 
         float elapsedTime;
-        checkCudaErrors(cudaEventRecord(end_0));
+        checkCudaErrors(cudaEventRecord(end));
         checkCudaErrors(cudaDeviceSynchronize());
-        checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start_0, end_0));
+        checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start, end));
         std::cout << "Entire simulation over " << device_count << " GPU(s) took " << std::fixed << std::setprecision(2) << elapsedTime/1000. << " second(s)" << std::endl;
-        checkCudaErrors(cudaEventDestroy(start_0));
-        checkCudaErrors(cudaEventDestroy(end_0));
+
+        // ========== clean up GPU ==========
+        #pragma omp parallel for
+        for(int32_t d=0; d<device_count; d++)
+        {
+            checkCudaErrors(cudaSetDevice(d));   
+            checkCudaErrors(cudaFree(d_param[d]));
+            checkCudaErrors(cudaFree(d_pFieldMap[d]));
+            checkCudaErrors(cudaFree(d_pMask[d]));
+            checkCudaErrors(cudaFree(d_position_start[d]));
+            checkCudaErrors(cudaFree(d_position_start_scaled[d]));
+            checkCudaErrors(cudaFree(d_M1[d]));
+            checkCudaErrors(cudaFree(d_XYZ1[d]));
+            checkCudaErrors(cudaStreamDestroy(streams[d]));
+            checkCudaErrors(cudaEventDestroy(start));
+            checkCudaErrors(cudaEventDestroy(end));
+        }
         
         // ========== save results ========== 
         std::string append = std::to_string(fieldmap_no) + "_" + std::filesystem::path(fieldmap_file).stem().string(); // Thanks to C++17, we can use std::filesystem
-        output_header hdr(3, param.n_spins, param.n_sample_length_scales, device_count);
+        output_header hdr(3, param.n_spins, device_count, param.n_sample_length_scales);
         save_output(M1  , filenames.at("output")[0], "M1_"   + append, hdr, sample_length_scales);
         save_output(XYZ1, filenames.at("output")[0], "XYZ1_" + append, hdr, sample_length_scales);
 
