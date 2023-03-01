@@ -53,17 +53,19 @@ void simulation_kernel(const simulation_parameters *param, const float *pFieldMa
 
     uint16_t n_timepoints_local;
     float accumulated_phase = 0., field = 0.; 
-    float m0[3] = {0., 0., 1.}, m1[3] = {0., 0., 1.}; 
+    float m0[3], m1[3]; 
     float xyz[3], xyz_new[3];
-    for(uint32_t i=0; i<3; i++)
-        xyz[i] = XYZ0[3*spin_no + i];
+    for(uint32_t i=0, shift=3*spin_no; i<3; i++)
+    {
+        xyz[i] = XYZ0[shift + i];
+        m0[i]  = M0[shift + i];
+    }
 
     // -alpha/2 RF pulse (along x-axis) + TR/2 relaxation
-    if (param->n_dummy_scan != 0)
+    if (param->enApplyFA2)
     {
-        m0[1] = param->s2; // note this is -FA/2 : +param->s2
-        m0[2] = param->c2;
-        relax(param->e12, param->e22, m0);
+        xrot(-param->s2, param->c2, m0, m1); // note this is -FA/2
+        relax(param->e12, param->e22, m1, m0);
     }
 
     bool is_lastdummy = false;
@@ -125,11 +127,10 @@ void simulation_kernel(const simulation_parameters *param, const float *pFieldMa
             m0[i] = m1[i];
     }
 
-    uint32_t ind = 3*spin_no;
-    for (uint32_t i=0; i<3; i++)
+    for (uint32_t i=0, shift=3*spin_no; i<3; i++)
     {
-        M1[ind + i] = m1[i];
-        XYZ1[ind + i] = xyz[i];
+        XYZ1[shift + i] = xyz[i];
+        M1[shift + i]   = m1[i];   
     }
 }
 
