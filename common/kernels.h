@@ -35,7 +35,7 @@ uint64_t sub2ind(uint32_t x, uint32_t y, uint32_t z, uint32_t lenx, uint32_t len
 #ifdef __CUDACC__
 __global__ 
 #endif
-void simulation_kernel(const simulation_parameters *param, const float *pFieldMap, const bool *pMask, const float *XYZ0, float *M1, float *XYZ1, uint32_t spin_no = 0)
+void simulation_kernel(const simulation_parameters *param, const float *pFieldMap, const bool *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1, uint32_t spin_no = 0)
 {
 #ifdef __CUDACC__
     spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
@@ -180,6 +180,23 @@ void generate_initial_position(float *spin_position_xyz, simulation_parameters *
     }while (pMask[index] == true);
 }
 
+
+template <typename T>
+uint32_t is_masked(std::vector<T> &XYZ0, std::vector<char> &mask, simulation_parameters *param)
+{
+    float scale2grid[3];
+    for(uint8_t i=0; i<3; i++)
+        scale2grid[i] = (param->fieldmap_size[i]-1.) / param->sample_length[i];
+
+    std::vector<uint32_t> mask_counter(XYZ0.size()/3, false);
+    #pragma omp parallel for
+    for (uint32_t i=0; i<XYZ0.size(); i+=3)
+    {
+        uint64_t index = sub2ind(ROUND(XYZ0[i] * scale2grid[0]), ROUND(XYZ0[i+1] * scale2grid[1]), ROUND(XYZ0[i+2] * scale2grid[2]), param->fieldmap_size[0], param->fieldmap_size[1]);
+        mask_counter[i/3] = mask[index];
+    }
+    return std::accumulate(mask_counter.begin(), mask_counter.end(), 0);
+}
 
 
 void simulate_steady_state(simulation_parameters param)
