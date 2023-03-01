@@ -18,69 +18,44 @@
 namespace reader
 {
 
-bool read_config(std::string  config_file, simulation_parameters& param, std::vector<float>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames)
+bool read_config(std::string  config_filename, simulation_parameters& param, std::vector<float>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames)
 {
-    if (std::filesystem::exists(config_file) == false)
+    if (std::filesystem::exists(config_filename) == false)
     {
-        std::cout << "File does not exist: " << config_file << std::endl;
+        std::cout << ERR_MSG << "file does not exist: " << config_filename << std::endl;
         return false;
     }
     // first, create a file instance
-    mINI::INIFile file(config_file);
+    mINI::INIFile file(config_filename);
     // next, create a structure that will hold data
     mINI::INIStructure ini;
     if (file.read(ini) == false)
     {
-        std::cout << "Problem reading config file: " << config_file << std::endl;
+        std::cout << ERR_MSG << "problem reading config file: " << config_filename << std::endl;
         return false;
     }
 
     // reading section FILES
     if(ini.has("files"))
     {
-        if (ini.get("files").has("FIELD_MAP[0]"))
+        for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it)
         {
-            filenames.at("fieldmap").clear();
-            for (int i = 0; ini.get("files").has("FIELD_MAP[" + std::to_string(i) + "]"); i++)
+            if(ini.get("files").has(it->first + "[0]"))
             {
-                filenames.at("fieldmap")
-                    .push_back(ini.get("files").get("FIELD_MAP["
-                        + std::to_string(i) + "]"));
-                if (std::filesystem::exists(filenames.at("fieldmap").back())
-                    == false)
-                {
-                    std::cout << "File does not exist: "
-                        << filenames.at("fieldmap").back() << std::endl;
-                    return false;
-                }
+                it->second.clear();
+                for (int i = 0; ini.get("files").has(it->first + "[" + std::to_string(i) + "]"); i++)                
+                    it->second.push_back(ini.get("files").get(it->first + "[" + std::to_string(i) + "]"));
             }
         }
-        param.n_fieldmaps = filenames.at("fieldmap").size();
-
-        if (ini.get("files").has("m0"))
-        {
-            filenames.at("m0").clear();            
-            if (std::filesystem::exists(ini.get("files").get("m0")) == false)
-                std::cout << "File does not exist: " << ini.get("files").get("m0") << std::endl;
-            else
-                filenames.at("m0").push_back(ini.get("files").get("m0"));
-        }
-
-        if (ini.get("files").has("xyz0"))
-        {
-            filenames.at("xyz0").clear();            
-            if (std::filesystem::exists(ini.get("files").get("xyz0")) == false)
-                std::cout << "File does not exist: " << ini.get("files").get("xyz0") << std::endl;
-            else
-                filenames.at("xyz0").push_back(ini.get("files").get("xyz0"));
-        }
-
-        if (ini.get("files").has("OUTPUTS"))
-        {
-            filenames.at("output").clear();
-            filenames.at("output").push_back(ini.get("files").get("OUTPUTS"));
-        }
     }
+
+    param.n_fieldmaps = filenames.at("fieldmap").size();
+    for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it)
+        if (it->second.size() != param.n_fieldmaps)
+        {
+            std::cout << ERR_MSG << "number of field maps and " << it->first << " files do not match in configuration file! " << param.n_fieldmaps << " vs " << it->second.size() << std::endl;
+            return false;
+        }
 
     // reading section SCAN_PARAMETERS
     if(ini.has("SCAN_PARAMETERS"))
@@ -142,14 +117,20 @@ bool read_config(std::string  config_file, simulation_parameters& param, std::ve
 }
 
 
-bool read_fieldmap(std::string fieldmap_file, std::vector<float> &fieldmap, std::vector<char> &mask, simulation_parameters& param)
+bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<char> &mask, simulation_parameters& param)
 {
+    if(std::filesystem::exists(fieldmap_filename) == false)
+    {
+        std::cout << ERR_MSG << "fieldmap file does not exist: " << fieldmap_filename << std::endl;
+        return false;
+    }
+
     input_header hdr_in;
-    std::cout << "Loading fieldmap: " << fieldmap_file << std::endl;
-    std::ifstream in_field(fieldmap_file, std::ios::in | std::ios::binary);
+    std::cout << "Reading fieldmap " << fieldmap_filename << std::endl;
+    std::ifstream in_field(fieldmap_filename, std::ios::in | std::ios::binary);
     if (!in_field.is_open()) 
     {
-        std::cout << "Error opening file " << fieldmap_file << std::endl;
+        std::cout << ERR_MSG << "problem opening file " << fieldmap_filename << std::endl;
         return false;
     }
 
@@ -173,8 +154,27 @@ bool read_fieldmap(std::string fieldmap_file, std::vector<float> &fieldmap, std:
     return true;
 }
 
-bool read_m0()
+template <typename T>
+bool read_file(std::string filename, std::vector<T> &storage, uint32_t len)
 {
+    if(std::filesystem::exists(filename) == false)
+    {
+        std::cout << ERR_MSG << "file does not exist: " << filename << std::endl;
+        return false;
+    }
+
+    std::cout << "Reading " << filename << std::endl;
+    std::ifstream in_field(filename, std::ios::in | std::ios::binary);
+    if (!in_field.is_open()) 
+    {
+        std::cout << ERR_MSG << "error opening file " << filename << std::endl;
+        return false;
+    }
+    storage.clear();
+    storage.resize(len);
+    in_field.read((char*)storage.data(), sizeof(storage[0]) * storage.size());
+    in_field.close();
+
     return true;
 }
 
