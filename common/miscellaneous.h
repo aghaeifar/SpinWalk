@@ -33,8 +33,8 @@ typedef struct simulation_parameters
     uint16_t n_dummy_scan, n_timepoints, n_sample_length_scales, n_fieldmaps;
     uint32_t n_spins, fieldmap_size[3], seed;
     uint64_t matrix_length;
-    bool enDebug, enSteadyStateSimulation, enRefocusing180;
-    simulation_parameters():T1(2.2),T2(0.04),FA(16*M_PI/180.),TR(0.04),dt(5e-5),B0(9.4),n_dummy_scan(0),enSteadyStateSimulation(false),enRefocusing180(false)
+    bool enDebug, enSteadyStateSimulation, enRefocusing180, enApplyFA2;
+    simulation_parameters():T1(2.2),T2(0.04),FA(16*M_PI/180.),TR(0.04),dt(5e-5),B0(9.4),n_dummy_scan(0),enSteadyStateSimulation(false),enRefocusing180(false),enApplyFA2(false),enDebug(false)
     {
         memset(fieldmap_size,0,3*sizeof(fieldmap_size[0])); 
         memset(sample_length,0,3*sizeof(sample_length[0]));
