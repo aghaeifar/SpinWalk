@@ -35,6 +35,19 @@ bool read_config(std::string  config_filename, simulation_parameters& param, std
         return false;
     }
 
+    if(ini.has("parent"))
+    {
+        if(ini.get("parent").has("parent_config"))
+        {
+            std::string parent_config = ini.get("parent").get("parent_config");
+            std::string parent = std::filesystem::path(config_filename).parent_path().string();
+            parent_config = parent + "/" + parent_config;
+            std::cout << "Reading parent config: " << parent_config << std::endl;
+            if (read_config(parent_config, param, sample_length_scales, filenames) == false)
+                return false;
+        }
+    }
+
     // reading section FILES
     if(ini.has("files"))
     {
@@ -68,7 +81,9 @@ bool read_config(std::string  config_filename, simulation_parameters& param, std
             param.n_dummy_scan  = std::stoi(ini.get("SCAN_PARAMETERS").get("DUMMY_SCAN"));
         if(ini.get("SCAN_PARAMETERS").has("FA"))
             param.FA = std::stof(ini.get("SCAN_PARAMETERS").get("FA")) * M_PI / 180.; // convert to radian
-        
+        if(ini.get("SCAN_PARAMETERS").has("APPLY_-FA/2"))
+            param.enApplyFA2 = ini.get("SCAN_PARAMETERS").get("APPLY_-FA/2").compare("0") != 0;
+
         param.TE = param.TR / 2.; // std::stof(ini.get("SCAN_PARAMETERS").get("TE"));
     }
 
@@ -155,7 +170,7 @@ bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, 
 }
 
 template <typename T>
-bool read_file(std::string filename, std::vector<T> &storage, uint32_t len)
+bool read_file(std::string filename, std::vector<T> &storage)
 {
     if(std::filesystem::exists(filename) == false)
     {
@@ -170,8 +185,7 @@ bool read_file(std::string filename, std::vector<T> &storage, uint32_t len)
         std::cout << ERR_MSG << "error opening file " << filename << std::endl;
         return false;
     }
-    storage.clear();
-    storage.resize(len);
+    
     in_field.read((char*)storage.data(), sizeof(storage[0]) * storage.size());
     in_field.close();
 
