@@ -16,21 +16,20 @@
 #include "./common/reader.h"
 
 
-#define CONFIG_DEFAULT     "./inputs/config_default.ini"
 #define THREADS_PER_BLOCK  64
 
 using namespace std;
 
 int main(int argc, char * argv[])
 {
-    std::vector<std::string> config_files(1, CONFIG_DEFAULT);
+    std::string config_files;
     if(argc > 2)
     {
         std::cout << "Usage: " << argv[0] << " <config_file>" << std::endl;
         return 1;
     }
     if(argc == 2)
-        config_files.push_back(argv[1]);
+        config_files = argv[1];
 
     map<string, vector<string> > filenames = {{"fieldmap", vector<string>()},
                                               {"xyz0", vector<string>()},
@@ -45,12 +44,11 @@ int main(int argc, char * argv[])
     // ========== read config file ==========
     param.fieldmap_size[0] = param.fieldmap_size[1] = param.fieldmap_size[2] = 0;
     param.sample_length[0] = param.sample_length[1] = param.sample_length[2] = 0.f;
-    for(uint8_t cnf_fl=0; cnf_fl<config_files.size(); cnf_fl++)
-        if(reader::read_config(config_files[cnf_fl], param, sample_length_scales, filenames) == false)
-        {
-            std::cout << ERR_MSG << "reading config file failed. Aborting...!" << std::endl;
-            return 1;
-        }
+    if(reader::read_config(config_files, param, sample_length_scales, filenames) == false)
+    {
+        std::cout << ERR_MSG << "reading config file failed. Aborting...!" << std::endl;
+        return 1;
+    }
 
     if (param.seed == 0)
         param.seed = std::random_device{}();
@@ -91,9 +89,9 @@ int main(int argc, char * argv[])
 
     uint32_t len0 = 3 * param.n_spins * device_count;
     uint32_t len1 = 3 * len0 * param.n_sample_length_scales;
-    std::vector<float> M0;
+    std::vector<float> M0(len0, 0.f); 
     std::vector<float> M1(len1, 0.f);
-    std::vector<float> XYZ0;
+    std::vector<float> XYZ0(len0, 0.f);
     std::vector<float> XYZ1(len1, 0.f);
 
     for (int16_t fieldmap_no=0; fieldmap_no<param.n_fieldmaps; fieldmap_no++)
@@ -103,11 +101,9 @@ int main(int argc, char * argv[])
         if(reader::read_fieldmap(filenames.at("fieldmap")[fieldmap_no], fieldmap, mask, param) == false)
             return 1;
 
-        if(filenames.at("xyz0")[fieldmap_no].empty() == false && filenames.at("m0")[fieldmap_no].empty() == false)
+        if(filenames.at("xyz0")[fieldmap_no].empty() == false)
         {
-            if(reader::read_file(filenames.at("xyz0")[fieldmap_no], XYZ0, len0) == false)
-                return 1;
-            if(reader::read_file(filenames.at("m0")[fieldmap_no], M0, len0) == false)
+            if(reader::read_file(filenames.at("xyz0")[fieldmap_no], XYZ0) == false)
                 return 1;
             
             std::cout << "Checking XYZ0 is not in the mask..." << std::endl;
@@ -119,6 +115,18 @@ int main(int argc, char * argv[])
             }
             hasXYZ0 = true;
         }
+
+        if(filenames.at("m0")[fieldmap_no].empty() == false)
+        {
+            if(reader::read_file(filenames.at("m0")[fieldmap_no], M0) == false)
+                return 1;
+        }
+        else
+        {
+            for(int i=2; i<len0; i+=3) 
+                M0[i] = 1.f; // all spins are aligned with B0 (M0 = (0, 0, 1))
+        }
+
 
         for(int i=0; i<3; i++)
             param.scale2grid[i] = (param.fieldmap_size[i] - 1.) / param.sample_length[i];
@@ -153,10 +161,10 @@ int main(int argc, char * argv[])
             checkCudaErrors(cudaMalloc((void**)&d_M1[d],            sizeof(float) * param.n_spins * 3));
             
             
-            checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(), fieldmap.size() * sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
-            checkCudaErrors(cudaMemcpyAsync(d_pMask[d],     mask.data(),     mask.size() * sizeof(mask[0]),         cudaMemcpyHostToDevice, streams[d]));
-            checkCudaErrors(cudaMemcpyAsync(d_param[d],     &param,          sizeof(simulation_parameters),         cudaMemcpyHostToDevice, streams[d]));
-
+            checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(),        fieldmap.size() * sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
+            checkCudaErrors(cudaMemcpyAsync(d_pMask[d],     mask.data(),            mask.size() * sizeof(mask[0]),         cudaMemcpyHostToDevice, streams[d]));
+            checkCudaErrors(cudaMemcpyAsync(d_param[d],     &param,                 sizeof(simulation_parameters),         cudaMemcpyHostToDevice, streams[d]));
+            checkCudaErrors(cudaMemcpyAsync(d_M0[d],   M0.data()+3*param.n_spins*d, M0.size()/device_count * sizeof(M0[0]),cudaMemcpyHostToDevice, streams[d]));
             
             if(hasXYZ0 == false)
             {   // generate initial spatial position for spins, based on sample_length_ref
@@ -165,11 +173,8 @@ int main(int argc, char * argv[])
                 gpuCheckKernelExecutionError( __FILE__, __LINE__);
                 printf("Done!\n");
             }
-            else
-            {
-                checkCudaErrors(cudaMemcpyAsync(d_XYZ0[d], &XYZ0[3*param.n_spins*d], 3 * param.n_spins * sizeof(XYZ0[0]), cudaMemcpyHostToDevice, streams[d]));
-                checkCudaErrors(cudaMemcpyAsync(d_M0[d]  , &M0[3*param.n_spins*d]  , 3 * param.n_spins * sizeof(M0[0])  , cudaMemcpyHostToDevice, streams[d]));
-            }
+            else // copy initial spatial position and magnetization for spins
+                checkCudaErrors(cudaMemcpyAsync(d_XYZ0[d], &XYZ0[3*param.n_spins*d], 3 * param.n_spins * sizeof(XYZ0[0]), cudaMemcpyHostToDevice, streams[d]));      
         }
 
         // ========== run ==========        
