@@ -73,11 +73,21 @@ __host__  __device__ __forceinline__
 #else
 inline
 #endif
+void relax(float e1, float e2, float *m0, float *m1)
+{
+    m1[0] = m0[0] * e2;
+    m1[1] = m0[1] * e2;
+    m1[2] = 1. + e1*(m0[2] - 1.);
+}
+
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__
+#else
+inline
+#endif
 void relax(float e1, float e2, float *m)
 {
-    m[0] *= e2;
-    m[1] *= e2;
-    m[2] = 1. + e1*(m[2] - 1.);
+    relax(e1, e2, m, m);
 }
 
 #endif // __ROTATION_H__
