@@ -33,9 +33,11 @@ int main(int argc, char * argv[])
         config_files.push_back(argv[1]);
 
     map<string, vector<string> > filenames = {{"fieldmap", vector<string>()},
-                                              {"output", vector<string>()},
                                               {"xyz0", vector<string>()},
-                                              {"m0", vector<string>()} }; 
+                                              {"xyz1", vector<string>()},
+                                              {"m0", vector<string>()},
+                                              {"m1", vector<string>()} }; 
+
     std::vector<float> sample_length_scales, fieldmap;
     std::vector<char> mask;
     simulation_parameters param;
@@ -46,7 +48,7 @@ int main(int argc, char * argv[])
     for(uint8_t cnf_fl=0; cnf_fl<config_files.size(); cnf_fl++)
         if(reader::read_config(config_files[cnf_fl], param, sample_length_scales, filenames) == false)
         {
-            std::cout << "Reading config file failed. Aborting...!" << std::endl;
+            std::cout << ERR_MSG << "reading config file failed. Aborting...!" << std::endl;
             return 1;
         }
 
@@ -66,8 +68,12 @@ int main(int argc, char * argv[])
     if(param.enDebug)
     {
         std::cout << "Dumping settings:" << std::endl;
-        for (int32_t i = 0; i < param.n_fieldmaps; i++)
-            std::cout << "Fieldmap " << i << " = " << filenames.at("fieldmap")[i] << std::endl;
+        for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it)
+        {
+            for (int i = 0; i< it->second.size(); i++)
+                std::cout << it->first << "[" << i << "] = " << it->second.at(i) << std::endl;
+            std::cout << std::endl;
+        }
         
         for (int32_t i = 0; i < param.n_sample_length_scales; i++)
             std::cout << "Sample length scale " << i << " = " << sample_length_scales[i] << std::endl;
@@ -83,23 +89,44 @@ int main(int argc, char * argv[])
     param.n_spins /= device_count; // spins will be distributed in multiple GPUs (if there is). We hope it is divisible 
     int32_t numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
-    std::vector<float> M0(3 * param.n_spins * param.n_sample_length_scales * device_count, 0.f);
-    std::vector<float> M1(3 * param.n_spins * param.n_sample_length_scales * device_count, 0.f);
-    std::vector<float> XYZ0(3 * param.n_spins * param.n_sample_length_scales * device_count, 0.f);
-    std::vector<float> XYZ1(3 * param.n_spins * param.n_sample_length_scales * device_count, 0.f);
+    uint32_t len0 = 3 * param.n_spins * device_count;
+    uint32_t len1 = 3 * len0 * param.n_sample_length_scales;
+    std::vector<float> M0;
+    std::vector<float> M1(len1, 0.f);
+    std::vector<float> XYZ0;
+    std::vector<float> XYZ1(len1, 0.f);
 
     for (int16_t fieldmap_no=0; fieldmap_no<param.n_fieldmaps; fieldmap_no++)
     {
+        bool hasXYZ0 = false;
         // ========== load field-maps ==========
-        std::string fieldmap_file = filenames.at("fieldmap")[fieldmap_no];
-        reader::read_fieldmap(fieldmap_file, fieldmap, mask, param);
+        if(reader::read_fieldmap(filenames.at("fieldmap")[fieldmap_no], fieldmap, mask, param) == false)
+            return 1;
+
+        if(filenames.at("xyz0")[fieldmap_no].empty() == false && filenames.at("m0")[fieldmap_no].empty() == false)
+        {
+            if(reader::read_file(filenames.at("xyz0")[fieldmap_no], XYZ0, len0) == false)
+                return 1;
+            if(reader::read_file(filenames.at("m0")[fieldmap_no], M0, len0) == false)
+                return 1;
+            
+            std::cout << "Checking XYZ0 is not in the mask..." << std::endl;
+            uint32_t t = is_masked(XYZ0, mask, &param);
+            if(t>0)
+            {
+                std::cout << ERR_MSG << t << " element(s) of XYZ0 is in the mask. Aborting...!" << std::endl;
+                return 1;
+            }
+            hasXYZ0 = true;
+        }
 
         for(int i=0; i<3; i++)
             param.scale2grid[i] = (param.fieldmap_size[i] - 1.) / param.sample_length[i];
          
         // ========== distributing between devices ==========
-        std::vector<float *> d_pFieldMap(device_count, NULL), d_position_start(device_count, NULL), d_position_start_scaled(device_count, NULL);
-        std::vector<float *> d_M1(device_count, NULL), d_XYZ1(device_count, NULL);
+        std::vector<float *> d_pFieldMap(device_count, NULL);
+        std::vector<float *> d_M0(device_count, NULL), d_M1(device_count, NULL);
+        std::vector<float *> d_XYZ1(device_count, NULL), d_XYZ0(device_count, NULL), d_XYZ0_scaled(device_count, NULL);
         std::vector<bool *> d_pMask(device_count, NULL);
         std::vector<simulation_parameters *> d_param(device_count, NULL);
         std::vector<cudaStream_t> streams(device_count, NULL);
@@ -110,23 +137,33 @@ int main(int argc, char * argv[])
             checkCudaErrors(cudaSetDevice(d));            
             checkCudaErrors(cudaStreamCreate(&streams[d]));
 
-            checkCudaErrors(cudaMalloc((void**)&d_param[d],             sizeof(simulation_parameters)));
-            checkCudaErrors(cudaMalloc((void**)&d_pFieldMap[d],         sizeof(fieldmap[0]) * fieldmap.size()));   
-            checkCudaErrors(cudaMalloc((void**)&d_pMask[d],             sizeof(mask[0]) * mask.size())); 
-            checkCudaErrors(cudaMalloc((void**)&d_position_start[d],    sizeof(float) * param.n_spins * 3));
-            checkCudaErrors(cudaMalloc((void**)&d_position_start_scaled[d],sizeof(float) * param.n_spins * 3));
-            checkCudaErrors(cudaMalloc((void**)&d_M1[d],                sizeof(float) * param.n_spins * 3));
-            checkCudaErrors(cudaMalloc((void**)&d_XYZ1[d],              sizeof(float) * param.n_spins * 3));
+            checkCudaErrors(cudaMalloc((void**)&d_param[d],         sizeof(simulation_parameters)));
+            checkCudaErrors(cudaMalloc((void**)&d_pFieldMap[d],     sizeof(fieldmap[0]) * fieldmap.size()));   
+            checkCudaErrors(cudaMalloc((void**)&d_pMask[d],         sizeof(mask[0]) * mask.size())); 
+            checkCudaErrors(cudaMalloc((void**)&d_XYZ0[d],          sizeof(float) * param.n_spins * 3));
+            checkCudaErrors(cudaMalloc((void**)&d_XYZ0_scaled[d],   sizeof(float) * param.n_spins * 3));
+            checkCudaErrors(cudaMalloc((void**)&d_XYZ1[d],          sizeof(float) * param.n_spins * 3));
+            checkCudaErrors(cudaMalloc((void**)&d_M0[d],            sizeof(float) * param.n_spins * 3));
+            checkCudaErrors(cudaMalloc((void**)&d_M1[d],            sizeof(float) * param.n_spins * 3));
+            
             
             checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(), fieldmap.size() * sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
             checkCudaErrors(cudaMemcpyAsync(d_pMask[d],     mask.data(),     mask.size() * sizeof(mask[0]),         cudaMemcpyHostToDevice, streams[d]));
             checkCudaErrors(cudaMemcpyAsync(d_param[d],     &param,          sizeof(simulation_parameters),         cudaMemcpyHostToDevice, streams[d]));
 
-            // generate initial spatial position for spins, based on sample_length_ref
-            printf("GPU %d) Generating random initial position for spins... ", d);
-            generate_initial_position<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_position_start[d], d_param[d], d_pMask[d]);
-            gpuCheckKernelExecutionError( __FILE__, __LINE__);
-            printf("Done!\n");
+            
+            if(hasXYZ0 == false)
+            {   // generate initial spatial position for spins, based on sample_length_ref
+                printf("GPU %d) Generating random initial position for spins... ", d);
+                generate_initial_position<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_XYZ0[d], d_param[d], d_pMask[d]);
+                gpuCheckKernelExecutionError( __FILE__, __LINE__);
+                printf("Done!\n");
+            }
+            else
+            {
+                checkCudaErrors(cudaMemcpyAsync(d_XYZ0[d], &XYZ0[3*param.n_spins*d], 3 * param.n_spins * sizeof(XYZ0[0]), cudaMemcpyHostToDevice, streams[d]));
+                checkCudaErrors(cudaMemcpyAsync(d_M0[d]  , &M0[3*param.n_spins*d]  , 3 * param.n_spins * sizeof(M0[0])  , cudaMemcpyHostToDevice, streams[d]));
+            }
         }
 
         // ========== run ==========        
@@ -154,10 +191,10 @@ int main(int argc, char * argv[])
                 checkCudaErrors(cudaSetDevice(d));
                 cudaMemcpy(d_param[d], &param_local, sizeof(simulation_parameters), cudaMemcpyHostToDevice);
 
-                scale_initial_positions << <numBlocks, THREADS_PER_BLOCK, 0, streams[d] >> > (d_position_start_scaled[d], d_position_start[d], sample_length_scales[sl], param.n_spins);
+                scale_initial_positions<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_XYZ0_scaled[d], d_XYZ0[d], sample_length_scales[sl], param.n_spins);
                 gpuCheckKernelExecutionError(__FILE__, __LINE__);
 
-                simulation_kernel << <numBlocks, THREADS_PER_BLOCK, 0, streams[d] >> > (d_param[d], d_pFieldMap[d], d_pMask[d], d_position_start_scaled[d], d_M1[d], d_XYZ1[d]);
+                simulation_kernel<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_param[d], d_pFieldMap[d], d_pMask[d], d_M0[d], d_XYZ0_scaled[d], d_M1[d], d_XYZ1[d]);
                 gpuCheckKernelExecutionError(__FILE__, __LINE__);
 
                 int shift = 3*param.n_spins*device_count*sl + 3*param.n_spins*d;
@@ -180,8 +217,8 @@ int main(int argc, char * argv[])
             checkCudaErrors(cudaFree(d_param[d]));
             checkCudaErrors(cudaFree(d_pFieldMap[d]));
             checkCudaErrors(cudaFree(d_pMask[d]));
-            checkCudaErrors(cudaFree(d_position_start[d]));
-            checkCudaErrors(cudaFree(d_position_start_scaled[d]));
+            checkCudaErrors(cudaFree(d_XYZ0[d]));
+            checkCudaErrors(cudaFree(d_XYZ0_scaled[d]));
             checkCudaErrors(cudaFree(d_M1[d]));
             checkCudaErrors(cudaFree(d_XYZ1[d]));
             checkCudaErrors(cudaStreamDestroy(streams[d]));
@@ -190,10 +227,10 @@ int main(int argc, char * argv[])
         }
         
         // ========== save results ========== 
-        std::string append = std::to_string(fieldmap_no) + "_" + std::filesystem::path(fieldmap_file).stem().string(); // Thanks to C++17, we can use std::filesystem
         output_header hdr(3, param.n_spins, device_count, param.n_sample_length_scales);
-        save_output(M1  , filenames.at("output")[0], "M1_"   + append, hdr, sample_length_scales);
-        save_output(XYZ1, filenames.at("output")[0], "XYZ1_" + append, hdr, sample_length_scales);
+        save_output(M1, filenames.at("m1")[fieldmap_no], hdr, sample_length_scales);
+        if(filenames.at("xyz1")[fieldmap_no].empty() == false)
+            save_output(XYZ1, filenames.at("xyz1")[fieldmap_no], hdr, sample_length_scales);
 
         std::cout << std::string(50, '=') << std::endl;
     }
