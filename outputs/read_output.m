@@ -1,8 +1,8 @@
 clear
 clc
 rad_ref_um = 53.367;
-fname{1} = './results_gre_M1_0_fieldmap1.dat';
-fname{2} = './results_gre_M1_1_fieldmap2.dat';
+fname{1} = './gre_m1_0.dat';
+fname{2} = './gre_m1_1.dat';
 
 % fname{1} = './results_ssfp_M1_0_fieldmap1.dat';
 % fname{2} = './results_ssfp_M1_1_fieldmap2.dat';
@@ -10,32 +10,43 @@ fname{2} = './results_gre_M1_1_fieldmap2.dat';
 % fname{1} = './results_se_M1_0_fieldmap1.dat';
 % fname{2} = './results_se_M1_1_fieldmap2.dat';
 
-
 spins_xy = [];
 for i=1:numel(fname)
-    fileID = fopen(fname{i});
-    hdr_size  = fread(fileID, 1, 'int32=>int32');
-    dims      = fread(fileID, 4, 'int32=>int32'); % 3 * n_spins * n_sample_length_scales * device_count
-    if dims(3) ~= hdr_size/4-numel(dims)
+    [m_xyz, dims, scales] = read_microvascular(fname{i});
+    if dims(4) ~= numel(scales)
         warning('Why header info is confusing here?')
     end
-    scales    = fread(fileID, hdr_size/4-numel(dims), 'single=>single');
-    m_xyz = fread(fileID, prod(dims), 'single=>single');
-    fclose(fileID);
-    m_xyz = reshape(m_xyz, dims(:)');
-    m_xyz = reshape(m_xyz, [dims(1), dims(2)*dims(3), dims(4)]);
     spins_xy = cat(4, spins_xy, m_xyz);
 end
 
 spins_xy = squeeze(complex(sum(spins_xy(1,:,:,:), 2), sum(spins_xy(2,:,:,:), 2) ));
-
-%figure
 signal_magnitude = abs(spins_xy);
-relative_signal = 100 * (1 - signal_magnitude(:,1)./ signal_magnitude(:,2));
-
-% disp(relative_signal')
-
-vessel_radius = rad_ref_um * scales;
-
+relative_signal  = 100 * (1 - signal_magnitude(:,1)./ signal_magnitude(:,2));
+vessel_radius    = rad_ref_um * scales;
 semilogx(vessel_radius, relative_signal); xlabel('Vessel radius (um)'); ylabel('Relative Signal %');
 hold on
+
+%% Read Boston data
+clear
+clc
+folder = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/';
+names = {'gre' , 'se', 'ssfp'};
+n_fnames = 10;
+
+for n=1:numel(names)
+
+    spins_xy = [];    
+    for i=0:n_fnames-1
+        filename = fullfile(folder, [names{n} '_boston_m1_' num2str(i) '.dat']);
+        [m_xyz, dims, scales] = read_microvascular(filename);
+        spins_xy = cat(3, spins_xy, m_xyz);
+    end
+    
+    spins_xy = squeeze(complex(sum(spins_xy(1,:,:), 2), sum(spins_xy(2,:,:), 2) ));
+    signal_magnitude = abs(spins_xy);
+    
+    subplot(2,2,n);
+    plot(signal_magnitude(1:5), 'b'); hold on
+    plot(signal_magnitude(6:end), 'r');
+    title(names{n});
+end
