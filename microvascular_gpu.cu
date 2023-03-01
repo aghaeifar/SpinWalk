@@ -122,7 +122,13 @@ int main(int argc, char * argv[])
 
         for(int i=0; i<3; i++)
             param.scale2grid[i] = (param.fieldmap_size[i] - 1.) / param.sample_length[i];
-         
+        
+        if (hasXYZ0 && param.n_sample_length_scales > 1)
+        {
+            std::cout << ERR_MSG << "loading XYZ0 from file while having more than 1 sample length scales is not supported!" << std::endl;
+            return 1;
+        }
+
         // ========== distributing between devices ==========
         std::vector<float *> d_pFieldMap(device_count, NULL);
         std::vector<float *> d_M0(device_count, NULL), d_M1(device_count, NULL);
