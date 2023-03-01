@@ -18,6 +18,8 @@
 
 #include "rotation.h"
 
+
+#define ERR_MSG  "\033[1;31mError:\033[0m "
 #define ROUND(x) ((long)((x)+0.5))
 
 #ifndef M_PI
@@ -81,18 +83,18 @@ typedef struct input_header
 } input_header;
 
 
-bool save_output(std::vector<float> &data, std::string output_filename, std::string filename_appendix, output_header hdr, std::vector<float> &additional_hdr)
+bool save_output(std::vector<float> &data, std::string output_filename, output_header hdr, std::vector<float> &additional_hdr)
 {
-    std::string filename = std::filesystem::path(output_filename).stem().string();
-    std::string ext = std::filesystem::path(output_filename).extension().string();
-    std::string parent = std::filesystem::path(output_filename).parent_path().string();
-    std::string output_filename_full = parent + "/" + filename + "_" + filename_appendix + ext;
-    std::cout << "Saving output to: " << std::filesystem::absolute(output_filename_full) << std::endl;
+    // std::string filename = std::filesystem::path(output_filename).stem().string();
+    // std::string ext = std::filesystem::path(output_filename).extension().string();
+    // std::string parent = std::filesystem::path(output_filename).parent_path().string();
+    // std::string output_filename_full = parent + "/" + filename + "_" + filename_appendix + ext;
+    std::cout << "Saving output to: " << std::filesystem::absolute(output_filename) << std::endl;
 
-    std::ofstream file(output_filename_full, std::ios::out | std::ios::binary);
+    std::ofstream file(output_filename, std::ios::out | std::ios::binary);
     if (file.is_open() == false)
     {
-        std::cout << "Cannot open file: " << std::filesystem::absolute(output_filename_full) << std::endl;
+        std::cout << ERR_MSG << "cannot open file " << std::filesystem::absolute(output_filename) << std::endl;
         return false;
     }
     int32_t header_size = sizeof(output_header) + additional_hdr.size() * sizeof(additional_hdr[0]);
