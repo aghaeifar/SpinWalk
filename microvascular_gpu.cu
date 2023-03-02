@@ -56,7 +56,7 @@ int main(int argc, char * argv[])
     param.n_timepoints = param.TR / param.dt; // includes start point
 
     // ========== simulating steady-state signal ==========
-    if(param.enSteadyStateSimulation && param.n_dummy_scan != 0)
+    if(param.enSteadyStateSimulation)
     {
         simulate_steady_state(param);
         std::cout<< std::string(30, '-')  << std::endl;
@@ -85,16 +85,17 @@ int main(int argc, char * argv[])
     int32_t numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
     uint32_t len0 = 3 * param.n_spins * device_count;
-    uint32_t len1 = 3 * len0 * param.n_sample_length_scales;
+    uint32_t len1 = len0 * param.n_sample_length_scales;
     std::vector<float> M0(len0, 0.f); 
     std::vector<float> M1(len1, 0.f);
     std::vector<float> XYZ0(len0, 0.f);
     std::vector<float> XYZ1(len1, 0.f);
 
+    std::cout << std::string(50, '=') << std::endl;
     for (int16_t fieldmap_no=0; fieldmap_no<param.n_fieldmaps; fieldmap_no++)
     {
         bool hasXYZ0 = false;
-        // ========== load field-maps ==========
+        // ========== load files (field-maps, xyz0, m0) ==========
         if(reader::read_fieldmap(filenames.at("fieldmap")[fieldmap_no], fieldmap, mask, param) == false)
             return 1;
 
@@ -119,10 +120,15 @@ int main(int argc, char * argv[])
                 return 1;
         }
         else
-        {
-            for(int i=2; i<len0; i+=3) 
-                M0[i] = 1.f; // all spins are aligned with B0 (M0 = (0, 0, 1))
+        {   // all spins are aligned with B0 (M0 = (0, 0, 1))
+            long index = 0;
+            std::cout << "Generating M0(0, 0, 1)..." << std::endl;
+            std::generate(M0.begin(), M0.end(), [&index](){return (index++ % 3 == 2) ? 1.f : 0.f;});
         }
+
+        if(param.enDebug)
+            for(int i=0; i<M0.size()/3; i += M0.size()/3/2)
+                std::cout << "M0 of the spin " << i << " = (" << M0[3*i] << ", " << M0[3*i+1] << ", " << M0[3*i+2] << ")" << std::endl;
 
 
         for(int i=0; i<3; i++)
@@ -236,8 +242,11 @@ int main(int argc, char * argv[])
         
         // ========== save results ========== 
         output_header hdr(3, param.n_spins, device_count, param.n_sample_length_scales);
+        if(filenames.at("m1")[fieldmap_no].empty() == true) // create a filename if not specified
+            filenames.at("m1")[fieldmap_no] = std::filesystem::path(config_files).filename().string() + "_" + std::filesystem::path(filenames.at("fieldmap")[fieldmap_no]).filename().string(); 
         save_output(M1, filenames.at("m1")[fieldmap_no], hdr, sample_length_scales);
-        if(filenames.at("xyz1")[fieldmap_no].empty() == false)
+
+        if(filenames.at("xyz1")[fieldmap_no].empty() == false) // do not save if filename is empty
             save_output(XYZ1, filenames.at("xyz1")[fieldmap_no], hdr, sample_length_scales);
 
         std::cout << std::string(50, '=') << std::endl;
