@@ -42,12 +42,13 @@ typedef struct simulation_parameters
 
     void dump()
     {
-        std::cout<<"T1="<<T1<<" T2="<<T2<<" FA="<<FA<<" TE="<<TE<<" TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
+        std::cout<<"T1="<<T1<<" T2="<<T2<<" FA="<<FA*180/M_PI<<" TE="<<TE<<" TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
         std::cout<<"sample length = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << '\n';
         std::cout<<"scale2grid = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
         std::cout<<"fieldmap size = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
         std::cout<<"diffusion const = "<<diffusion_const<<'\t'<<"dummy scans = "<<n_dummy_scan<<'\t'<<"spins = "<<n_spins<<'\n';
         std::cout<<"samples scales = "<<n_sample_length_scales<<'\t'<<"timepoints = "<<n_timepoints<<'\t'<<"fieldmaps = "<<n_fieldmaps<<'\n';
+        std::cout<<"Refocusing 180 = "<<enRefocusing180<<'\t'<<"Apply -FA/2 = "<<enApplyFA2<<'\t'<<"Simulate SS = "<<enSteadyStateSimulation<<'\n';
     }
 #ifdef __CUDACC__
     __device__ void ddump()
@@ -85,11 +86,8 @@ typedef struct input_header
 
 bool save_output(std::vector<float> &data, std::string output_filename, output_header hdr, std::vector<float> &additional_hdr)
 {
-    // std::string filename = std::filesystem::path(output_filename).stem().string();
-    // std::string ext = std::filesystem::path(output_filename).extension().string();
-    // std::string parent = std::filesystem::path(output_filename).parent_path().string();
-    // std::string output_filename_full = parent + "/" + filename + "_" + filename_appendix + ext;
     std::cout << "Saving output to: " << std::filesystem::absolute(output_filename) << std::endl;
+    std::cout << "Expected file size: " << data.size() * sizeof(data[0]) / 1024 / 1024 << " MB" << std::endl;
 
     std::ofstream file(output_filename, std::ios::out | std::ios::binary);
     if (file.is_open() == false)
