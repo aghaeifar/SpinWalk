@@ -66,12 +66,9 @@ int main(int argc, char * argv[])
     if(param.enDebug)
     {
         std::cout << "Dumping settings:" << std::endl;
-        for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it)
-        {
+        for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it, std::cout << std::endl)
             for (int i = 0; i< it->second.size(); i++)
                 std::cout << it->first << "[" << i << "] = " << it->second.at(i) << std::endl;
-            std::cout << std::endl;
-        }
         
         for (int32_t i = 0; i < param.n_sample_length_scales; i++)
             std::cout << "Sample length scale " << i << " = " << sample_length_scales[i] << std::endl;
