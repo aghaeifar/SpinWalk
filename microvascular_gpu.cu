@@ -7,7 +7,8 @@
  * Descrip  : simulating BOLD in microvascular network
  * -------------------------------------------------------------------------- */
 
-// compile :  nvcc microvascular_gpu.cu -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler -fopenmp
+// compile(lin) :  nvcc microvascular_gpu.cu -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler -fopenmp -o sim_microvascular
+// compile(win) :  nvcc microvascular_gpu.cu -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler /openmp -std=c++17 -o sim_microvascular
 
 #include <random>
 #include <filesystem>
@@ -20,63 +21,10 @@
 
 using namespace std;
 
-int main(int argc, char * argv[])
+bool simulate(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<float> sample_length_scales)
 {
-    std::string config_files;
-    if(argc > 2)
-    {
-        std::cout << "Usage: " << argv[0] << " <config_file>" << std::endl;
-        return 1;
-    }
-    if(argc == 2)
-        config_files = argv[1];
-
-    map<string, vector<string> > filenames = {{"fieldmap", vector<string>()},
-                                              {"xyz0", vector<string>()},
-                                              {"xyz1", vector<string>()},
-                                              {"m0", vector<string>()},
-                                              {"m1", vector<string>()} }; 
-
-    std::vector<float> sample_length_scales, fieldmap;
+    std::vector<float> fieldmap;
     std::vector<char> mask;
-    simulation_parameters param;
-
-    // ========== read config file ==========
-    param.fieldmap_size[0] = param.fieldmap_size[1] = param.fieldmap_size[2] = 0;
-    param.sample_length[0] = param.sample_length[1] = param.sample_length[2] = 0.f;
-    if(reader::read_config(config_files, param, sample_length_scales, filenames) == false)
-    {
-        std::cout << ERR_MSG << "reading config file failed. Aborting...!" << std::endl;
-        return 1;
-    }
-
-    if (param.seed == 0)
-        param.seed = std::random_device{}();
-
-    param.n_timepoints = param.TR / param.dt; // includes start point
-
-    // ========== simulating steady-state signal ==========
-    if(param.enSteadyStateSimulation)
-    {
-        simulate_steady_state(param);
-        std::cout<< std::string(30, '-')  << std::endl;
-    }
-
-    // ========== Dump Settings ==========
-    if(param.enDebug)
-    {
-        std::cout << "Dumping settings:" << std::endl;
-        for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it, std::cout << std::endl)
-            for (int i = 0; i< it->second.size(); i++)
-                std::cout << it->first << "[" << i << "] = " << it->second.at(i) << std::endl;
-        
-        for (int32_t i = 0; i < param.n_sample_length_scales; i++)
-            std::cout << "Sample length scale " << i << " = " << sample_length_scales[i] << std::endl;
-
-        param.dump();
-        std::cout<< std::string(30, '-')  << std::endl;
-    }
-
     // ========== checking GPU(s) ==========
     int32_t device_count;
     checkCudaErrors(cudaGetDeviceCount(&device_count));
@@ -97,12 +45,12 @@ int main(int argc, char * argv[])
         bool hasXYZ0 = false;
         // ========== load files (field-maps, xyz0, m0) ==========
         if(reader::read_fieldmap(filenames.at("fieldmap")[fieldmap_no], fieldmap, mask, param) == false)
-            return 1;
+            return false;
 
         if(filenames.at("xyz0")[fieldmap_no].empty() == false)
         {
             if(reader::read_file(filenames.at("xyz0")[fieldmap_no], XYZ0) == false)
-                return 1;
+                return false;
             
             std::cout << "Checking XYZ0 is not in the mask..." << std::endl;
             uint32_t t = is_masked(XYZ0, mask, &param);
@@ -117,7 +65,7 @@ int main(int argc, char * argv[])
         if(filenames.at("m0")[fieldmap_no].empty() == false)
         {
             if(reader::read_file(filenames.at("m0")[fieldmap_no], M0) == false)
-                return 1;
+                return false;
         }
         else
         {   // all spins are aligned with B0 (M0 = (0, 0, 1))
@@ -137,7 +85,7 @@ int main(int argc, char * argv[])
         if (hasXYZ0 && param.n_sample_length_scales > 1)
         {
             std::cout << ERR_MSG << "loading XYZ0 from file while having more than 1 sample length scales is not supported!" << std::endl;
-            return 1;
+            return false;
         }
 
         // ========== distributing between devices ==========
@@ -242,8 +190,6 @@ int main(int argc, char * argv[])
         
         // ========== save results ========== 
         output_header hdr(3, param.n_spins, device_count, param.n_sample_length_scales);
-        if(filenames.at("m1")[fieldmap_no].empty() == true) // create a filename if not specified
-            filenames.at("m1")[fieldmap_no] = std::filesystem::path(config_files).filename().string() + "_" + std::filesystem::path(filenames.at("fieldmap")[fieldmap_no]).filename().string(); 
         save_output(M1, filenames.at("m1")[fieldmap_no], hdr, sample_length_scales);
 
         if(filenames.at("xyz1")[fieldmap_no].empty() == false) // do not save if filename is empty
@@ -251,5 +197,72 @@ int main(int argc, char * argv[])
 
         std::cout << std::string(50, '=') << std::endl;
     }
+    return true;
 }
 
+
+int main(int argc, char * argv[])
+{
+    std::vector<std::string> config_files;
+    if(argc < 2)
+    {
+        std::cout << "Usage: " << argv[0] << " <config_file>" << std::endl;
+        return 1;
+    }
+    for(uint8_t i=1; i<argc; i++)
+        config_files.push_back(argv[i]);
+
+    std::cout << "Running " << config_files.size() << " simulation(s)..." << std::endl;
+    for(uint8_t cnf=0; cnf<config_files.size(); cnf++)
+    {
+        map<string, vector<string> > filenames = {{"fieldmap", vector<string>()},
+                                                  {"xyz0", vector<string>()},
+                                                  {"xyz1", vector<string>()},
+                                                  {"m0", vector<string>()},
+                                                  {"m1", vector<string>()} }; 
+
+        std::vector<float> sample_length_scales;
+        simulation_parameters param;
+
+        // ========== read config file ==========
+        param.fieldmap_size[0] = param.fieldmap_size[1] = param.fieldmap_size[2] = 0;
+        param.sample_length[0] = param.sample_length[1] = param.sample_length[2] = 0.f;
+        if(reader::read_config(config_files[cnf], param, sample_length_scales, filenames) == false)
+        {
+            std::cout << ERR_MSG << "reading config file failed. Aborting...!" << std::endl;
+            return 1;
+        }
+
+        if (param.seed == 0)
+            param.seed = std::random_device{}();
+
+        param.n_timepoints = param.TR / param.dt; // includes start point
+
+        // ========== simulating steady-state signal ==========
+        if(param.enSteadyStateSimulation)
+        {
+            simulate_steady_state(param);
+            std::cout<< std::string(30, '-')  << std::endl;
+        }
+
+        // ========== Dump Settings ==========
+        if(param.enDebug)
+        {
+            std::cout << "Dumping settings:" << std::endl;
+            for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it, std::cout << std::endl)
+                for (int i = 0; i< it->second.size(); i++)
+                    std::cout << it->first << "[" << i << "] = " << it->second.at(i) << std::endl;
+            
+            for (int32_t i = 0; i < param.n_sample_length_scales; i++)
+                std::cout << "Sample length scale " << i << " = " << sample_length_scales[i] << std::endl;
+
+            param.dump();
+            std::cout<< std::string(30, '-')  << std::endl;
+        }
+
+        if(simulate(param, filenames, sample_length_scales) == false)
+            return 1;
+    }
+    std::cout << "Simulation(s) finished successfully!" << std::endl;
+    return 0;
+}
