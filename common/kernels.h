@@ -11,6 +11,7 @@
 #ifndef _KERNELS_H_
 #define _KERNELS_H_
 
+#include <numeric>
 #include "miscellaneous.h"
 #include "rotation.h"
 
@@ -191,7 +192,7 @@ uint32_t is_masked(std::vector<T> &XYZ0, std::vector<char> &mask, simulation_par
 
     std::vector<uint32_t> mask_counter(XYZ0.size()/3, false);
     #pragma omp parallel for
-    for (uint32_t i=0; i<XYZ0.size(); i+=3)
+    for (int32_t i=0; i<XYZ0.size(); i+=3)
     {
         uint64_t index = sub2ind(ROUND(XYZ0[i] * scale2grid[0]), ROUND(XYZ0[i+1] * scale2grid[1]), ROUND(XYZ0[i+2] * scale2grid[2]), param->fieldmap_size[0], param->fieldmap_size[1]);
         mask_counter[i/3] = mask[index];
