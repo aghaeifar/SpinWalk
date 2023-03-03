@@ -18,7 +18,7 @@
 namespace reader
 {
 
-bool read_config(std::string  config_filename, simulation_parameters& param, std::vector<float>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames)
+bool read_config(std::string config_filename, simulation_parameters& param, std::vector<float>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames)
 {
     if (std::filesystem::exists(config_filename) == false)
     {
@@ -50,25 +50,40 @@ bool read_config(std::string  config_filename, simulation_parameters& param, std
 
     // reading section FILES
     if(ini.has("files"))
-    {
+    {   // only read fieldmap to count number of fieldmaps and set n_fieldmaps
+        if(ini.get("files").has("fieldmap[0]"))
+        {
+            filenames.at("fieldmap").clear();
+            for (uint16_t i = 0; ini.get("files").has("fieldmap[" + std::to_string(i) + "]"); i++)                
+                filenames.at("fieldmap").push_back(ini.get("files").get("fieldmap[" + std::to_string(i) + "]"));
+        }
+        param.n_fieldmaps = filenames.at("fieldmap").size();
+
+        // read all other files 
         for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it)
         {
-            if(ini.get("files").has(it->first + "[0]"))
-            {
-                it->second.clear();
-                for (int i = 0; ini.get("files").has(it->first + "[" + std::to_string(i) + "]"); i++)                
+            if( it->first.compare("fieldmap") == 0)
+                continue; // fieldmap is already read
+            it->second.clear();
+            for (uint16_t i = 0; i<param.n_fieldmaps; i++)
+                if(ini.get("files").has(it->first + "[" + std::to_string(i) + "]"))
                     it->second.push_back(ini.get("files").get(it->first + "[" + std::to_string(i) + "]"));
-            }
+                else
+                    it->second.push_back("");
         }
+
+        // if m1 is empty, create filename for m1. filename is the same as fieldmap but with prefix config_filename
+        for(uint16_t i=0; i<param.n_fieldmaps; i++)
+            if(filenames.at("m1")[i].empty())
+            {             
+                std::string f_config  = std::filesystem::path(config_filename).filename().string();
+                std::string f_field   = std::filesystem::path(filenames.at("fieldmap")[i]).filename().string();
+                std::string parent    = std::filesystem::path(filenames.at("fieldmap")[i]).parent_path().string();
+                std::string ext       = std::filesystem::path(filenames.at("fieldmap")[i]).extension().string();
+                filenames.at("m1")[i] = parent + "/" + f_config + "_" + f_field + ext;
+            }    
     }
 
-    param.n_fieldmaps = filenames.at("fieldmap").size();
-    for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it)
-        if (it->second.size() != param.n_fieldmaps)
-        {
-            std::cout << ERR_MSG << "number of field maps and " << it->first << " files do not match in configuration file! " << param.n_fieldmaps << " vs " << it->second.size() << std::endl;
-            return false;
-        }
 
     // reading section SCAN_PARAMETERS
     if(ini.has("SCAN_PARAMETERS"))
@@ -141,7 +156,7 @@ bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, 
     }
 
     input_header hdr_in;
-    std::cout << "Reading fieldmap " << fieldmap_filename << std::endl;
+    std::cout << "Opening fieldmap " << fieldmap_filename << std::endl;
     std::ifstream in_field(fieldmap_filename, std::ios::in | std::ios::binary);
     if (!in_field.is_open()) 
     {
@@ -150,6 +165,7 @@ bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, 
     }
 
     in_field.read((char*)&hdr_in, sizeof(input_header));
+    hdr_in.print();
     std::copy(hdr_in.fieldmap_size, hdr_in.fieldmap_size + 3, param.fieldmap_size);
     std::copy(hdr_in.sample_length, hdr_in.sample_length + 3, param.sample_length);
     param.matrix_length = param.fieldmap_size[0] * param.fieldmap_size[1] * param.fieldmap_size[2];
@@ -163,8 +179,9 @@ bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, 
         mask.resize(param.matrix_length);
     }
 
-    in_field.read((char*)fieldmap.data(), sizeof(float) * param.matrix_length);
-    in_field.read((char*)mask.data(), sizeof(bool) * param.matrix_length);
+    std::cout << "Reading...fieldmap...";
+    in_field.read((char*)fieldmap.data(), sizeof(float) * param.matrix_length); std::cout << "done...mask...";
+    in_field.read((char*)mask.data(), sizeof(bool) * param.matrix_length); std::cout << "done." << std::endl;
     in_field.close();
     return true;
 }
