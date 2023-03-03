@@ -81,14 +81,17 @@ typedef struct input_header
     float sample_length[3];
     input_header(uint32_t *a, float *b) {memcpy(fieldmap_size, a, 3*sizeof(uint32_t)); memcpy(sample_length, b, 3*sizeof(float));}
     input_header(){};
+    void print()
+    {
+        std::cout << "Size = " << fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << std::endl;
+        std::cout << "Length = " << sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << std::endl;
+    }
 } input_header;
 
 
 bool save_output(std::vector<float> &data, std::string output_filename, output_header hdr, std::vector<float> &additional_hdr)
 {
     std::cout << "Saving output to: " << std::filesystem::absolute(output_filename) << std::endl;
-    std::cout << "Expected file size: " << data.size() * sizeof(data[0]) / 1024 / 1024 << " MB" << std::endl;
-
     std::ofstream file(output_filename, std::ios::out | std::ios::binary);
     if (file.is_open() == false)
     {
