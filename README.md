@@ -25,7 +25,7 @@ Windows:
 ```
 nvcc microvascular_gpu.cu -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler /openmp -std=c++17 -o sim_microvascular
 ```
-You should replace 86 in *compute_86* and *sm_86* with compute capability of your GPU. To check compute capability of your GPU run following command in terminal (my not work if your GPU driver is old):
+You should replace 86 in *compute_86* and *sm_86* with compute capability of your GPU. To check compute capability of your GPU run following command in terminal (if does not work since your GPU driver is old, try to find compute capability of your model [here](https://developer.nvidia.com/cuda-gpus)):
 ```bash 
 nvidia-smi --query-gpu=compute_cap --format=csv
 ```
