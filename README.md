@@ -50,9 +50,9 @@ Simulator needs one or more fieldmap(s) and mask(s) for simulation. The fieldmap
 The path to fieldmap is set in configuration file.
 
 ### Other inputs
-M0 and XYZ0 in configuration file are two additional inputs which define starting magnization and initial spatial position of spins. Please note that initial spatial positions must not intersect with mask. If M0 and XYZ0 are not provided or is empty, staring magnization of (0,0,1) and random positioning will be used, respectively.
+M0 and XYZ0 in configuration file are two additional inputs which define starting magnization and initial spatial position of spins. Please note that initial spatial positions must not intersect with mask. If M0 and/or XYZ0 are not provided or are empty, staring magnization of (0,0,1) and random positioning will be used, respectively.
 
-binary file containing M0 and XYZ0 is of size 3*number spins single precision float which are stored in the file with this pattern:
+binary file containing M0 or XYZ0 is of size *3 * number of spins* single precision float which are stored in the file with following pattern:
 ```
 x0 y0 z0 x1 y1 z1 x2 y2 z2 .... xn yn zn
 ```
