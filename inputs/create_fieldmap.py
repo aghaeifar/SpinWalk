@@ -11,52 +11,21 @@ import os
 import numpy as np
 import scipy.io
 from math import sin, cos
-
-########  define parameters ########
-FoV  = np.asarray([1e3, 1e3, 1e3]) # Field of view in um
-Res  = np.asarray([1000, 1000, 1000]) # Resolution in voxels
-FoV2 = (FoV - FoV/Res) / 2 # update Field of view to account for the voxel size and center the field map
-
-is_orientation_random = False 
-use_fixed_seed = True # if True, the seed is fixed to 0 for reproducibility
-theta_B0_all = np.asarray([180 * np.pi/180.])# np.linspace(0, np.pi/2, 10, endpoint=True) # angle between axis of vessel and B0 if is_orientation_random == False (in radian)
-
-Y     = 0.75  # oxygenation level of blood
-Htc   = 0.4   # hematocrit level
-dChi  = 0.273e-6 # susceptibility difference between fully deoxygeneted blood and tissue
-BV    = 0.03  # blood volume fraction
-vessel_radius = 50 # vessel diameter in um
-
-output_dir = '.'
-
-########  prepare ########
-# create a grid of points
-xv, yv, zv = np.meshgrid(np.linspace(-FoV2[0], FoV2[0], Res[0], endpoint=True, dtype=np.float32), 
-                         np.linspace(-FoV2[1], FoV2[1], Res[1], endpoint=True, dtype=np.float32),
-                         np.linspace(-FoV2[2], FoV2[2], Res[2], endpoint=True, dtype=np.float32), indexing='ij')
-
-p3 = np.vstack((xv.flatten(order='F'), yv.flatten(order='F'), zv.flatten(order='F'))).T
-xv = None  # save memory
-yv = None
-zv = None
-
-if use_fixed_seed == True:
-    np.random.seed(0)  # fix the seed for reproducibility
+import multiprocessing
 
 
 
 ########  create fieldmaps ######## 
-n_fieldmaps = 1
-if is_orientation_random == False:
-    n_fieldmaps = len(theta_B0_all)
+def create_fieldmap(f, theta_B0_all, p3, dChi, Htc, Y, BV, FoV, Res, vessel_radius, is_orientation_random, output_dir):  
+    if use_fixed_seed == True:
+        np.random.seed(0)  # fix the seed for reproducibility 
 
-for f in range(n_fieldmaps):    
     dW = np.zeros(p3.shape[0], dtype=np.float32)
     vessel_mask = np.zeros(Res, dtype=bool).flatten(order='F')
 
     while True:
         # vessel, is a strait line defined by two points, first point is randomly generated in cartesian coordinate, second point is generated in spherical coordinate to address orientation respect to B0
-        p1 = np.random.uniform(-FoV2, FoV2, 3).astype(np.float32) # first point
+        p1 = np.random.uniform(-FoV/2, FoV/2, 3).astype(np.float32) # first point
         if is_orientation_random == True:
             phi   = np.random.uniform(0, 2*np.pi, 1).astype(np.float32)  # inplance angle of the vessel axis
             theta_B0 = np.random.uniform(0, np.pi/2, 1).astype(np.float32)  # angle between axis of vessel and B0 if is_orientation_random == True
@@ -105,7 +74,49 @@ for f in range(n_fieldmaps):
     vessel_mask = vessel_mask.reshape(Res)
     filename = 'fieldmap_' + str(f) + '.mat'
     if is_orientation_random == False:
-        filename = 'fieldmap_ori_' + "{:2.1f}".format(theta_B0*180/np.pi) + '.mat'
+        filename = 'fieldmap_ori_' + "{:05.1f}".format(theta_B0*180/np.pi) + '.mat'
     filename = os.path.join(output_dir, filename)
     print(f'Saving to {os.path.abspath(filename)}')
-    scipy.io.savemat(filename, mdict={'fieldmap': dW, 'mask': vessel_mask, 'FoV': FoV*1e-6, 'Res': Res, 'vessel_radius': vessel_radius*1e-6, 'BV': BV, 'Y': Y})
+    scipy.io.savemat(filename, mdict={'fieldmap': dW, 'mask': vessel_mask, 'FoV': FoV*1e-6, 'Res': Res, 'vessel_radius': vessel_radius*1e-6, 'BV': BV_t, 'Y': Y})
+
+
+
+if __name__ == '__main__':
+
+    ########  define parameters ########
+    FoV  = np.asarray([1e3, 1e3, 1e3]) # Field of view in um
+    Res  = np.asarray([200, 200, 200]) # Resolution in voxels
+    FoV2 = (FoV - FoV/Res) / 2 # update Field of view to account for the voxel size and center the field map
+
+    is_orientation_random = False 
+    use_fixed_seed = True # if True, the seed is fixed to 0 for reproducibility
+    theta_B0_all = np.linspace(0, np.pi/2, 10, endpoint=True) # angle between axis of vessel and B0 if is_orientation_random == False (in radian)
+    n_fieldmaps = 1 # number of field maps to generate if is_orientation_random == True
+
+    Y     = 0.75  # oxygenation level of blood
+    Htc   = 0.4   # hematocrit level
+    dChi  = 0.273e-6 # susceptibility difference between fully deoxygeneted blood and tissue
+    BV    = 0.03  # blood volume fraction
+    vessel_radius = 50 # vessel diameter in um
+
+    output_dir = '.'
+
+    ########  prepare ########
+    # create a grid of points
+    xv, yv, zv = np.meshgrid(np.linspace(-FoV2[0], FoV2[0], Res[0], endpoint=True, dtype=np.float32), 
+                             np.linspace(-FoV2[1], FoV2[1], Res[1], endpoint=True, dtype=np.float32),
+                             np.linspace(-FoV2[2], FoV2[2], Res[2], endpoint=True, dtype=np.float32), indexing='ij')
+
+    p3 = np.vstack((xv.flatten(order='F'), yv.flatten(order='F'), zv.flatten(order='F'))).T
+    xv = None  # save memory
+    yv = None
+    zv = None
+
+    
+    print(f'Number of CPU cores: {multiprocessing.cpu_count()}')
+    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+        if is_orientation_random == False:
+            pool.starmap(create_fieldmap, [(f, theta_B0_all, p3, dChi, Htc, Y, BV, FoV, Res, vessel_radius, is_orientation_random, output_dir) for f in range(len(theta_B0_all))])
+        else:
+            pool.starmap(create_fieldmap, [(None, p3, dChi, Htc, Y, BV, FoV, Res, vessel_radius, is_orientation_random, output_dir) for f in range(n_fieldmaps)])
+
