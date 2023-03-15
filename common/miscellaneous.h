@@ -84,7 +84,7 @@ typedef struct input_header
     void print()
     {
         std::cout << "Size = " << fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << std::endl;
-        std::cout << "Length = " << sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << std::endl;
+        std::cout << "Length = " << sample_length[0]*1e6 << " x " << sample_length[1]*1e6 << " x " << sample_length[2]*1e6 << " um^3" << std::endl;
     }
 } input_header;
 
@@ -92,6 +92,17 @@ typedef struct input_header
 bool save_output(std::vector<float> &data, std::string output_filename, output_header hdr, std::vector<float> &additional_hdr)
 {
     std::cout << "Saving output to: " << std::filesystem::absolute(output_filename) << std::endl;
+    std::filesystem::path parent_path = std::filesystem::absolute(output_filename).parent_path();
+    if (std::filesystem::is_directory(parent_path) == false)
+    {
+        std::cout << ERR_MSG << "cannot find directory " << parent_path.string() << ". Trying to create it." std::endl;
+        if(std::filesystem::create_directories(parent_path))
+        {
+            std::cout << ERR_MSG << "cannot create directory " << parent_path.string() << std::endl;
+            return false;
+        }
+    }
+
     std::ofstream file(output_filename, std::ios::out | std::ios::binary);
     if (file.is_open() == false)
     {
