@@ -96,7 +96,7 @@ bool save_output(std::vector<float> &data, std::string output_filename, output_h
     if (std::filesystem::is_directory(parent_path) == false)
     {
         std::cout << ERR_MSG << "cannot find directory " << parent_path.string() << ". Trying to create it." << std::endl;
-        if(std::filesystem::create_directories(parent_path))
+        if(std::filesystem::create_directories(parent_path) == false)
         {
             std::cout << ERR_MSG << "cannot create directory " << parent_path.string() << std::endl;
             return false;
