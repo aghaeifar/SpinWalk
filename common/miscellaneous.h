@@ -21,34 +21,53 @@
 
 #define ERR_MSG  "\033[1;31mError:\033[0m "
 #define ROUND(x) ((long)((x)+0.5))
+#define MAX_SE 20   // maximum number of spin-echoes
+#define MAX_TE 60   // maximum number of echo times
 
 #ifndef M_PI
 #define M_PI 3.14159265359
 #endif
 
+#define M_2PI 6.28318530718
+
 typedef struct simulation_parameters
 {
-    float T1, T2, FA, TE, TR, dt, B0, e1, e12, e2, e22, c, s, c2, s2;
-    float sample_length[3], diffusion_const, scale2grid[3];
-    uint16_t n_dummy_scan, n_timepoints, n_sample_length_scales, n_fieldmaps;
+    float T1, T2, FA, TR, dt, B0, e1, e12, e2, e22, c, s, c2, s2;
+    float RF_SE[MAX_SE]; // refocusing FA
+    uint16_t T_SE[MAX_SE], TE[MAX_TE]; // refocusing time in dt, echo times in dt
+    float sample_length[3], scale2grid[3], diffusion_const, phase_cycling;
+    uint16_t n_dummy_scan, n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_SE;
     uint32_t n_spins, fieldmap_size[3], seed;
     uint64_t matrix_length;
-    bool enDebug, enSteadyStateSimulation, enRefocusing180, enApplyFA2;
-    simulation_parameters():T1(2.2),T2(0.04),FA(16*M_PI/180.),TR(0.04),dt(5e-5),B0(9.4),n_dummy_scan(0),enSteadyStateSimulation(false),enRefocusing180(false),enApplyFA2(false),enDebug(false)
+    bool enDebug, enSteadyStateSimulation, enRefocusing, enApplyFA2;
+    simulation_parameters():T1(2.2),T2(0.04),FA(16*M_PI/180.),TR(0.04),dt(5e-5),B0(9.4),n_TE(0),n_SE(0),n_dummy_scan(0),phase_cycling(0.),enSteadyStateSimulation(false),enRefocusing(false),enApplyFA2(false),enDebug(false)
     {
-        memset(fieldmap_size,0,3*sizeof(fieldmap_size[0])); 
-        memset(sample_length,0,3*sizeof(sample_length[0]));
+        memset(fieldmap_size, 0, 3*sizeof(fieldmap_size[0])); 
+        memset(sample_length, 0, 3*sizeof(sample_length[0]));
+        memset(TE, 0, MAX_TE*sizeof(TE[0]));
+        memset(RF_SE, 0, MAX_SE*sizeof(RF_SE[0]));
+        memset(T_SE, 0, MAX_SE*sizeof(T_SE[0]));
     }
 
     void dump()
     {
-        std::cout<<"T1="<<T1<<" T2="<<T2<<" FA="<<FA*180/M_PI<<" TE="<<TE<<" TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
-        std::cout<<"sample length = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << '\n';
+        std::cout<<"T1="<<T1<<" T2="<<T2<<" FA="<<FA*180/M_PI<<" TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
+        std::cout<<"TE = "; for(int i=0; i<n_TE; i++) std::cout<<TE[i]*dt<<' '; std::cout<<'\n';
+        std::cout<<"Refocusing RF degree = "; for(int i=0; i<n_SE; i++) std::cout<<RF_SE[i]<<' '; std::cout<<'\n';
+        std::cout<<"Refocusing RF time = "; for(int i=0; i<n_SE; i++) std::cout<<T_SE[i]*dt<<' '; std::cout<<'\n';
+        std::cout<<"sample length = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
         std::cout<<"scale2grid = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
         std::cout<<"fieldmap size = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
         std::cout<<"diffusion const = "<<diffusion_const<<'\t'<<"dummy scans = "<<n_dummy_scan<<'\t'<<"spins = "<<n_spins<<'\n';
         std::cout<<"samples scales = "<<n_sample_length_scales<<'\t'<<"timepoints = "<<n_timepoints<<'\t'<<"fieldmaps = "<<n_fieldmaps<<'\n';
-        std::cout<<"Refocusing 180 = "<<enRefocusing180<<'\t'<<"Apply -FA/2 = "<<enApplyFA2<<'\t'<<"Simulate SS = "<<enSteadyStateSimulation<<'\n';
+        std::cout<<"Refocusing = "<<enRefocusing<<'\t'<<"Apply FA/2 = "<<enApplyFA2<<'\t'<<"Simulate steady-state = "<<enSteadyStateSimulation<<'\n';
+        std::cout<<"Phase cycling = "<<phase_cycling<<'\t'<<"Seed = "<<seed<<'\n';
+        std::cout<<'\n';
+
+        uint16_t fieldmap_size_MB = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2] * (sizeof(float) + sizeof(char)) / 1024 / 1024;
+        uint16_t variables_size_MB = n_spins * 3 *  (4 + n_TE) * sizeof(float) / 1024 / 1024;
+        std::cout<<"Required GPU memory ≈ " << fieldmap_size_MB << " MB + " << variables_size_MB << " MB (fieldmap + variables)" << '\n';
+        std::cout<<"Required RAM ≈ " << fieldmap_size_MB << " MB + " << variables_size_MB * n_sample_length_scales << " MB (fieldmap + variables)" << '\n';
     }
 #ifdef __CUDACC__
     __device__ void ddump()
