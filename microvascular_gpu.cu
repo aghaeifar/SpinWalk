@@ -34,10 +34,11 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 
     uint32_t len0 = 3 * param.n_spins * device_count;
     uint32_t len1 = len0 * param.n_sample_length_scales;
-    std::vector<float> M0(len0, 0.f); 
-    std::vector<float> M1(len1, 0.f);
-    std::vector<float> XYZ0(len0, 0.f);
-    std::vector<float> XYZ1(len1, 0.f);
+    uint32_t len2 = len1 * param.n_TE;
+    std::vector<float> XYZ0(len0, 0.f); // memory layout(column-wise): [3 x n_spins]
+    std::vector<float> XYZ1(len1, 0.f); // memory layout(column-wise): [3 x n_spins x n_sample_length_scales]
+    std::vector<float> M0(len0, 0.f);   // memory layout(column-wise): [3 x n_spins]
+    std::vector<float> M1(len2, 0.f);   // memory layout(column-wise): [3 x n_TE x n_spins x n_sample_length_scales]
 
     std::cout << std::string(50, '=') << std::endl;
     for (int16_t fieldmap_no=0; fieldmap_no<param.n_fieldmaps; fieldmap_no++)
@@ -109,7 +110,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             checkCudaErrors(cudaMalloc((void**)&d_XYZ0_scaled[d],   sizeof(float) * param.n_spins * 3));
             checkCudaErrors(cudaMalloc((void**)&d_XYZ1[d],          sizeof(float) * param.n_spins * 3));
             checkCudaErrors(cudaMalloc((void**)&d_M0[d],            sizeof(float) * param.n_spins * 3));
-            checkCudaErrors(cudaMalloc((void**)&d_M1[d],            sizeof(float) * param.n_spins * 3));
+            checkCudaErrors(cudaMalloc((void**)&d_M1[d],            sizeof(float) * param.n_spins * 3 * param.n_TE));
             
             
             checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(),        fieldmap.size() * sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
@@ -159,9 +160,10 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
                 simulation_kernel<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_param[d], d_pFieldMap[d], d_pMask[d], d_M0[d], d_XYZ0_scaled[d], d_M1[d], d_XYZ1[d]);
                 gpuCheckKernelExecutionError(__FILE__, __LINE__);
 
-                int shift = 3*param.n_spins*device_count*sl + 3*param.n_spins*d;
-                checkCudaErrors(cudaMemcpyAsync(M1.data()   + shift, d_M1[d]  , sizeof(float) * 3 * param.n_spins, cudaMemcpyDeviceToHost, streams[d]));
-                checkCudaErrors(cudaMemcpyAsync(XYZ1.data() + shift, d_XYZ1[d], sizeof(float) * 3 * param.n_spins, cudaMemcpyDeviceToHost, streams[d]));
+                int shift = 3*param.n_spins*param.n_TE*device_count*sl + 3*param.n_spins*param.n_TE*d;
+                checkCudaErrors(cudaMemcpyAsync(M1.data()   + shift, d_M1[d]  , sizeof(float)*3*param.n_spins*param.n_TE, cudaMemcpyDeviceToHost, streams[d]));
+                shift = 3*param.n_spins*device_count*sl + 3*param.n_spins*d;
+                checkCudaErrors(cudaMemcpyAsync(XYZ1.data() + shift, d_XYZ1[d], sizeof(float)*3*param.n_spins, cudaMemcpyDeviceToHost, streams[d]));
             }
         }
 
@@ -189,9 +191,10 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         checkCudaErrors(cudaEventDestroy(end));
         
         // ========== save results ========== 
-        output_header hdr(3, param.n_spins, device_count, param.n_sample_length_scales);
+        output_header hdr(3, param.n_TE, param.n_spins * device_count, param.n_sample_length_scales);
         save_output(M1, filenames.at("m1")[fieldmap_no], hdr, sample_length_scales);
 
+        hdr.dim2 = 1;
         if(filenames.at("xyz1")[fieldmap_no].empty() == false) // do not save if filename is empty
             save_output(XYZ1, filenames.at("xyz1")[fieldmap_no], hdr, sample_length_scales);
 
@@ -242,7 +245,7 @@ int main(int argc, char * argv[])
         if(param.enSteadyStateSimulation)
         {
             simulate_steady_state(param);
-            std::cout<< std::string(30, '-')  << std::endl;
+            std::cout<< std::string(50, '=')  << std::endl;
         }
 
         // ========== Dump Settings ==========
@@ -256,8 +259,13 @@ int main(int argc, char * argv[])
             for (int32_t i = 0; i < param.n_sample_length_scales; i++)
                 std::cout << "Sample length scale " << i << " = " << sample_length_scales[i] << std::endl;
 
+            input_header hdr_in;
+            if(reader::read_header(filenames.at("fieldmap")[0], hdr_in) == false)
+                return 1;
+            std::copy(hdr_in.fieldmap_size, hdr_in.fieldmap_size+3, param.fieldmap_size);
+            std::copy(hdr_in.sample_length, hdr_in.sample_length+3, param.sample_length);
             param.dump();
-            std::cout<< std::string(30, '-')  << std::endl;
+            std::cout<< std::string(50, '=')  << std::endl;
         }
 
         if(simulate(param, filenames, sample_length_scales) == false)
