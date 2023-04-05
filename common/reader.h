@@ -96,10 +96,38 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             param.n_dummy_scan  = std::stoi(ini.get("SCAN_PARAMETERS").get("DUMMY_SCAN"));
         if(ini.get("SCAN_PARAMETERS").has("FA"))
             param.FA = std::stof(ini.get("SCAN_PARAMETERS").get("FA")) * M_PI / 180.; // convert to radian
-        if(ini.get("SCAN_PARAMETERS").has("APPLY_-FA/2"))
-            param.enApplyFA2 = ini.get("SCAN_PARAMETERS").get("APPLY_-FA/2").compare("0") != 0;
+        if(ini.get("SCAN_PARAMETERS").has("APPLY_FA/2"))
+            param.enApplyFA2 = ini.get("SCAN_PARAMETERS").get("APPLY_FA/2").compare("0") != 0;
+        if(ini.get("SCAN_PARAMETERS").has("PHASE_CYCLING"))
+            param.phase_cycling = std::stof(ini.get("SCAN_PARAMETERS").get("PHASE_CYCLING")) * M_PI / 180.; // convert to radian
 
-        param.TE = param.TR / 2.; // std::stof(ini.get("SCAN_PARAMETERS").get("TE"));
+        if(ini.get("SCAN_PARAMETERS").has("ENABLE_REFOCUSING"))
+            param.enRefocusing = ini.get("SIMULATION_PARAMETERS").get("ENABLE_REFOCUSING").compare("0") != 0;
+        
+        uint16_t i = 0;
+        for(i=0; i<MAX_TE && ini.get("SCAN_PARAMETERS").has("TE[" + std::to_string(i) + "]"); i++)
+        {
+            param.TE[i] = std::stof(ini.get("SCAN_PARAMETERS").get("TE[" + std::to_string(i) + "]")) / param.dt;
+            if (param.TE[i] == 0)
+                break;
+        }
+        param.n_TE = i;
+        if(param.n_TE == 0)
+        {
+            std::cout << ERR_MSG << "TE is not defined" << std::endl;
+            return false;
+        }
+
+        for(i=0; i<MAX_SE && ini.get("SCAN_PARAMETERS").has("RF_SE[" + std::to_string(i) + "]"); i++)
+            param.RF_SE[i] = std::stof(ini.get("SCAN_PARAMETERS").get("RF_SE[" + std::to_string(i) + "]")) * M_PI / 180.; // convert to radian
+
+        for(i=0; i<MAX_SE && ini.get("SCAN_PARAMETERS").has("T_SE[" + std::to_string(i) + "]"); i++)
+        {
+            param.T_SE[i] = std::stof(ini.get("SCAN_PARAMETERS").get("T_SE[" + std::to_string(i) + "]")) / param.dt;
+            if (param.T_SE[i] == 0)
+                break;
+        }
+        param.n_SE = i;
     }
 
     // reading section SIMULATION_PARAMETERS
@@ -112,9 +140,7 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
         if(ini.get("SIMULATION_PARAMETERS").has("NUMBER_OF_SPINS"))
             param.n_spins = std::stof(ini.get("SIMULATION_PARAMETERS").get("NUMBER_OF_SPINS"));
         if(ini.get("SIMULATION_PARAMETERS").has("DIFFUSION_CONSTANT"))
-            param.diffusion_const = std::stof(ini.get("SIMULATION_PARAMETERS").get("DIFFUSION_CONSTANT"));
-        if(ini.get("SIMULATION_PARAMETERS").has("ENABLE_180_REFOCUSING"))
-            param.enRefocusing180 = ini.get("SIMULATION_PARAMETERS").get("ENABLE_180_REFOCUSING").compare("0") != 0;
+            param.diffusion_const = std::stof(ini.get("SIMULATION_PARAMETERS").get("DIFFUSION_CONSTANT"));        
         if(ini.get("SIMULATION_PARAMETERS").has("SAMPLE_LENGTH_SCALES[0]"))
         {
             sample_length_scales.clear();
@@ -146,6 +172,24 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
     return true;
 }
 
+bool read_header(std::string filename, input_header &hdr_in)
+{
+    if(std::filesystem::exists(filename) == false)
+    {
+        std::cout << ERR_MSG << "file does not exist: " << filename << std::endl;
+        return false;
+    }
+
+    std::ifstream in_field(filename, std::ios::in | std::ios::binary);
+    if (!in_field.is_open()) 
+    {
+        std::cout << ERR_MSG << "problem reading header of " << filename << std::endl;
+        return false;
+    }
+
+    in_field.read((char*)&hdr_in, sizeof(input_header));
+    return true;
+}
 
 bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<char> &mask, simulation_parameters& param)
 {
