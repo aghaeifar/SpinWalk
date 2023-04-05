@@ -8,4 +8,4 @@ hdr_extra = fread(fileID, hdr_size/4-numel(dims), 'single=>single');
 m_xyz = fread(fileID, prod(dims), 'single=>single');
 fclose(fileID);
 m_xyz = reshape(m_xyz, dims(:)');
-m_xyz = reshape(m_xyz, [dims(1), dims(2)*dims(3), dims(4)]);
+m_xyz = reshape(m_xyz, [dims(1), dims(2), dims(3), dims(4)]);
