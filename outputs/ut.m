@@ -44,7 +44,5 @@ for i=1:size(fname,1)
     end
 end
 
-
-
 %%
 
