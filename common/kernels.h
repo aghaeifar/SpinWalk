@@ -245,12 +245,14 @@ uint32_t is_masked(std::vector<T> &XYZ0, std::vector<char> &mask, simulation_par
     for(uint8_t i=0; i<3; i++)
         scale2grid[i] = (param->fieldmap_size[i]-1.) / param->sample_length[i];
 
-    std::vector<uint32_t> mask_counter(XYZ0.size()/3, false);
+    std::vector<uint8_t> mask_counter(XYZ0.size()/3, 0);
     #pragma omp parallel for
-    for (int32_t i=0; i<XYZ0.size(); i+=3)
+    for (int32_t i=0; i<XYZ0.size()/3; i++)
     {
-        uint64_t index = sub2ind(ROUND(XYZ0[i] * scale2grid[0]), ROUND(XYZ0[i+1] * scale2grid[1]), ROUND(XYZ0[i+2] * scale2grid[2]), param->fieldmap_size[0], param->fieldmap_size[1]);
-        mask_counter[i/3] = mask[index];
+        uint64_t index = sub2ind(ROUND(XYZ0[3*i] * scale2grid[0]), ROUND(XYZ0[3*i+1] * scale2grid[1]), ROUND(XYZ0[3*i+2] * scale2grid[2]), param->fieldmap_size[0], param->fieldmap_size[1]);
+        if (index >= mask.size())
+            std::cout << ERR_MSG << "Index out of range: " << index << " >= " << mask.size() << std::endl;
+        mask_counter[i] = mask[index];
     }
     return std::accumulate(mask_counter.begin(), mask_counter.end(), 0);
 }
