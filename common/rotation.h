@@ -13,6 +13,10 @@
 
 #include <cmath>
 
+const float DEG2RAD = 0.0174532925199433; // = M_PI/180 
+const float RAD2DEG = 57.2957795130823;
+
+
 #ifdef __CUDACC__
 __host__  __device__ __forceinline__
 #else
@@ -32,13 +36,22 @@ inline
 #endif
 void xrot(float theta, float *m0, float *m1)
 {
-    float s = sinf(theta);
-    float c = cosf(theta);
-    m1[0] = m0[0]; 
-    m1[1] = c*m0[1] - s*m0[2];
-    m1[2] = s*m0[1] + c*m0[2];
+    float s = sinf(theta * DEG2RAD);
+    float c = cosf(theta * DEG2RAD);
+    xrot(s, c, m0, m1);
 }
 
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__
+#else
+inline
+#endif
+void yrot(float sin_theta, float cos_theta, float *m0, float *m1)
+{
+    m1[0] =  cos_theta*m0[0] + sin_theta*m0[2];
+    m1[1] =  m0[1];
+    m1[2] = -sin_theta*m0[0] + cos_theta*m0[2];
+}
 
 #ifdef __CUDACC__
 __host__  __device__ __forceinline__
@@ -47,12 +60,11 @@ inline
 #endif
 void yrot(float theta, float *m0, float *m1)
 {
-    float s = sinf(theta);
-    float c = cosf(theta);
-    m1[0] = c*m0[0] + s*m0[2];
-    m1[1] = m0[1];
-    m1[2] = -s*m0[0] + c*m0[2];
+    float s = sinf(theta * DEG2RAD);
+    float c = cosf(theta * DEG2RAD);
+    yrot(s, c, m0, m1);
 }
+
 
 #ifdef __CUDACC__
 __host__  __device__ __forceinline__
@@ -73,18 +85,9 @@ inline
 #endif
 void zrot(float theta, float *m0, float *m1)
 {
-    if(theta == 0.0f)
-    {
-        m1[0] = m0[0];
-        m1[1] = m0[1];
-        m1[2] = m0[2];
-        return;
-    }
-    float s = sinf(theta);
-    float c = cosf(theta);
-    m1[0] = c*m0[0] - s*m0[1];
-    m1[1] = s*m0[0] + c*m0[1];
-    m1[2] = m0[2];
+    float s = sinf(theta * DEG2RAD);
+    float c = cosf(theta * DEG2RAD);
+    zrot(s, c, m0, m1);
 }
 
 
@@ -93,23 +96,32 @@ __host__  __device__ __forceinline__
 #else
 inline
 #endif
-void xrot_phasecycled(float sin_theta, float cos_theta, float phase_cycling, float *m0, float *m1)
+void xrot_withphase(float sin_theta, float cos_theta, float rf_phase, float *m0, float *m1)
 {
-    if (phase_cycling == 0.0f)
+    if (rf_phase == 0.0f)
     {
         xrot(sin_theta, cos_theta, m0, m1);
         return;
     }
-
-    if (phase_cycling == M_PI)
+    if (rf_phase == 180.0)
     {
         xrot(-sin_theta, cos_theta, m0, m1);
         return;
     }
+    if (rf_phase == 90.0)
+    {
+        yrot(sin_theta, cos_theta, m0, m1);
+        return;
+    }
+    if (rf_phase == -90.0 || rf_phase == 270.0)
+    {
+        yrot(-sin_theta, cos_theta, m0, m1);
+        return;
+    }
 
     float m1_t[3];
-    float s = sinf(phase_cycling);
-    float c = cosf(phase_cycling);    
+    float s = sinf(rf_phase * DEG2RAD);
+    float c = cosf(rf_phase * DEG2RAD);    
     zrot(-s, c, m0, m1);
     xrot(sin_theta, cos_theta, m1, m1_t);
     zrot(s, c, m1_t, m1);
@@ -121,6 +133,15 @@ void xrot_phasecycled(float sin_theta, float cos_theta, float phase_cycling, flo
     // disp(zrot(P) * xrot(rad2deg(fa)) * zrot(-P));
 }
 
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__
+#else
+inline
+#endif
+void xrot_withphase(float theta, float rf_phase, float *m0, float *m1)
+{
+    xrot_withphase(sin(theta*DEG2RAD), cos(theta*DEG2RAD), rf_phase, m0, m1);
+}
 
 #ifdef __CUDACC__
 __host__  __device__ __forceinline__

@@ -67,7 +67,7 @@ void simulation_kernel(const simulation_parameters *param, const float *pFieldMa
 #endif
 
     //uint16_t n_timepoints_local;
-    float accumulated_phase = 0., field = 0., phase_cycle = 0., time_elapsed = 0.; 
+    float field = 0., phase_cycle = 0., time_elapsed = 0.; 
     float m0[3], m1[3]; 
     float xyz[3], xyz_new[3];
     for(uint32_t i=0, shift=3*spin_no; i<3; i++)
@@ -80,7 +80,7 @@ void simulation_kernel(const simulation_parameters *param, const float *pFieldMa
     if (param->enApplyFA2)
     {
         //xrot(-param->s2, param->c2, m0, m1); // note this is -FA/2
-        xrot_phasecycled (param->s2, param->c2, phase_cycle += param->phase_cycling, m0, m1);
+        xrot_withphase (param->s2, param->c2, phase_cycle += param->phase_cycling, m0, m1);
         relax(param->e12, param->e22, m1, m0);
     }
 
@@ -93,13 +93,12 @@ void simulation_kernel(const simulation_parameters *param, const float *pFieldMa
         //alpha RF pulse (along x-axis) + TR or TR/2 relaxation
         //float s_cycl = (dummy_scan % 2 == 0) ? param->s : -param->s; // PI phase cycling, starts with +FA (since we have -FA/2 above as the first pulse)
         //xrot(s_cycl, param->c, m0, m1);
-        if (phase_cycle > M_2PI)
-            phase_cycle -= M_2PI;
+        if (phase_cycle > 360.0)
+            phase_cycle -= 360.0;
         else if (phase_cycle < 0)
-            phase_cycle += M_2PI;
+            phase_cycle += 360.0;
 
-        xrot_phasecycled (param->s, param->c, phase_cycle += param->phase_cycling, m0, m1);
-
+        xrot_withphase (param->s, param->c, phase_cycle += param->phase_cycling, m0, m1);
         // copy m1 to m0
         for(uint8_t i=0; i<3; i++)
             m0[i] = m1[i];
@@ -107,7 +106,7 @@ void simulation_kernel(const simulation_parameters *param, const float *pFieldMa
         // random walk with boundries and accomulate phase
         uint64_t ind=0, ind_old=param->matrix_length+1;
         uint16_t current_timepoint = 0, old_timepoint = 0;
-        accumulated_phase = 0;
+        float accumulated_phase = 0.f;
 
         while (current_timepoint < param->n_timepoints)
         {
@@ -127,12 +126,11 @@ void simulation_kernel(const simulation_parameters *param, const float *pFieldMa
             {               
                 if (pMask[ind] == true) // check doesn't cross a vessel 
                     continue;       
-                field = pFieldMap[ind];
-                ind_old = ind; 
+                field = pFieldMap[ind_old = ind];
             }     
             accumulated_phase += field;
 
-            // apply refocusing pulse 
+            // apply refocusing pulse if there is any
             if(param->enRefocusing)
             {
                 uint16_t ind = find_ind<uint16_t>(param->T_SE, param->n_SE, current_timepoint);                
@@ -140,12 +138,12 @@ void simulation_kernel(const simulation_parameters *param, const float *pFieldMa
                 {   
                     // dephase                 
                     accumulated_phase *= param->B0 * GAMMA * param->dt; // Fieldmap per Tesla to radian    
-                    zrot(accumulated_phase, m0, m1); 
+                    zrot(accumulated_phase * RAD2DEG, m0, m1); // dephase; zrot expects angle in degrees 
                     // relax
                     time_elapsed = (current_timepoint - old_timepoint) * param->dt;
                     relax(exp(-time_elapsed/param->T1), exp(-time_elapsed/param->T2), m1);
                     // refocusing pulse
-                    xrot(param->RF_SE[ind], m1, m0); // Note m0 and m1 are swapped here, so that we can use m0 for the next iteration
+                    xrot_withphase (param->RF_SE[ind], param->RF_SE_PHS[ind], m1, m0); // Note m0 and m1 are swapped here, so that we can use m0 for the next iteration
                     accumulated_phase = 0; // reset phase since we have applied it in the previous step
                     old_timepoint = current_timepoint;
                 }
@@ -159,7 +157,7 @@ void simulation_kernel(const simulation_parameters *param, const float *pFieldMa
                 {   
                     // dephase                  
                     accumulated_phase *= param->B0 * GAMMA * param->dt; // Fieldmap per Tesla to radian    
-                    zrot(accumulated_phase, m0, m1); 
+                    zrot(accumulated_phase * RAD2DEG, m0, m1); // dephase; zrot expects angle in degrees 
                     // relax                    
                     time_elapsed = (current_timepoint - old_timepoint) * param->dt;
                     relax(exp(-time_elapsed/param->T1), exp(-time_elapsed/param->T2), m1);
@@ -178,7 +176,7 @@ void simulation_kernel(const simulation_parameters *param, const float *pFieldMa
         }
         // dephase
         accumulated_phase *= param->B0 * GAMMA * param->dt; // Fieldmap per Tesla to radian     
-        zrot(accumulated_phase, m0, m1); // dephase
+        zrot(accumulated_phase * RAD2DEG, m0, m1); // dephase; zrot expects angle in degrees 
         // relax
         time_elapsed = (current_timepoint - old_timepoint) * param->dt;
         relax(exp(-time_elapsed/param->T1), exp(-time_elapsed/param->T2), m1);
@@ -279,11 +277,11 @@ void simulate_steady_state(simulation_parameters param)
         for (uint32_t dummy_scan = 0; dummy_scan < param.n_dummy_scan; dummy_scan++)
         {
             // s_cycl = (dummy_scan % 2 == 0) ? -param.s : param.s;
-            if (phase_cycle > M_2PI)
-                phase_cycle -= M_2PI;
+            if (phase_cycle > 360.0)
+                phase_cycle -= 360.0;
             else if (phase_cycle < 0)
-                phase_cycle += M_2PI;
-            xrot_phasecycled (param.s, param.c, phase_cycle += param.phase_cycling, m0t, m1t);
+                phase_cycle += 360.0;
+            xrot_withphase (param.s, param.c, phase_cycle += param.phase_cycling, m0t, m1t);
 
             if (dummy_scan != param.n_dummy_scan - 1)
                 relax (param.e1, param.e2, m1t);

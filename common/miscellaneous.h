@@ -10,6 +10,7 @@
 #ifndef __MISCELLANEOUS_H__
 #define __MISCELLANEOUS_H__
 
+#include <cuda_runtime.h>
 #include <filesystem>
 #include <stdint.h>
 #include <iostream>
@@ -24,23 +25,18 @@
 #define MAX_SE 20   // maximum number of spin-echoes
 #define MAX_TE 60   // maximum number of echo times
 
-#ifndef M_PI
-#define M_PI 3.14159265359
-#endif
-
-#define M_2PI 6.28318530718
 
 typedef struct simulation_parameters
 {
     float T1, T2, FA, TR, dt, B0, e1, e12, e2, e22, c, s, c2, s2;
-    float RF_SE[MAX_SE]; // refocusing FA
+    float RF_SE[MAX_SE], RF_SE_PHS[MAX_SE]; // refocusing FA
     uint16_t T_SE[MAX_SE], TE[MAX_TE]; // refocusing time in dt, echo times in dt
     float sample_length[3], scale2grid[3], diffusion_const, phase_cycling;
     uint16_t n_dummy_scan, n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_SE;
     uint32_t n_spins, fieldmap_size[3], seed;
     uint64_t matrix_length;
     bool enDebug, enSteadyStateSimulation, enRefocusing, enApplyFA2;
-    simulation_parameters():T1(2.2),T2(0.04),FA(16*M_PI/180.),TR(0.04),dt(5e-5),B0(9.4),n_TE(0),n_SE(0),n_dummy_scan(0),phase_cycling(0.),enSteadyStateSimulation(false),enRefocusing(false),enApplyFA2(false),enDebug(false)
+    simulation_parameters():T1(2.2),T2(0.04),FA(16),TR(0.04),dt(5e-5),B0(9.4),n_TE(0),n_SE(0),n_dummy_scan(0),phase_cycling(0.),enSteadyStateSimulation(false),enRefocusing(false),enApplyFA2(false),enDebug(false)
     {
         memset(fieldmap_size, 0, 3*sizeof(fieldmap_size[0])); 
         memset(sample_length, 0, 3*sizeof(sample_length[0]));
@@ -51,7 +47,7 @@ typedef struct simulation_parameters
 
     void dump()
     {
-        std::cout<<"T1="<<T1<<" T2="<<T2<<" FA="<<FA*180/M_PI<<" TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
+        std::cout<<"T1="<<T1<<" T2="<<T2<<" FA="<<FA<<" TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
         std::cout<<"TE = "; for(int i=0; i<n_TE; i++) std::cout<<TE[i]*dt<<' '; std::cout<<'\n';
         std::cout<<"Refocusing RF degree = "; for(int i=0; i<n_SE; i++) std::cout<<RF_SE[i]<<' '; std::cout<<'\n';
         std::cout<<"Refocusing RF time = "; for(int i=0; i<n_SE; i++) std::cout<<T_SE[i]*dt<<' '; std::cout<<'\n';
@@ -68,6 +64,10 @@ typedef struct simulation_parameters
         uint16_t variables_size_MB = n_spins * 3 *  (4 + n_TE) * sizeof(float) / 1024 / 1024;
         std::cout<<"Required GPU memory ≈ " << fieldmap_size_MB << " MB + " << variables_size_MB << " MB (fieldmap + variables)" << '\n';
         std::cout<<"Required RAM ≈ " << fieldmap_size_MB << " MB + " << variables_size_MB * n_sample_length_scales << " MB (fieldmap + variables)" << '\n';
+
+        size_t free, total;
+        cudaMemGetInfo(&free, &total);
+        std::cout << "Free GPU memory: " << free / 1024 / 1024 << " MB (out of " << total / 1024 / 1024 << " MB)" << std::endl;
     }
 #ifdef __CUDACC__
     __device__ void ddump()
@@ -78,8 +78,8 @@ typedef struct simulation_parameters
 
     void prepare()
     {
-        c = cosf(FA); c2 = cosf(FA/2.); 
-        s = sinf(FA); s2 = sinf(FA/2.);
+        c = cosf(FA * DEG2RAD); c2 = cosf(FA * DEG2RAD / 2.0f); 
+        s = sinf(FA * DEG2RAD); s2 = sinf(FA * DEG2RAD / 2.0f);
         e1  = exp(-TR / T1); e12 = exp(-TR / (2. * T1));
         e2  = exp(-TR / T2); e22 = exp(-TR / (2. * T2));
         matrix_length = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2];

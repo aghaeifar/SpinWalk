@@ -15,6 +15,7 @@
 
 #include "./common/kernels.h"
 #include "./common/reader.h"
+#include "./common/tqdm.h"
 
 
 #define THREADS_PER_BLOCK  64
@@ -75,10 +76,8 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             std::generate(M0.begin(), M0.end(), [&index](){return (index++ % 3 == 2) ? 1.f : 0.f;});
         }
 
-        if(param.enDebug)
-            for(int i=0; i<M0.size()/3; i += M0.size()/3/2)
-                std::cout << "M0 of the spin " << i << " = (" << M0[3*i] << ", " << M0[3*i+1] << ", " << M0[3*i+2] << ")" << std::endl;
-
+        for(int i=0; i<M0.size()/3 && param.enDebug; i += M0.size()/3/2)
+            std::cout << "M0 of the spin " << i << " = (" << M0[3*i] << ", " << M0[3*i+1] << ", " << M0[3*i+2] << ")" << std::endl;
 
         for(int i=0; i<3; i++)
             param.scale2grid[i] = (param.fieldmap_size[i] - 1.) / param.sample_length[i];
@@ -106,17 +105,16 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             checkCudaErrors(cudaMalloc((void**)&d_param[d],         sizeof(simulation_parameters)));
             checkCudaErrors(cudaMalloc((void**)&d_pFieldMap[d],     sizeof(fieldmap[0]) * fieldmap.size()));   
             checkCudaErrors(cudaMalloc((void**)&d_pMask[d],         sizeof(mask[0]) * mask.size())); 
-            checkCudaErrors(cudaMalloc((void**)&d_XYZ0[d],          sizeof(float) * param.n_spins * 3));
-            checkCudaErrors(cudaMalloc((void**)&d_XYZ0_scaled[d],   sizeof(float) * param.n_spins * 3));
-            checkCudaErrors(cudaMalloc((void**)&d_XYZ1[d],          sizeof(float) * param.n_spins * 3));
-            checkCudaErrors(cudaMalloc((void**)&d_M0[d],            sizeof(float) * param.n_spins * 3));
-            checkCudaErrors(cudaMalloc((void**)&d_M1[d],            sizeof(float) * param.n_spins * 3 * param.n_TE));
+            checkCudaErrors(cudaMalloc((void**)&d_XYZ0[d],          sizeof(float) * 3 * param.n_spins));
+            checkCudaErrors(cudaMalloc((void**)&d_XYZ0_scaled[d],   sizeof(float) * 3 * param.n_spins));
+            checkCudaErrors(cudaMalloc((void**)&d_XYZ1[d],          sizeof(float) * 3 * param.n_spins));
+            checkCudaErrors(cudaMalloc((void**)&d_M0[d],            sizeof(float) * 3 * param.n_spins));
+            checkCudaErrors(cudaMalloc((void**)&d_M1[d],            sizeof(float) * 3 * param.n_TE * param.n_spins));
             
-            
-            checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(),        fieldmap.size() * sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
-            checkCudaErrors(cudaMemcpyAsync(d_pMask[d],     mask.data(),            mask.size() * sizeof(mask[0]),         cudaMemcpyHostToDevice, streams[d]));
-            checkCudaErrors(cudaMemcpyAsync(d_param[d],     &param,                 sizeof(simulation_parameters),         cudaMemcpyHostToDevice, streams[d]));
-            checkCudaErrors(cudaMemcpyAsync(d_M0[d],   M0.data()+3*param.n_spins*d, M0.size()/device_count * sizeof(M0[0]),cudaMemcpyHostToDevice, streams[d]));
+            checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(),        fieldmap.size()*sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
+            checkCudaErrors(cudaMemcpyAsync(d_pMask[d],     mask.data(),            mask.size() * sizeof(mask[0]),       cudaMemcpyHostToDevice, streams[d]));
+            checkCudaErrors(cudaMemcpyAsync(d_param[d],     &param,                 sizeof(simulation_parameters),       cudaMemcpyHostToDevice, streams[d]));
+            checkCudaErrors(cudaMemcpyAsync(d_M0[d],        &M0[3*param.n_spins*d], 3*param.n_spins*sizeof(M0[0]),       cudaMemcpyHostToDevice, streams[d]));
             
             if(hasXYZ0 == false)
             {   // generate initial spatial position for spins, based on sample_length_ref
@@ -126,7 +124,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
                 printf("Done!\n");
             }
             else // copy initial spatial position and magnetization for spins
-                checkCudaErrors(cudaMemcpyAsync(d_XYZ0[d], &XYZ0[3*param.n_spins*d], 3 * param.n_spins * sizeof(XYZ0[0]), cudaMemcpyHostToDevice, streams[d]));      
+                checkCudaErrors(cudaMemcpyAsync(d_XYZ0[d], &XYZ0[3*param.n_spins*d], 3*param.n_spins*sizeof(XYZ0[0]), cudaMemcpyHostToDevice, streams[d]));      
         }
 
         // ========== run ==========        
@@ -136,6 +134,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         checkCudaErrors(cudaEventCreate(&end));
         checkCudaErrors(cudaEventRecord(start));
         
+        tqdm bar;
         simulation_parameters param_local;
         memcpy(&param_local, &param, sizeof(simulation_parameters));
         for (int32_t sl = 0; sl < param.n_sample_length_scales; sl++)
@@ -145,12 +144,10 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
                 param_local.sample_length[i] = sample_length_scales[sl] * param.sample_length[i];
                 param_local.scale2grid[i] = (param_local.fieldmap_size[i] - 1.) / param_local.sample_length[i];
             }
-
+            
             #pragma omp parallel for
             for (int32_t d = 0; d < device_count; d++)
-            {
-                if (param.n_sample_length_scales > 1)
-                    printf("GPU %d) Simulating sample scale %2d = %8.5f\n", d, sl, sample_length_scales[sl]);
+            {                    
                 checkCudaErrors(cudaSetDevice(d));
                 cudaMemcpy(d_param[d], &param_local, sizeof(simulation_parameters), cudaMemcpyHostToDevice);
 
@@ -160,12 +157,14 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
                 simulation_kernel<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_param[d], d_pFieldMap[d], d_pMask[d], d_M0[d], d_XYZ0_scaled[d], d_M1[d], d_XYZ1[d]);
                 gpuCheckKernelExecutionError(__FILE__, __LINE__);
 
-                int shift = 3*param.n_spins*param.n_TE*device_count*sl + 3*param.n_spins*param.n_TE*d;
-                checkCudaErrors(cudaMemcpyAsync(M1.data()   + shift, d_M1[d]  , sizeof(float)*3*param.n_spins*param.n_TE, cudaMemcpyDeviceToHost, streams[d]));
+                int shift = 3*param.n_TE*param.n_spins*device_count*sl + 3*param.n_TE*param.n_spins*d;
+                checkCudaErrors(cudaMemcpyAsync(M1.data()   + shift, d_M1[d]  , 3*param.n_TE*param.n_spins*sizeof(float), cudaMemcpyDeviceToHost, streams[d]));
                 shift = 3*param.n_spins*device_count*sl + 3*param.n_spins*d;
-                checkCudaErrors(cudaMemcpyAsync(XYZ1.data() + shift, d_XYZ1[d], sizeof(float)*3*param.n_spins, cudaMemcpyDeviceToHost, streams[d]));
+                checkCudaErrors(cudaMemcpyAsync(XYZ1.data() + shift, d_XYZ1[d], 3*param.n_spins*sizeof(float), cudaMemcpyDeviceToHost, streams[d]));
             }
+            bar.progress(sl, param.n_sample_length_scales);
         }
+        bar.finish();
 
         float elapsedTime;
         checkCudaErrors(cudaEventRecord(end));
@@ -252,12 +251,14 @@ int main(int argc, char * argv[])
         if(param.enDebug)
         {
             std::cout << "Dumping settings:" << std::endl;
-            for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it, std::cout << std::endl)
+            for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it)
                 for (int i = 0; i< it->second.size(); i++)
                     std::cout << it->first << "[" << i << "] = " << it->second.at(i) << std::endl;
             
+            std::cout << "\nSample length scale = [ ";
             for (int32_t i = 0; i < param.n_sample_length_scales; i++)
-                std::cout << "Sample length scale " << i << " = " << sample_length_scales[i] << std::endl;
+                std::cout << sample_length_scales[i] << ", ";
+            std::cout << "\r\r ]\n" << std::endl;
 
             input_header hdr_in;
             if(reader::read_header(filenames.at("fieldmap")[0], hdr_in) == false)

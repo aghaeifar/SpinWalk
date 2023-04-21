@@ -95,11 +95,11 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
         if(ini.get("SCAN_PARAMETERS").has("DUMMY_SCAN"))
             param.n_dummy_scan  = std::stoi(ini.get("SCAN_PARAMETERS").get("DUMMY_SCAN"));
         if(ini.get("SCAN_PARAMETERS").has("FA"))
-            param.FA = std::stof(ini.get("SCAN_PARAMETERS").get("FA")) * M_PI / 180.; // convert to radian
+            param.FA = std::stof(ini.get("SCAN_PARAMETERS").get("FA")) ; // convert to radian
         if(ini.get("SCAN_PARAMETERS").has("APPLY_FA/2"))
             param.enApplyFA2 = ini.get("SCAN_PARAMETERS").get("APPLY_FA/2").compare("0") != 0;
         if(ini.get("SCAN_PARAMETERS").has("PHASE_CYCLING"))
-            param.phase_cycling = std::stof(ini.get("SCAN_PARAMETERS").get("PHASE_CYCLING")) * M_PI / 180.; // convert to radian
+            param.phase_cycling = std::stof(ini.get("SCAN_PARAMETERS").get("PHASE_CYCLING")) ; // convert to radian
 
         if(ini.get("SCAN_PARAMETERS").has("ENABLE_REFOCUSING"))
             param.enRefocusing = ini.get("SIMULATION_PARAMETERS").get("ENABLE_REFOCUSING").compare("0") != 0;
@@ -119,7 +119,17 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
         }
 
         for(i=0; i<MAX_SE && ini.get("SCAN_PARAMETERS").has("RF_SE[" + std::to_string(i) + "]"); i++)
-            param.RF_SE[i] = std::stof(ini.get("SCAN_PARAMETERS").get("RF_SE[" + std::to_string(i) + "]")) * M_PI / 180.; // convert to radian
+            param.RF_SE[i] = std::stof(ini.get("SCAN_PARAMETERS").get("RF_SE[" + std::to_string(i) + "]")) ; // convert to radian
+        int ii = i;
+
+        for(i=0; i<MAX_SE && ini.get("SCAN_PARAMETERS").has("RF_SE_PHS[" + std::to_string(i) + "]"); i++)
+            param.RF_SE_PHS[i] = std::stof(ini.get("SCAN_PARAMETERS").get("RF_SE_PHS[" + std::to_string(i) + "]")) ; // convert to radian
+
+        if(ii != i)
+        {
+            std::cout << ERR_MSG << "RF_SE and RF_SE_PHS must have the same number of elements" << std::endl;
+            return false;
+        }
 
         for(i=0; i<MAX_SE && ini.get("SCAN_PARAMETERS").has("T_SE[" + std::to_string(i) + "]"); i++)
         {
@@ -127,6 +137,12 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             if (param.T_SE[i] == 0)
                 break;
         }
+        if(ii != i)
+        {
+            std::cout << ERR_MSG << "Not enought or too many T_SE is defined (expected " << ii << " elements but found " << i << ")" << std::endl;
+            return false;
+        }
+
         param.n_SE = i;
     }
 
