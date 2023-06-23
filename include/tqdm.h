@@ -1,6 +1,10 @@
 #ifndef TQDM_H
 #define TQDM_H
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 #include <chrono>
 #include <ctime>
 #include <numeric>
@@ -159,13 +163,18 @@ class tqdm {
                         printf("\033[32m");
                     }
                 }
-                for (int i = 0; i < ifills; i++) std::cout << bars[8];
-                if (!in_screen and (curr != tot)) printf("%s",bars[(int)(8.0*(fills-ifills))]);
-                for (int i = 0; i < width-ifills-1; i++) std::cout << bars[0];
+                for (int i = 0; i < ifills; i++) 
+					std::cout << bars[8];
+                if (!in_screen && (curr != tot)) 
+					printf("%s",bars[(int)(8.0*(fills-ifills))]);
+                for (int i = 0; i < width-ifills-1; i++) 
+					std::cout << bars[0];
                 printf("%s ", right_pad.c_str());
-                if (use_colors) printf("\033[1m\033[31m");
+                if (use_colors) 
+					printf("\033[1m\033[31m");
                 printf("%4.1f%% ", pct);
-                if (use_colors) printf("\033[34m");
+                if (use_colors) 
+					printf("\033[34m");
                 // Ali:
                 /*
                 std::string unit = "Hz";

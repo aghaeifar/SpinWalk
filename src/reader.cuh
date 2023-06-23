@@ -13,8 +13,8 @@
 
 #include <cmath>
 
-const float DEG2RAD = 0.0174532925199433; // = M_PI/180 
-const float RAD2DEG = 57.2957795130823;
+#define DEG2RAD 0.0174532925199433 // = M_PI/180 
+#define RAD2DEG 57.2957795130823
 
 
 #ifdef __CUDACC__

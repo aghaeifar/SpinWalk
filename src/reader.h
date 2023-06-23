@@ -40,7 +40,7 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
         if(ini.get("parent").has("parent_config"))
         {
             std::string parent_config = ini.get("parent").get("parent_config");            
-            parent_config = std::filesystem::absolute(parent_config);
+            parent_config = std::filesystem::absolute(parent_config).string();
             std::cout << "Reading parent config: " << parent_config << std::endl;
             if (read_config(parent_config, param, sample_length_scales, filenames) == false)
                 return false;

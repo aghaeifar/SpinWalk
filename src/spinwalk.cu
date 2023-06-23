@@ -13,9 +13,9 @@
 #include <random>
 #include <filesystem>
 
-#include "./common/kernels.h"
-#include "./common/reader.h"
-#include "./common/tqdm.h"
+#include "kernels.h"
+#include "reader.h"
+#include "tqdm.h"
 
 
 #define THREADS_PER_BLOCK  64
@@ -217,11 +217,11 @@ int main(int argc, char * argv[])
     std::cout << "Running " << config_files.size() << " simulation(s)..." << std::endl;
     for(uint8_t cnf=0; cnf<config_files.size(); cnf++)
     {
-        map<string, vector<string> > filenames = {{"fieldmap", vector<string>()},
-                                                  {"xyz0", vector<string>()},
-                                                  {"xyz1", vector<string>()},
-                                                  {"m0", vector<string>()},
-                                                  {"m1", vector<string>()} }; 
+        map<string, vector<string> > filenames = {{"fieldmap", 	vector<string>()},
+                                                  {"xyz0", 		vector<string>()},
+                                                  {"xyz1", 		vector<string>()},
+                                                  {"m0", 		vector<string>()},
+                                                  {"m1", 		vector<string>()}}; 
 
         std::vector<float> sample_length_scales;
         simulation_parameters param;
