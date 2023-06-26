@@ -1,21 +1,22 @@
 
 /* --------------------------------------------------------------------------
- * Project: Microvascular
- * File: miscellaneous.h
+ * Project: SpinWalk
+ * File: file_utils.h
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
  * Descrip  : simulating BOLD in microvascular network
  * -------------------------------------------------------------------------- */
 
-#ifndef __CONFIG_READER_H__
-#define __CONFIG_READER_H__
+#ifndef __FILE_UTILS_H__
+#define __FILE_UTILS_H__
 
+#include <filesystem>
 #include <map>
-#include "ini.h"
 #include "miscellaneous.h"
+#include "ini.h"
 
-namespace reader
+namespace file_utils
 {
 
 bool read_config(std::string config_filename, simulation_parameters& param, std::vector<float>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames)
@@ -179,13 +180,12 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
     {
         if(ini.get("DEBUG").has("DUMP_INFO"))
             param.enDebug = ini.get("DEBUG").get("DUMP_INFO").compare("0") != 0;
-        if(ini.get("DEBUG").has("SIMULATE_STEADYSTATE"))
-            param.enSteadyStateSimulation  = ini.get("DEBUG").get("SIMULATE_STEADYSTATE").compare("0") != 0;
     }   
 
     param.prepare(); 
     return true;
 }
+
 
 bool read_header(std::string filename, input_header &hdr_in)
 {
@@ -205,6 +205,7 @@ bool read_header(std::string filename, input_header &hdr_in)
     in_field.read((char*)&hdr_in, sizeof(input_header));
     return true;
 }
+
 
 bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<char> &mask, simulation_parameters& param)
 {
@@ -268,5 +269,35 @@ bool read_file(std::string filename, std::vector<T> &storage)
     return true;
 }
 
+
+bool save_output(std::vector<float> &data, std::string output_filename, output_header hdr, std::vector<float> &additional_hdr)
+{
+    std::cout << "Saving output to: " << std::filesystem::absolute(output_filename) << std::endl;
+    std::filesystem::path parent_path = std::filesystem::absolute(output_filename).parent_path();
+    if (std::filesystem::is_directory(parent_path) == false)
+    {
+        std::cout << ERR_MSG << "cannot find directory " << parent_path.string() << ". Trying to create it." << std::endl;
+        if(std::filesystem::create_directories(parent_path) == false)
+        {
+            std::cout << ERR_MSG << "cannot create directory " << parent_path.string() << std::endl;
+            return false;
+        }
+    }
+
+    std::ofstream file(output_filename, std::ios::out | std::ios::binary);
+    if (file.is_open() == false)
+    {
+        std::cout << ERR_MSG << "cannot open file " << std::filesystem::absolute(output_filename) << std::endl;
+        return false;
+    }
+    int32_t header_size = sizeof(output_header) + additional_hdr.size() * sizeof(additional_hdr[0]);
+    file.write((char*)&header_size, sizeof(int32_t));
+    file.write((char*)&hdr, sizeof(output_header));
+    file.write((char*)additional_hdr.data(), additional_hdr.size() * sizeof(additional_hdr[0]));
+    file.write((char*)data.data(), data.size() * sizeof(data[0]));
+    file.close();
+    return true; 
 }
-#endif  // __CONFIG_READER_H__
+
+}
+#endif  // __FILE_UTILS_H__

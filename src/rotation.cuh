@@ -1,7 +1,7 @@
 
 /* --------------------------------------------------------------------------
- * Project: Microvascular
- * File: rotation.h
+ * Project: SpinWalk
+ * File: rotation.cuh
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
@@ -17,48 +17,31 @@
 #define RAD2DEG 57.2957795130823
 
 
-#ifdef __CUDACC__
-__host__  __device__ __forceinline__
-#else
-inline
-#endif
-void xrot(float sin_theta, float cos_theta, float *m0, float *m1)
+__host__  __device__ __forceinline__ void xrot(float sin_theta, float cos_theta, float *m0, float *m1)
 {
     m1[0] = m0[0]; 
     m1[1] = cos_theta*m0[1] - sin_theta*m0[2];
     m1[2] = sin_theta*m0[1] + cos_theta*m0[2];
 }
 
-#ifdef __CUDACC__
-__host__  __device__ __forceinline__
-#else
-inline
-#endif
-void xrot(float theta, float *m0, float *m1)
+
+__host__  __device__ __forceinline__ void xrot(float theta, float *m0, float *m1)
 {
     float s = sinf(theta * DEG2RAD);
     float c = cosf(theta * DEG2RAD);
     xrot(s, c, m0, m1);
 }
 
-#ifdef __CUDACC__
-__host__  __device__ __forceinline__
-#else
-inline
-#endif
-void yrot(float sin_theta, float cos_theta, float *m0, float *m1)
+
+__host__  __device__ __forceinline__ void yrot(float sin_theta, float cos_theta, float *m0, float *m1)
 {
     m1[0] =  cos_theta*m0[0] + sin_theta*m0[2];
     m1[1] =  m0[1];
     m1[2] = -sin_theta*m0[0] + cos_theta*m0[2];
 }
 
-#ifdef __CUDACC__
-__host__  __device__ __forceinline__
-#else
-inline
-#endif
-void yrot(float theta, float *m0, float *m1)
+
+__host__  __device__ __forceinline__ void yrot(float theta, float *m0, float *m1)
 {
     float s = sinf(theta * DEG2RAD);
     float c = cosf(theta * DEG2RAD);
@@ -66,24 +49,15 @@ void yrot(float theta, float *m0, float *m1)
 }
 
 
-#ifdef __CUDACC__
-__host__  __device__ __forceinline__
-#else
-inline
-#endif
-void zrot(float sin_theta, float cos_theta, float *m0, float *m1)
+__host__  __device__ __forceinline__ void zrot(float sin_theta, float cos_theta, float *m0, float *m1)
 {
     m1[0] = cos_theta*m0[0] - sin_theta*m0[1];
     m1[1] = sin_theta*m0[0] + cos_theta*m0[1];
     m1[2] = m0[2];
 }
 
-#ifdef __CUDACC__
-__host__  __device__ __forceinline__
-#else
-inline
-#endif
-void zrot(float theta, float *m0, float *m1)
+
+__host__  __device__ __forceinline__ void zrot(float theta, float *m0, float *m1)
 {
     float s = sinf(theta * DEG2RAD);
     float c = cosf(theta * DEG2RAD);
@@ -91,12 +65,7 @@ void zrot(float theta, float *m0, float *m1)
 }
 
 
-#ifdef __CUDACC__
-__host__  __device__ __forceinline__
-#else
-inline
-#endif
-void xrot_withphase(float sin_theta, float cos_theta, float rf_phase, float *m0, float *m1)
+__host__  __device__ __forceinline__ void xrot_withphase(float sin_theta, float cos_theta, float rf_phase, float *m0, float *m1)
 {
     if (rf_phase == 0.0f)
     {
@@ -133,34 +102,22 @@ void xrot_withphase(float sin_theta, float cos_theta, float rf_phase, float *m0,
     // disp(zrot(P) * xrot(rad2deg(fa)) * zrot(-P));
 }
 
-#ifdef __CUDACC__
-__host__  __device__ __forceinline__
-#else
-inline
-#endif
-void xrot_withphase(float theta, float rf_phase, float *m0, float *m1)
+
+__host__  __device__ __forceinline__ void xrot_withphase(float theta, float rf_phase, float *m0, float *m1)
 {
     xrot_withphase(sin(theta*DEG2RAD), cos(theta*DEG2RAD), rf_phase, m0, m1);
 }
 
-#ifdef __CUDACC__
-__host__  __device__ __forceinline__
-#else
-inline
-#endif
-void relax(float e1, float e2, float *m0, float *m1)
+
+__host__  __device__ __forceinline__ void relax(float e1, float e2, float *m0, float *m1)
 {
     m1[0] = m0[0] * e2;
     m1[1] = m0[1] * e2;
     m1[2] = 1. + e1*(m0[2] - 1.);
 }
 
-#ifdef __CUDACC__
-__host__  __device__ __forceinline__
-#else
-inline
-#endif
-void relax(float e1, float e2, float *m)
+
+__host__  __device__ __forceinline__ void relax(float e1, float e2, float *m)
 {
     relax(e1, e2, m, m);
 }

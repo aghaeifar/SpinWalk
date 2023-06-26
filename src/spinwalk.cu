@@ -1,6 +1,6 @@
 /* --------------------------------------------------------------------------
- * Project: Microvascular
- * File: microvascular_gpu.cu
+ * Project: SpinWalk
+ * File: spinwalk.cu
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
@@ -12,11 +12,10 @@
 
 #include <random>
 #include <filesystem>
-
-#include "kernels.h"
-#include "reader.h"
+#include "helper_cuda.h"
+#include "kernels.cuh"
+#include "file_utils.h"
 #include "tqdm.h"
-
 
 #define THREADS_PER_BLOCK  64
 
@@ -46,12 +45,12 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     {
         bool hasXYZ0 = false;
         // ========== load files (field-maps, xyz0, m0) ==========
-        if(reader::read_fieldmap(filenames.at("fieldmap")[fieldmap_no], fieldmap, mask, param) == false)
+        if(file_utils::read_fieldmap(filenames.at("fieldmap")[fieldmap_no], fieldmap, mask, param) == false)
             return false;
 
         if(filenames.at("xyz0")[fieldmap_no].empty() == false)
         {
-            if(reader::read_file(filenames.at("xyz0")[fieldmap_no], XYZ0) == false)
+            if(file_utils::read_file(filenames.at("xyz0")[fieldmap_no], XYZ0) == false)
                 return false;
             
             std::cout << "Checking XYZ0 is not in the mask..." << std::endl;
@@ -66,7 +65,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 
         if(filenames.at("m0")[fieldmap_no].empty() == false)
         {
-            if(reader::read_file(filenames.at("m0")[fieldmap_no], M0) == false)
+            if(file_utils::read_file(filenames.at("m0")[fieldmap_no], M0) == false)
                 return false;
         }
         else
@@ -92,7 +91,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         std::vector<float *> d_pFieldMap(device_count, NULL);
         std::vector<float *> d_M0(device_count, NULL), d_M1(device_count, NULL);
         std::vector<float *> d_XYZ1(device_count, NULL), d_XYZ0(device_count, NULL), d_XYZ0_scaled(device_count, NULL);
-        std::vector<bool *> d_pMask(device_count, NULL);
+        std::vector<bool *>  d_pMask(device_count, NULL);
         std::vector<simulation_parameters *> d_param(device_count, NULL);
         std::vector<cudaStream_t> streams(device_count, NULL);
 
@@ -119,7 +118,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             if(hasXYZ0 == false)
             {   // generate initial spatial position for spins, based on sample_length_ref
                 printf("GPU %d) Generating random initial position for spins... ", d);
-                generate_initial_position<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_XYZ0[d], d_param[d], d_pMask[d]);
+                cu_randPosGen<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_XYZ0[d], d_param[d], d_pMask[d]);
                 gpuCheckKernelExecutionError( __FILE__, __LINE__);
                 printf("Done!\n");
             }
@@ -151,10 +150,10 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
                 checkCudaErrors(cudaSetDevice(d));
                 cudaMemcpy(d_param[d], &param_local, sizeof(simulation_parameters), cudaMemcpyHostToDevice);
 
-                scale_initial_positions<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_XYZ0_scaled[d], d_XYZ0[d], sample_length_scales[sl], param.n_spins);
+                cu_scalePos<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_XYZ0_scaled[d], d_XYZ0[d], sample_length_scales[sl], param.n_spins);
                 gpuCheckKernelExecutionError(__FILE__, __LINE__);
 
-                simulation_kernel<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_param[d], d_pFieldMap[d], d_pMask[d], d_M0[d], d_XYZ0_scaled[d], d_M1[d], d_XYZ1[d]);
+                cu_sim<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_param[d], d_pFieldMap[d], d_pMask[d], d_M0[d], d_XYZ0_scaled[d], d_M1[d], d_XYZ1[d]);
                 gpuCheckKernelExecutionError(__FILE__, __LINE__);
 
                 int shift = 3*param.n_TE*param.n_spins*device_count*sl + 3*param.n_TE*param.n_spins*d;
@@ -191,11 +190,11 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         
         // ========== save results ========== 
         output_header hdr(3, param.n_TE, param.n_spins * device_count, param.n_sample_length_scales);
-        save_output(M1, filenames.at("m1")[fieldmap_no], hdr, sample_length_scales);
+        file_utils::save_output(M1, filenames.at("m1")[fieldmap_no], hdr, sample_length_scales);
 
         hdr.dim2 = 1;
         if(filenames.at("xyz1")[fieldmap_no].empty() == false) // do not save if filename is empty
-            save_output(XYZ1, filenames.at("xyz1")[fieldmap_no], hdr, sample_length_scales);
+            file_utils::save_output(XYZ1, filenames.at("xyz1")[fieldmap_no], hdr, sample_length_scales);
 
         std::cout << std::string(50, '=') << std::endl;
     }
@@ -211,6 +210,7 @@ int main(int argc, char * argv[])
         std::cout << "Usage: " << argv[0] << " <config_file>" << std::endl;
         return 1;
     }
+    // add config files
     for(uint8_t i=1; i<argc; i++)
         config_files.push_back(argv[i]);
 
@@ -229,7 +229,7 @@ int main(int argc, char * argv[])
         // ========== read config file ==========
         param.fieldmap_size[0] = param.fieldmap_size[1] = param.fieldmap_size[2] = 0;
         param.sample_length[0] = param.sample_length[1] = param.sample_length[2] = 0.f;
-        if(reader::read_config(config_files[cnf], param, sample_length_scales, filenames) == false)
+        if(file_utils::read_config(config_files[cnf], param, sample_length_scales, filenames) == false)
         {
             std::cout << ERR_MSG << "reading config file failed. Aborting...!" << std::endl;
             return 1;
@@ -239,13 +239,6 @@ int main(int argc, char * argv[])
             param.seed = std::random_device{}();
 
         param.n_timepoints = param.TR / param.dt; // includes start point
-
-        // ========== simulating steady-state signal ==========
-        if(param.enSteadyStateSimulation)
-        {
-            simulate_steady_state(param);
-            std::cout<< std::string(50, '=')  << std::endl;
-        }
 
         // ========== Dump Settings ==========
         if(param.enDebug)
@@ -261,7 +254,7 @@ int main(int argc, char * argv[])
             std::cout << "\r\r ]\n" << std::endl;
 
             input_header hdr_in;
-            if(reader::read_header(filenames.at("fieldmap")[0], hdr_in) == false)
+            if(file_utils::read_header(filenames.at("fieldmap")[0], hdr_in) == false)
                 return 1;
             std::copy(hdr_in.fieldmap_size, hdr_in.fieldmap_size+3, param.fieldmap_size);
             std::copy(hdr_in.sample_length, hdr_in.sample_length+3, param.sample_length);
