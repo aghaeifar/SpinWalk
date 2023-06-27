@@ -1,4 +1,4 @@
-<a href={[https://github.com/Ehyaei/Open-Academic-Graph](https://github.com/aghaeifar/SpinWalk/)}><img src="doc/img/logo.svg" alt="SpinWalk Logo" align="right" width="160" style="padding: 0 15px; float: right;"/>
+<a href={[https://github.com/Ehyaei/Open-Academic-Graph](https://github.com/aghaeifar/SpinWalk/)}><img src="doc/img/logo.png" alt="SpinWalk Logo" align="right" width="160" style="padding: 0 15px; float: right;"/>
 
 # MR simulator for microvascular network
 ![Build Status](https://github.com/aghaeifar/SpinWalk/workflows/CMake/badge.svg)
