@@ -12,12 +12,24 @@
 #define __FILE_UTILS_H__
 
 #include <filesystem>
+#include <vector>
 #include <map>
+#include <algorithm> 
 #include "miscellaneous.h"
 #include "ini.h"
 
 namespace file_utils
 {
+
+template <typename T>
+int sort_remove_duplicates(T *array, int n)
+{
+    std::vector<T> v(array, array+n);
+    std::sort(v.begin(), v.end()); 
+    v.erase( std::unique( v.begin(), v.end() ), v.end() );
+    std::copy(v.begin(), v.end(), array);
+    return v.size();
+}
 
 bool read_config(std::string config_filename, simulation_parameters& param, std::vector<float>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames)
 {
@@ -48,7 +60,7 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
         }
     }
 
-    // reading section FILES
+    // ============== reading section FILES ==============
     if(ini.has("files"))
     {   // only read fieldmap to count number of fieldmaps and set n_fieldmaps
         if(ini.get("files").has("fieldmap[0]"))
@@ -64,15 +76,12 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
         {
             if( it->first.compare("fieldmap") == 0)
                 continue; // fieldmap is already read
-            it->second.clear();
-            for (uint16_t i = 0; i<param.n_fieldmaps; i++)
-                if(ini.get("files").has(it->first + "[" + std::to_string(i) + "]"))
-                    it->second.push_back(ini.get("files").get(it->first + "[" + std::to_string(i) + "]"));
-                else
-                    it->second.push_back("");
+            it->second.assign(param.n_fieldmaps, ""); // this clear data from parent config files, is right?
+            for (uint16_t i = 0; i<param.n_fieldmaps && ini.get("files").has(it->first + "[" + std::to_string(i) + "]"); i++)
+                it->second[i] = ini.get("files").get(it->first + "[" + std::to_string(i) + "]");
         }
 
-        // if m1 is empty, create filename for m1. filename is the same as fieldmap but with prefix config_filename
+        // This is a mandatory output. If m1 is empty, create filename for m1. filename is the same as fieldmap but with prefix config_filename
         for(uint16_t i=0; i<param.n_fieldmaps; i++)
             if(filenames.at("m1")[i].empty())
             {             
@@ -80,73 +89,81 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
                 std::string f_field   = std::filesystem::path(filenames.at("fieldmap")[i]).filename().string();
                 std::string parent    = std::filesystem::path(filenames.at("fieldmap")[i]).parent_path().string();
                 std::string ext       = std::filesystem::path(filenames.at("fieldmap")[i]).extension().string();
-                filenames.at("m1")[i] = parent + "/" + f_config + "_" + f_field + ext;
+                filenames.at("m1")[i] = parent + "/" + f_config + "_" + f_field + "_m1" + ext;
             }    
     }
 
 
-    // reading section SCAN_PARAMETERS
+    // ============== reading section SCAN_PARAMETERS ==============
     if(ini.has("SCAN_PARAMETERS"))
     {
         if(ini.get("SCAN_PARAMETERS").has("TR"))
             param.TR = std::stof(ini.get("SCAN_PARAMETERS").get("TR"));    
         if(ini.get("SCAN_PARAMETERS").has("DWELL_TIME"))
-            param.dt = std::stof(ini.get("SCAN_PARAMETERS").get("DWELL_TIME"));
-        if(ini.get("SCAN_PARAMETERS").has("DUMMY_SCAN"))
-            param.n_dummy_scan  = std::stoi(ini.get("SCAN_PARAMETERS").get("DUMMY_SCAN"));
-        if(ini.get("SCAN_PARAMETERS").has("FA"))
-            param.FA = std::stof(ini.get("SCAN_PARAMETERS").get("FA")) ; // convert to radian
-        if(ini.get("SCAN_PARAMETERS").has("APPLY_FA/2"))
-            param.enApplyFA2 = ini.get("SCAN_PARAMETERS").get("APPLY_FA/2").compare("0") != 0;
-        if(ini.get("SCAN_PARAMETERS").has("PHASE_CYCLING"))
-            param.phase_cycling = std::stof(ini.get("SCAN_PARAMETERS").get("PHASE_CYCLING")) ; // convert to radian
+            param.dt = std::stof(ini.get("SCAN_PARAMETERS").get("DWELL_TIME"));             
 
-        if(ini.get("SCAN_PARAMETERS").has("ENABLE_REFOCUSING"))
-            param.enRefocusing = ini.get("SIMULATION_PARAMETERS").get("ENABLE_REFOCUSING").compare("0") != 0;
-        
         uint16_t i = 0;
-        for(i=0; i<MAX_TE && ini.get("SCAN_PARAMETERS").has("TE[" + std::to_string(i) + "]"); i++)
-        {
+        // ---------------- Echo times ----------------       
+        param.n_TE = 0;
+        for(i=0; i<MAX_TE && ini.get("SCAN_PARAMETERS").has("TE[" + std::to_string(i) + "]"); i++)        
             param.TE[i] = std::stof(ini.get("SCAN_PARAMETERS").get("TE[" + std::to_string(i) + "]")) / param.dt;
-            if (param.TE[i] == 0)
-                break;
-        }
-        param.n_TE = i;
-        if(param.n_TE == 0)
+
+        // check TE conditions
+        if (std::is_sorted(param.TE, param.TE + i) == false || 
+            std::adjacent_find(param.TE, param.TE + i) != param.TE + i || 
+            param.TE[0] < 0 || 
+            (param.n_TE = i) == 0)
         {
-            std::cout << ERR_MSG << "TE is not defined" << std::endl;
+            std::cout << ERR_MSG << "TE must be in ascending order and must not have duplicates or negative values" << std::endl;
+            return false;
+        }        
+
+        // ---------------- RF pulses (start times, Flip angles, phases and ) ----------------
+        // RF start times
+        for(i=0; i<MAX_RF && ini.get("SCAN_PARAMETERS").has("RF_ST[" + std::to_string(i) + "]"); i++)        
+            param.RF_ST[i] = std::stof(ini.get("SCAN_PARAMETERS").get("RF_ST[" + std::to_string(i) + "]")) / param.dt;
+        
+        // check RF start time conditions
+        if (std::is_sorted(param.RF_ST, param.RF_ST + i) == false || 
+            std::adjacent_find(param.RF_ST, param.RF_ST + i) != param.RF_ST + i || 
+            param.RF_ST[0] != 0 || 
+            (param.n_RF = i) == 0)
+        {
+            std::cout << ERR_MSG << "RF Times must be in ascending order, starts with 0 and must not have duplicates values" << std::endl;
             return false;
         }
-
-        for(i=0; i<MAX_SE && ini.get("SCAN_PARAMETERS").has("RF_SE[" + std::to_string(i) + "]"); i++)
-            param.RF_SE[i] = std::stof(ini.get("SCAN_PARAMETERS").get("RF_SE[" + std::to_string(i) + "]")) ; // convert to radian
-        int ii = i;
-
-        for(i=0; i<MAX_SE && ini.get("SCAN_PARAMETERS").has("RF_SE_PHS[" + std::to_string(i) + "]"); i++)
-            param.RF_SE_PHS[i] = std::stof(ini.get("SCAN_PARAMETERS").get("RF_SE_PHS[" + std::to_string(i) + "]")) ; // convert to radian
-
-        if(ii != i)
+        // RF flip angles
+        for(i=0; i<param.n_RF && ini.get("SCAN_PARAMETERS").has("RF_FA[" + std::to_string(i) + "]"); i++)
+            param.RF_FA[i] = std::stof(ini.get("SCAN_PARAMETERS").get("RF_FA[" + std::to_string(i) + "]")) ;
+        
+        if(i != param.n_RF)
         {
-            std::cout << ERR_MSG << "RF_SE and RF_SE_PHS must have the same number of elements" << std::endl;
+            std::cout << ERR_MSG << "RF_FA and RF_ST must have the same number of elements" << std::endl;
             return false;
         }
+        // RF phases
+        for(i=0; i<param.n_RF && ini.get("SCAN_PARAMETERS").has("RF_PH[" + std::to_string(i) + "]"); i++)
+            param.RF_PH[i] = std::stof(ini.get("SCAN_PARAMETERS").get("RF_PH[" + std::to_string(i) + "]")) ;
 
-        for(i=0; i<MAX_SE && ini.get("SCAN_PARAMETERS").has("T_SE[" + std::to_string(i) + "]"); i++)
+        if(i != param.n_RF)
         {
-            param.T_SE[i] = std::stof(ini.get("SCAN_PARAMETERS").get("T_SE[" + std::to_string(i) + "]")) / param.dt;
-            if (param.T_SE[i] == 0)
-                break;
-        }
-        if(ii != i)
-        {
-            std::cout << ERR_MSG << "Not enought or too many T_SE is defined (expected " << ii << " elements but found " << i << ")" << std::endl;
+            std::cout << ERR_MSG << "RF_PH and RF_ST must have the same number of elements" << std::endl;
             return false;
         }
-
-        param.n_SE = i;
     }
 
-    // reading section SIMULATION_PARAMETERS
+    // ============== reading section SCAN_PARAMETERS ==============
+    if(ini.has("STEADY_STATE"))
+    {
+        if(ini.get("STEADY_STATE").has("DUMMY_SCAN"))
+            param.n_dummy_scan  = std::stoi(ini.get("STEADY_STATE").get("DUMMY_SCAN"));
+        if(ini.get("STEADY_STATE").has("APPLY_FA/2"))
+            param.enApplyFA2 = ini.get("STEADY_STATE").get("APPLY_FA/2").compare("0") != 0;
+        if(ini.get("STEADY_STATE").has("PHASE_CYCLING"))
+            param.phase_cycling = std::stof(ini.get("STEADY_STATE").get("PHASE_CYCLING")) ; // convert to radian
+    }
+
+    // ============== reading section SIMULATION_PARAMETERS ==============
     if(ini.has("SIMULATION_PARAMETERS"))
     {
         if(ini.get("SIMULATION_PARAMETERS").has("B0"))
@@ -166,7 +183,7 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
         }
     }
 
-    // reading section TISSUE_PARAMETERS
+    // ============== reading section TISSUE_PARAMETERS ==============
     if(ini.has("TISSUE_PARAMETERS"))
     {
         if(ini.get("TISSUE_PARAMETERS").has("T1"))

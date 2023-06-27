@@ -22,41 +22,41 @@
 
 #define ERR_MSG  "\033[1;31mError:\033[0m "
 #define ROUND(x) ((long)((x)+0.5))
-#define MAX_SE 128   // maximum number of spin-echoes
+#define MAX_RF 128   // maximum number of RF
 #define MAX_TE 256   // maximum number of echo times
 
 
 typedef struct simulation_parameters
 {
-    float T1, T2, FA, TR, dt, B0, e1, e12, e2, e22, c, s, c2, s2;
-    float RF_SE[MAX_SE], RF_SE_PHS[MAX_SE]; // refocusing FA
-    uint16_t T_SE[MAX_SE], TE[MAX_TE]; // refocusing time in dt, echo times in dt
+    float T1, T2, TR, dt, B0, e1, e12, e2, e22, c, s, c2, s2;
+    float RF_FA[MAX_RF], RF_PH[MAX_RF]; // refocusing FA
+    int16_t RF_ST[MAX_RF], TE[MAX_TE]; // refocusing time in dt, echo times in dt
     float sample_length[3], scale2grid[3], diffusion_const, phase_cycling;
-    uint16_t n_dummy_scan, n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_SE;
+    uint16_t n_dummy_scan, n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF;
     uint32_t n_spins, fieldmap_size[3], seed;
     uint64_t matrix_length;
-    bool enDebug, enRefocusing, enApplyFA2;
-    simulation_parameters():T1(2.2),T2(0.04),FA(16),TR(0.04),dt(5e-5),B0(9.4),n_TE(0),n_SE(0),n_dummy_scan(0),phase_cycling(0.),enRefocusing(false),enApplyFA2(false),enDebug(false)
+    bool enDebug, enApplyFA2;
+    simulation_parameters():T1(2.2),T2(0.04),TR(0.04),dt(5e-5),B0(9.4),n_TE(0),n_RF(0),n_dummy_scan(0),phase_cycling(0.),enApplyFA2(false),enDebug(false)
     {
         memset(fieldmap_size, 0, 3*sizeof(fieldmap_size[0])); 
         memset(sample_length, 0, 3*sizeof(sample_length[0]));
         memset(TE, 0, MAX_TE*sizeof(TE[0]));
-        memset(RF_SE, 0, MAX_SE*sizeof(RF_SE[0]));
-        memset(T_SE, 0, MAX_SE*sizeof(T_SE[0]));
+        memset(RF_FA, 0, MAX_RF*sizeof(RF_FA[0]));
+        memset(RF_ST, 0, MAX_RF*sizeof(RF_ST[0]));
     }
 
     void dump()
     {
-        std::cout<<"T1="<<T1<<" T2="<<T2<<" FA="<<FA<<" TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
+        std::cout<<"T1="<<T1<<" T2="<<T2<<" TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
         std::cout<<"TE = "; for(int i=0; i<n_TE; i++) std::cout<<TE[i]*dt<<' '; std::cout<<'\n';
-        std::cout<<"Refocusing RF degree = "; for(int i=0; i<n_SE; i++) std::cout<<RF_SE[i]<<' '; std::cout<<'\n';
-        std::cout<<"Refocusing RF time = "; for(int i=0; i<n_SE; i++) std::cout<<T_SE[i]*dt<<' '; std::cout<<'\n';
+        std::cout<<"Refocusing RF degree = "; for(int i=0; i<n_RF; i++) std::cout<<RF_FA[i]<<' '; std::cout<<'\n';
+        std::cout<<"Refocusing RF time = "; for(int i=0; i<n_RF; i++) std::cout<<RF_ST[i]*dt<<' '; std::cout<<'\n';
         std::cout<<"sample length = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
         std::cout<<"scale2grid = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
         std::cout<<"fieldmap size = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
         std::cout<<"diffusion const = "<<diffusion_const<<'\t'<<"dummy scans = "<<n_dummy_scan<<'\t'<<"spins = "<<n_spins<<'\n';
         std::cout<<"samples scales = "<<n_sample_length_scales<<'\t'<<"timepoints = "<<n_timepoints<<'\t'<<"fieldmaps = "<<n_fieldmaps<<'\n';
-        std::cout<<"Refocusing = "<<enRefocusing<<'\t'<<"Apply FA/2 = "<<enApplyFA2<<'\t'<<'\n';
+        std::cout<<"Apply FA/2 = "<<enApplyFA2<<'\t'<<'\n';
         std::cout<<"Phase cycling = "<<phase_cycling<<'\t'<<"Seed = "<<seed<<'\n';
         std::cout<<'\n';
 
@@ -72,8 +72,8 @@ typedef struct simulation_parameters
 
     void prepare()
     {
-        c = cosf(FA * DEG2RAD); c2 = cosf(FA * DEG2RAD / 2.0f); 
-        s = sinf(FA * DEG2RAD); s2 = sinf(FA * DEG2RAD / 2.0f);
+        c = cosf(RF_FA[0] * DEG2RAD); c2 = cosf(RF_FA[0] * DEG2RAD / 2.0f); 
+        s = sinf(RF_FA[0] * DEG2RAD); s2 = sinf(RF_FA[0] * DEG2RAD / 2.0f);
         e1  = exp(-TR / T1); e12 = exp(-TR / (2. * T1));
         e2  = exp(-TR / T2); e22 = exp(-TR / (2. * T2));
         matrix_length = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2];
