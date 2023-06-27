@@ -6,7 +6,7 @@
 
 This program aims to simulate the behaviour of spins under a certain MR sequence in a microvascular network. Breifly, the susceptibility variation between blood and tissue leads to local field inhomogeneity which accordingly can be used to generate an MR contrast. The program tries to perform a Monte-Carlo simulation over range of spins which are randomly distributed and move in presence of user defined magnetic field. Here are example plots obtained from the simulator where show BOLD sensitivity as a function of vessel size for Gradient Echo (GRE) and Spin Echo (SE) seqeuences.
 
-![](./outputs/images/gre_se.png)
+![](./doc/img/gre_se.png)
 
 Some [literature](#Literature) are provided as reference to get a better feeling of what are intended to get from this kind of simulations.
 
@@ -17,19 +17,22 @@ Simulator is written in C++ and utilizes CUDA to run in GPU. Therefore, it is po
 
 ## How to run
 ```
-./sim_microvascular config1.ini config2.ini ...
+./SpinWalk config1.ini config2.ini ...
+```
+Several config files can be simulated sequentially. 
+## Dependencies
+- A C++ compiler supprting C++ 17
+- CUDA driver (*nvidia-smi* and *nvcc --version* must run in terminal)
+## How to compile
+
+```
+git clone https://github.com/aghaeifar/SpinWalk.git
+cd SpinWalk
+cmake -B ./build
+cmake --build ./build --config Release
 ```
 
-## How to compile
-Linux:
-```
-nvcc microvascular_gpu.cu -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler -fopenmp -o sim_microvascular
-```
-Windows:
-```
-nvcc microvascular_gpu.cu -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler /openmp -std=c++17 -o sim_microvascular
-```
-You should replace 86 in *compute_86* and *sm_86* with compute capability of your GPU. To check compute capability of your GPU run following command in terminal (if does not work since your GPU driver is old, try to find compute capability of your model [here](https://developer.nvidia.com/cuda-gpus)):
+To check compute capability of your GPU run following command in terminal (if does not work since your GPU driver is old, try to find compute capability of your model [here](https://developer.nvidia.com/cuda-gpus)):
 ```bash 
 nvidia-smi --query-gpu=compute_cap --format=csv
 ```
