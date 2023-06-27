@@ -217,11 +217,11 @@ int main(int argc, char * argv[])
     std::cout << "Running " << config_files.size() << " simulation(s)..." << std::endl;
     for(uint8_t cnf=0; cnf<config_files.size(); cnf++)
     {
-        map<string, vector<string> > filenames = {{"fieldmap", 	vector<string>()},
-                                                  {"xyz0", 		vector<string>()},
-                                                  {"xyz1", 		vector<string>()},
-                                                  {"m0", 		vector<string>()},
-                                                  {"m1", 		vector<string>()}}; 
+        map<string, vector<string> > filenames = {{"fieldmap", 	vector<string>()},  // input:  map of off-resonance in Tesla
+                                                  {"xyz0", 		vector<string>()},  // input:  spins starting spatial positions in meters
+                                                  {"xyz1", 		vector<string>()},  // output: spins last spatial positions in meters
+                                                  {"m0", 		vector<string>()},  // input:  spins initial magnetization
+                                                  {"m1", 		vector<string>()}}; // output: spins final magnetization
 
         std::vector<float> sample_length_scales;
         simulation_parameters param;

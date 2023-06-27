@@ -18,6 +18,7 @@
 
 __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const bool *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1, uint32_t spin_no = 0);
 
+// scale position to mimic the different volume size
 __global__ void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, uint32_t size);
 
 // generate random initial position
