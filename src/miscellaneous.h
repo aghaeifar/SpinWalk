@@ -64,10 +64,6 @@ typedef struct simulation_parameters
         uint16_t variables_size_MB = n_spins * 3 *  (4 + n_TE) * sizeof(float) / 1024 / 1024;
         std::cout<<"Required GPU memory ≈ " << fieldmap_size_MB << " MB + " << variables_size_MB << " MB (fieldmap + variables)" << '\n';
         std::cout<<"Required RAM ≈ " << fieldmap_size_MB << " MB + " << variables_size_MB * n_sample_length_scales << " MB (fieldmap + variables)" << '\n';
-
-        size_t free, total;
-        cudaMemGetInfo(&free, &total);
-        std::cout << "Free GPU memory: " << free / 1024 / 1024 << " MB (out of " << total / 1024 / 1024 << " MB)" << std::endl;
     }
 
     void prepare()

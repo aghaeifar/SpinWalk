@@ -192,13 +192,6 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             param.T2 = std::stof(ini.get("TISSUE_PARAMETERS").get("T2"));
     }
 
-    // reading section DEBUG 
-    if(ini.has("DEBUG"))
-    {
-        if(ini.get("DEBUG").has("DUMP_INFO"))
-            param.enDebug = ini.get("DEBUG").get("DUMP_INFO").compare("0") != 0;
-    }   
-
     param.prepare(); 
     return true;
 }

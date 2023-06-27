@@ -21,6 +21,8 @@
 
 using namespace std;
 
+
+
 bool simulate(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<float> sample_length_scales)
 {
     std::vector<float> fieldmap;
@@ -28,7 +30,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     // ========== checking GPU(s) ==========
     int32_t device_count;
     checkCudaErrors(cudaGetDeviceCount(&device_count));
-    std::cout << "Number of GPU(s): " << device_count << std::endl;
+
     param.n_spins /= device_count; // spins will be distributed in multiple GPUs (if there is). We hope it is divisible 
     int32_t numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
@@ -204,15 +206,29 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 
 int main(int argc, char * argv[])
 {
-    std::vector<std::string> config_files;
-    if(argc < 2)
+    // ========== parse command line arguments ==========
+    std::vector<std::string> config_files;    
+    bool bVerbose = false, bHelp = false;
+    for(uint8_t i=1; i<argc; i++)
     {
-        std::cout << "Usage: " << argv[0] << " <config_file>" << std::endl;
+        if (strcmp(argv[i], "-v") == 0)
+            bVerbose = true;
+        else if (strcmp(argv[i], "-h") == 0)
+            bHelp = true;
+        else
+            config_files.push_back(argv[i]);
+    }
+
+    // ========== print help ==========
+    if(argc < 2 || bHelp || config_files.size() == 0)
+    {
+        std::cout << "Usage: " << argv[0] << " -options <config_file1> <config_file2> ... <config_filen>" << std::endl;
+        std::cout << "Options:" << std::endl;
+        std::cout << "  -v: verbose" << std::endl;  
+        std::cout << "  -h: help (this menu)" << std::endl;      
+        print_device_info();
         return 1;
     }
-    // add config files
-    for(uint8_t i=1; i<argc; i++)
-        config_files.push_back(argv[i]);
 
     std::cout << "Running " << config_files.size() << " simulation(s)..." << std::endl;
     for(uint8_t cnf=0; cnf<config_files.size(); cnf++)
@@ -241,7 +257,7 @@ int main(int argc, char * argv[])
         param.n_timepoints = param.TR / param.dt; // includes start point
 
         // ========== Dump Settings ==========
-        if(param.enDebug)
+        if(param.enDebug = bVerbose)
         {
             std::cout << "Dumping settings:" << std::endl;
             for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it)

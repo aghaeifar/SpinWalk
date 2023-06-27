@@ -194,3 +194,31 @@ __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *p
         index = sub2ind(ROUND(xyz[0]*scale2grid[0]), ROUND(xyz[1]*scale2grid[1]), ROUND(xyz[2]*scale2grid[2]), param->fieldmap_size[0], param->fieldmap_size[1]);
     } while (pMask[index] == true);
 }
+
+//---------------------------------------------------------------------------------------------
+//  
+//---------------------------------------------------------------------------------------------
+void print_device_info()
+{
+    const int kb = 1024;
+    const int mb = kb * kb;
+    size_t free, total;
+    
+
+    int32_t device_count, cuda_version, driver_version;
+    checkCudaErrors(cudaGetDeviceCount(&device_count));
+    cudaRuntimeGetVersion(&cuda_version);
+    cudaDriverGetVersion(&driver_version);
+    std::cout << "\nDriver version: "<< driver_version << ", CUDA version: "<< cuda_version << ", Number of devices: " << device_count << std::endl;
+
+    cudaDeviceProp device_properties;
+    for(int i=0; i<device_count; i++)
+    {
+        cudaSetDevice(i);
+        cudaGetDeviceProperties(&device_properties, i);
+        std::cout << "Device " << i+1 << ", " << device_properties.name << std::endl;
+        // cudaDeviceReset();
+        cudaMemGetInfo(&free, &total);
+        std::cout << "Free GPU memory: " << free / mb << " MB (out of " << total / mb << " MB)" << std::endl;
+    }
+}

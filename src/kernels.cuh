@@ -30,15 +30,7 @@ __host__  __device__ __forceinline__ uint64_t sub2ind(uint32_t x, uint32_t y, ui
     return (uint64_t(z*lenx*leny) + y*lenx + x);
 }
 
-
-template <typename T>
-__device__ __forceinline__ uint16_t find_ind(const T *arr, uint16_t len, T seek)
-{
-    for(uint16_t i=0; i<len; i++)
-        if (arr[i] == seek)
-            return i;
-    return len;
-}
+void print_device_info();
 
 
 template <typename T>
