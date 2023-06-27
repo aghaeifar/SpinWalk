@@ -78,24 +78,5 @@ typedef struct simulation_parameters
 } simulation_parameters;
 
 
-typedef struct output_header
-{
-    int32_t dim1, dim2, dim3, dim4;
-    output_header(int32_t a, int32_t b=1, int32_t c=1, int32_t d=1): dim1(a), dim2(b), dim3(c), dim4(d){}
-} output_header;
-
-typedef struct input_header
-{
-    uint32_t fieldmap_size[3];
-    float sample_length[3];
-    input_header(uint32_t *a, float *b) {memcpy(fieldmap_size, a, 3*sizeof(uint32_t)); memcpy(sample_length, b, 3*sizeof(float));}
-    input_header(){};
-    void print()
-    {
-        std::cout << "Size = " << fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << std::endl;
-        std::cout << "Length = " << sample_length[0]*1e6 << " x " << sample_length[1]*1e6 << " x " << sample_length[2]*1e6 << " um^3" << std::endl;
-    }
-} input_header;
-
 
 #endif // __MISCELLANEOUS_H__

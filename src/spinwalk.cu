@@ -191,7 +191,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         checkCudaErrors(cudaEventDestroy(end));
         
         // ========== save results ========== 
-        output_header hdr(3, param.n_TE, param.n_spins * device_count, param.n_sample_length_scales);
+        file_utils::output_header hdr(3, param.n_TE, param.n_spins * device_count, param.n_sample_length_scales);
         file_utils::save_output(M1, filenames.at("m1")[fieldmap_no], hdr, sample_length_scales);
 
         hdr.dim2 = 1;
@@ -269,7 +269,7 @@ int main(int argc, char * argv[])
                 std::cout << sample_length_scales[i] << ", ";
             std::cout << "\r\r ]\n" << std::endl;
 
-            input_header hdr_in;
+            file_utils::input_header hdr_in;
             if(file_utils::read_header(filenames.at("fieldmap")[0], hdr_in) == false)
                 return 1;
             std::copy(hdr_in.fieldmap_size, hdr_in.fieldmap_size+3, param.fieldmap_size);
