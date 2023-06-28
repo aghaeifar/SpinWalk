@@ -1,4 +1,4 @@
-function [m_xyz, dims, hdr_extra] = read_microvascular(filename)
+function [m_xyz, dims, hdr_extra] = read_spinwalk(filename)
 
 
 fileID = fopen(filename);
