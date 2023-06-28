@@ -43,21 +43,24 @@ compute_cap
 ```
 
 ## Configuration files
-Configruation file is a text based [ini file](https://en.wikipedia.org/wiki/INI_file) used to provide simulation parameters for simulator. Simulator can accept more than one configuration to simulation several configurations. A configuration file can inherit from another configuration file to avoid writing repetitive simulation parmeters. All the possible parameters are provided in [config_default.ini](./inputs/config_default.ini). 
+Configruation file is a text based [ini file](https://en.wikipedia.org/wiki/INI_file) used to provide simulation parameters for simulator. Simulator can accept more than one configuration to simulation several configurations. A configuration file can inherit from another configuration file to avoid writing repetitive simulation parmeters. All the possible parameters are provided in [config_default.ini](./config/config_default.ini). 
 
 ## Binary file format
 ### Fieldmap
-Simulator needs one or more fieldmap(s) and mask(s) for simulation. The fieldmap unit is Tesla and must be normalized to the static magnetic field where is intended to be used for simulation. Fieldmap file is stored in binary format with this structure starting from the beginning of file:
+The simulation requires at least one fieldmap and mask. The fieldmap unit is Tesla and must be normalized to the static magnetic field where is intended to be used for simulation (i.e., fieldmap must be calculated for 1T). The fieldmap file is stored in binary format and follows a specific structure:
 
-1. Size = 3 unsigned int (3*4 bytes in total) representing 3D volume size.
-2. Length = 3 single precision float (3*4 bytes in total) representing length in meter for each dimension.
+![](./doc/img/fieldmap_memory_layout.png)
+
+1. Size = 3 unsigned int (3*4 bytes in total) representing 3D volume size (e.g., 1024 x 1024 x 1024).
+2. Length = 3 single precision float (3*4 bytes in total) representing length in meter for each dimension (e.g., 0.001 x 0.001 x 0.001).
 3. Fieldmap = n single precision float (n*4 bytes in total) where n = product of **size** array elements. Field map is stored in [column-major order](https://en.wikipedia.org/wiki/Row-_and_column-major_order).
 4. Mask =  n unsigned char (n bytes in total) where n = product of **size** array elements. Mask is stored in column-major order.
 
-The path to fieldmap is set in configuration file.
+The path to fieldmap is set in configuration file under section "FILES":
 
-### Other inputs
-M0 and XYZ0 in configuration file are two additional inputs which define starting magnization and initial spatial position of spins. Please note that initial spatial positions must not intersect with mask. If M0 and/or XYZ0 are not provided or are empty, staring magnization of (0,0,1) and random positioning will be used, respectively.
+
+### Other inputs [optional]
+M0 and XYZ0 are two additional inputs in configuration file which define starting magnization and initial spatial position of spins, respectively. These two are optional inputs, if not set or empty, spins will be positioned randomly with M0 = [0, 0, 1]. Please note that initial spatial positions must not intersect with mask. 
 
 binary file containing M0 or XYZ0 is of size *3 * number of spins* single precision float which are stored in the file with following pattern:
 ```
@@ -66,13 +69,16 @@ x0 y0 z0 x1 y1 z1 x2 y2 z2 .... xn yn zn
 unit for spatial position is meter.
 
 ### Outputs
-Simulator saves M1 and XYZ1 (optional) when simulation finishes. The path for M1 and XYZ1 can be provided in configuration file. M1 and XYZ1 represents spins magnetization and spatial positions at the end of sequence, respectively. They are stored in a binary file with this format:
-1. header size = 1 unsigned int (4 bytes in total) representing header size in byte
-2. size = 4 unsigned int (4*4 bytes in total) representing 4D volume size. It is usualy 3 x number of spins x GPU_devices x Number of vessel sizes
+The simulator stores the magnetization at echo time(s) as M1 and the optional spatial positions as XYZ1. The paths for both M1 and XYZ1 can be specified in the configuration file. These data are saved in a binary file using the following layout:
+
+![](./doc/img/M1XYZ1_memory_layout.png)
+
+1. header size = 1 unsigned int32 (4 bytes in total) representing header size in byte
+2. size = 4 unsigned int (4*4 bytes in total) representing 4D volume size. It is usualy 3 x number of spins x number of echoes x Number of vessel sizes
 3. additional info = header size - 16 bytes containing additional information. Here, e.g., different scales for vessel size
 4. M1 or XYZ1 = stored in column-major order
 
-A MATLAB script is provided to read output files. See [read_microvascular.m](./outputs/read_microvascular.m).
+A MATLAB script is provided to read output files. See [read_spinwalk.m](./matlab/read_spinwalk.m).
 
 ## Literature
 There are many nice papers published about simulation of BOLD signal in vessels network. A few are listed here for reference:
