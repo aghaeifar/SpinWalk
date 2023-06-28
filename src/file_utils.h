@@ -15,6 +15,7 @@
 #include <vector>
 #include <map>
 #include <algorithm> 
+#include <iterator>
 #include "ini.h"
 
 namespace file_utils
@@ -68,8 +69,12 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
     {
         if(ini.get("parent").has("parent_config"))
         {
-            std::string parent_config = ini.get("parent").get("parent_config");            
-            parent_config = std::filesystem::absolute(parent_config).string();
+            std::filesystem::path parent_config(ini.get("parent").get("parent_config"));   
+            if (parent_config.is_relative())
+            {   // if parent_config is relative, make it absolute
+                std::filesystem::path parent_path = std::filesystem::absolute(config_filename).parent_path();
+                parent_config = parent_path / parent_config;
+            }
             std::cout << "Reading parent config: " << parent_config << std::endl;
             if (read_config(parent_config, param, sample_length_scales, filenames) == false)
                 return false;
@@ -82,8 +87,16 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
         if(ini.get("files").has("fieldmap[0]"))
         {
             filenames.at("fieldmap").clear();
-            for (uint16_t i = 0; ini.get("files").has("fieldmap[" + std::to_string(i) + "]"); i++)                
+            for (uint16_t i = 0; ini.get("files").has("fieldmap[" + std::to_string(i) + "]"); i++) 
+            {               
                 filenames.at("fieldmap").push_back(ini.get("files").get("fieldmap[" + std::to_string(i) + "]"));
+                std::filesystem::path fieldmap(filenames.at("fieldmap").back());   
+                if (fieldmap.is_relative())
+                {   // if parent_config is relative, make it absolute
+                    std::filesystem::path parent_path = std::filesystem::absolute(config_filename).parent_path();
+                    filenames.at("fieldmap").back() = (parent_path / fieldmap).string();
+                }
+            }
         }
         param.n_fieldmaps = filenames.at("fieldmap").size();
 
@@ -94,7 +107,15 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
                 continue; // fieldmap is already read
             it->second.assign(param.n_fieldmaps, ""); // this clear data from parent config files, is right?
             for (uint16_t i = 0; i<param.n_fieldmaps && ini.get("files").has(it->first + "[" + std::to_string(i) + "]"); i++)
+            {
                 it->second[i] = ini.get("files").get(it->first + "[" + std::to_string(i) + "]");
+                std::filesystem::path f(it->second[i]);   
+                if (f.is_relative())
+                {   // if parent_config is relative, make it absolute
+                    std::filesystem::path parent_path = std::filesystem::absolute(config_filename).parent_path();
+                    it->second[i] = (parent_path / f).string();
+                }
+            }
         }
 
         // This is a mandatory output. If m1 is empty, create filename for m1. filename is the same as fieldmap but with prefix config_filename
@@ -130,13 +151,14 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             param.TE[0] < 0 || 
             (param.n_TE = i) == 0)
         {
+            std::copy(param.TE, param.TE + param.n_TE, std::ostream_iterator<int>(std::cout, " ")); std::cout << std::endl;
             std::cout << ERR_MSG << "TE must be in ascending order and must not have duplicates or negative values" << std::endl;
             return false;
         }        
 
         // ---------------- RF pulses (start times, Flip angles, phases and ) ----------------
         // RF start times
-        for(i=0; i<MAX_RF && ini.get("SCAN_PARAMETERS").has("RF_ST[" + std::to_string(i) + "]"); i++)        
+        for(i=0; i<MAX_RF && ini.get("SCAN_PARAMETERS").has("RF_ST[" + std::to_string(i) + "]"); i++)           
             param.RF_ST[i] = std::stof(ini.get("SCAN_PARAMETERS").get("RF_ST[" + std::to_string(i) + "]")) / param.dt;
         
         // check RF start time conditions
@@ -145,6 +167,7 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             param.RF_ST[0] != 0 || 
             (param.n_RF = i) == 0)
         {
+            std::copy(param.RF_ST, param.RF_ST + param.n_RF, std::ostream_iterator<int>(std::cout, " ")); std::cout << std::endl;
             std::cout << ERR_MSG << "RF Times must be in ascending order, starts with 0 and must not have duplicates values" << std::endl;
             return false;
         }
