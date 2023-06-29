@@ -12,9 +12,6 @@ Some [literature](#Literature) are provided as reference to get a better feeling
 
 Simulator is written in C++ and utilizes CUDA to run in GPU. Therefore, it is possible to run a simulation within a short period of time provided that a good GPU presents. Simulator can detect all GPU cards, if there is more than one, and can distribute the task to run in parallel in multiple GPUs. This is helpful if you wan to run the simulator in HPC cluster with mutliple GPUs available in a node.
 
-**This manual can be outdated. It is written based on commit [38ae16d043](https://github.com/aghaeifar/microvascular/tree/38ae16d043eb470c7c92450debe96bdc736a814a).**
-
-
 ## How to run
 ```
 ./SpinWalk config1.ini config2.ini ...
@@ -91,6 +88,6 @@ There are many nice papers published about simulation of BOLD signal in vessels 
 - Scheffler K, Engelmann J, Heule R. BOLD sensitivity and vessel size specificity along CPMG and GRASE echo trains. Magn Reson Med. 2021 Oct;86(4):2076-2083. doi: 10.1002/mrm.28871. Epub 2021 May 31. PMID: 34056746.
 
 
-## Contributing:
+## Contributing
 
 Contributions from the community to enhance and improve this project are welcome. For major changes, please open an issue first to discuss what you would like to change.
