@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
 message(STATUS "CMake version: ${CMAKE_VERSION}")
 
-project(SpinWalk LANGUAGES CUDA CXX)
+project(spinwalk LANGUAGES CUDA CXX)
 
 # Find OpenMP
 find_package(OpenMP)
@@ -23,11 +23,14 @@ include_directories(./include)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${CUDA_ARCH} -Xcompiler=${OpenMP_CXX_FLAGS}")
 
 # Add the executable
-add_executable(SpinWalk ./src/spinwalk.cu ./src/kernels.cu)
+add_executable(spinwalk ./src/spinwalk.cu ./src/kernels.cu)
 
 # Link CUDA and OpenMP libraries
-target_link_libraries(SpinWalk ${CUDA_LIBRARIES} ${OpenMP_CXX_LIBRARIES})
+target_link_libraries(spinwalk ${CUDA_LIBRARIES} ${OpenMP_CXX_LIBRARIES})
 
+if (UNIX)
+    install(TARGETS spinwalk DESTINATION bin)    
+endif()  
 
 # cmake ..
 # cmake --build . --config Release

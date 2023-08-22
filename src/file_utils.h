@@ -27,7 +27,7 @@ namespace file_utils
 typedef struct output_header
 {
     int32_t dim1, dim2, dim3, dim4;
-    output_header(int32_t a, int32_t b=1, int32_t c=1, int32_t d=1): dim1(a), dim2(b), dim3(c), dim4(d){}
+    output_header(int32_t d1, int32_t d2=1, int32_t d3=1, int32_t d4=1): dim1(d1), dim2(d2), dim3(d3), dim4(d4){}
 } output_header;
 
 
@@ -92,7 +92,7 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
                 filenames.at("fieldmap").push_back(ini.get("files").get("fieldmap[" + std::to_string(i) + "]"));
                 std::filesystem::path fieldmap(filenames.at("fieldmap").back());   
                 if (fieldmap.is_relative())
-                {   // if parent_config is relative, make it absolute
+                {   // if it is relative, make it absolute
                     std::filesystem::path parent_path = std::filesystem::absolute(config_filename).parent_path();
                     filenames.at("fieldmap").back() = (parent_path / fieldmap).string();
                 }
@@ -111,7 +111,7 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
                 it->second[i] = ini.get("files").get(it->first + "[" + std::to_string(i) + "]");
                 std::filesystem::path f(it->second[i]);   
                 if (f.is_relative())
-                {   // if parent_config is relative, make it absolute
+                {   // if it is relative, make it absolute
                     std::filesystem::path parent_path = std::filesystem::absolute(config_filename).parent_path();
                     it->second[i] = (parent_path / f).string();
                 }
@@ -339,10 +339,12 @@ bool save_output(std::vector<float> &data, std::string output_filename, output_h
         std::cout << ERR_MSG << "cannot open file " << std::filesystem::absolute(output_filename) << std::endl;
         return false;
     }
-    int32_t header_size = sizeof(output_header) + additional_hdr.size() * sizeof(additional_hdr[0]);
+
+    int32_t add_hdr_size = additional_hdr.size() * sizeof(additional_hdr[0]);
+    int32_t header_size  = sizeof(output_header) + add_hdr_size;
     file.write((char*)&header_size, sizeof(int32_t));
     file.write((char*)&hdr, sizeof(output_header));
-    file.write((char*)additional_hdr.data(), additional_hdr.size() * sizeof(additional_hdr[0]));
+    file.write((char*)additional_hdr.data(), add_hdr_size);
     file.write((char*)data.data(), data.size() * sizeof(data[0]));
     file.close();
     return true; 

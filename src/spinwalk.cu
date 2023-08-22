@@ -19,6 +19,10 @@
 
 #define THREADS_PER_BLOCK  64
 
+#define SPINWALK_VERSION_MAJOR 1
+#define SPINWALK_VERSION_MINOR 1
+#define SPINWALK_VERSION_PATCH 2
+
 using namespace std;
 
 
@@ -206,6 +210,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 
 int main(int argc, char * argv[])
 {
+    std::cout << "SpinWalk ver. " << SPINWALK_VERSION_MAJOR << "." << SPINWALK_VERSION_MINOR << "." << SPINWALK_VERSION_PATCH << std::endl;
     // ========== parse command line arguments ==========
     std::vector<std::string> config_files;    
     bool bVerbose = false, bHelp = false;
