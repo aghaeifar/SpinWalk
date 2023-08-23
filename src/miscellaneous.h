@@ -54,9 +54,9 @@ typedef struct simulation_parameters
     {
         std::cout<<"T1="<<T1<<" T2="<<T2<<" TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
         std::cout<<"TE = "; for(int i=0; i<n_TE; i++) std::cout<<TE[i]*dt<<' '; std::cout<<'\n';
-        std::cout<<"Refocusing RF degree = "; for(int i=0; i<n_RF; i++) std::cout<<RF_FA[i]<<' '; std::cout<<'\n';
-        std::cout<<"Refocusing RF phase = "; for(int i=0; i<n_RF; i++) std::cout<<RF_PH[i]<<' '; std::cout<<'\n';
-        std::cout<<"Refocusing RF time = "; for(int i=0; i<n_RF; i++) std::cout<<RF_ST[i]*dt<<' '; std::cout<<'\n';
+        std::cout<<"RF degree = "; for(int i=0; i<n_RF; i++) std::cout<<RF_FA[i]<<' '; std::cout<<'\n';
+        std::cout<<"RF phase = "; for(int i=0; i<n_RF; i++) std::cout<<RF_PH[i]<<' '; std::cout<<'\n';
+        std::cout<<"RF time = "; for(int i=0; i<n_RF; i++) std::cout<<RF_ST[i]*dt<<' '; std::cout<<'\n';
         std::cout<<"dephasing degree = "; for(int i=0; i<n_dephasing; i++) std::cout<<dephasing[i]<<' '; std::cout<<'\n';
         std::cout<<"dephasing time = "; for(int i=0; i<n_dephasing; i++) std::cout<<dephasing_T[i]*dt<<' '; std::cout<<'\n';
         std::cout<<"sample length = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
