@@ -7,8 +7,8 @@
  * Descrip  : simulating BOLD in microvascular network
  * -------------------------------------------------------------------------- */
 
-// compile(lin) :  nvcc microvascular_gpu.cu -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler -fopenmp -o sim_microvascular
-// compile(win) :  nvcc microvascular_gpu.cu -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler /openmp -std=c++17 -o sim_microvascular
+// compile(lin) :  nvcc ./src/spinwalk.cu ./src/kernels.cu -I ./include/ -Xptxas -v -O3  -arch=compute_75 -code=sm_75  -Xcompiler -fopenmp -o spinwalk
+// compile(win) :  nvcc ./src/spinwalk.cu ./src/kernels.cu -I ./include/ -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler /openmp -std=c++17 -o spinwalk
 
 #include <random>
 #include <filesystem>
@@ -20,8 +20,8 @@
 #define THREADS_PER_BLOCK  64
 
 #define SPINWALK_VERSION_MAJOR 1
-#define SPINWALK_VERSION_MINOR 1
-#define SPINWALK_VERSION_PATCH 2
+#define SPINWALK_VERSION_MINOR 2
+#define SPINWALK_VERSION_PATCH 0
 
 using namespace std;
 
