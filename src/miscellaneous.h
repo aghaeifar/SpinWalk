@@ -22,17 +22,19 @@
 
 #define ERR_MSG  "\033[1;31mError:\033[0m "
 #define ROUND(x) ((long)((x)+0.5))
-#define MAX_RF 128   // maximum number of RF
-#define MAX_TE 256   // maximum number of echo times
-
+#define MAX_RF 128          // maximum number of RF
+#define MAX_TE 256          // maximum number of echo times
+#define MAX_DEPHASE 128     // maximum number of dephasing
 
 typedef struct simulation_parameters
 {
     float T1, T2, TR, dt, B0, e1, e12, e2, e22, c, s, c2, s2;
     float RF_FA[MAX_RF], RF_PH[MAX_RF]; // refocusing FA
-    int16_t RF_ST[MAX_RF], TE[MAX_TE]; // refocusing time in dt, echo times in dt
+    float dephasing[MAX_DEPHASE]; // dephasing in degree
+    int16_t RF_ST[MAX_RF], TE[MAX_TE], dephasing_T[MAX_DEPHASE]; // refocusing time in dt, echo times in dt, dephasing time in dt
     float sample_length[3], scale2grid[3], diffusion_const, phase_cycling;
-    uint16_t n_dummy_scan, n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF;
+    uint16_t n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF, n_dephasing;
+    int16_t n_dummy_scan;
     uint32_t n_spins, fieldmap_size[3], seed;
     uint64_t matrix_length;
     bool enDebug, enApplyFA2;
@@ -43,6 +45,9 @@ typedef struct simulation_parameters
         memset(TE, 0, MAX_TE*sizeof(TE[0]));
         memset(RF_FA, 0, MAX_RF*sizeof(RF_FA[0]));
         memset(RF_ST, 0, MAX_RF*sizeof(RF_ST[0]));
+        memset(RF_PH, 0, MAX_RF*sizeof(RF_PH[0]));
+        memset(dephasing, 0, MAX_DEPHASE*sizeof(dephasing[0]));
+        memset(dephasing_T, 0, MAX_DEPHASE*sizeof(dephasing_T[0]));
     }
 
     void dump()
@@ -50,7 +55,10 @@ typedef struct simulation_parameters
         std::cout<<"T1="<<T1<<" T2="<<T2<<" TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
         std::cout<<"TE = "; for(int i=0; i<n_TE; i++) std::cout<<TE[i]*dt<<' '; std::cout<<'\n';
         std::cout<<"Refocusing RF degree = "; for(int i=0; i<n_RF; i++) std::cout<<RF_FA[i]<<' '; std::cout<<'\n';
+        std::cout<<"Refocusing RF phase = "; for(int i=0; i<n_RF; i++) std::cout<<RF_PH[i]<<' '; std::cout<<'\n';
         std::cout<<"Refocusing RF time = "; for(int i=0; i<n_RF; i++) std::cout<<RF_ST[i]*dt<<' '; std::cout<<'\n';
+        std::cout<<"dephasing degree = "; for(int i=0; i<n_dephasing; i++) std::cout<<dephasing[i]<<' '; std::cout<<'\n';
+        std::cout<<"dephasing time = "; for(int i=0; i<n_dephasing; i++) std::cout<<dephasing_T[i]*dt<<' '; std::cout<<'\n';
         std::cout<<"sample length = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
         std::cout<<"scale2grid = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
         std::cout<<"fieldmap size = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
