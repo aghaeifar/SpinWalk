@@ -102,8 +102,8 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         std::vector<cudaStream_t> streams(device_count, NULL);
 
         #pragma omp parallel for
-        for(int32_t d=0; d<device_count; d++)
-        {
+        for(uint32_t d=0; d<device_count; d++)
+        {  
             checkCudaErrors(cudaSetDevice(d));            
             checkCudaErrors(cudaStreamCreate(&streams[d]));
 
@@ -121,6 +121,8 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             checkCudaErrors(cudaMemcpyAsync(d_param[d],     &param,                 sizeof(simulation_parameters),       cudaMemcpyHostToDevice, streams[d]));
             checkCudaErrors(cudaMemcpyAsync(d_M0[d],        &M0[3*param.n_spins*d], 3*param.n_spins*sizeof(M0[0]),       cudaMemcpyHostToDevice, streams[d]));
             
+            d_param[d]->seed += d * d_param[d]->n_spins; // different seed for each GPU
+
             if(hasXYZ0 == false)
             {   // generate initial spatial position for spins, based on sample_length_ref
                 printf("GPU %d) Generating random initial position for spins... ", d);

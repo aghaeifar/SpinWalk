@@ -30,7 +30,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     thrust::minstd_rand gen(param->seed + spin_no);
     thrust::normal_distribution<float> dist_random_walk_xyz(0.f, sqrt(6 * param->diffusion_const * param->dt));
     //thrust::uniform_real_distribution<float> dist_random_walk_xyz(-sqrt(6 * param.diffusion_const * param.dt), sqrt(6 * param.diffusion_const * param.dt));
-    gen.discard(param->seed + spin_no); // each spins has its own seed, but this may not be true in an HPC with multiple GPUs
+    gen.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
 
     //uint16_t n_timepoints_local;
     float field = 0., rf_phase = 0., time_elapsed = 0.; 
