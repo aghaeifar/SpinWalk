@@ -189,6 +189,30 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             std::cout << ERR_MSG << "RF_PH and RF_ST must have the same number of elements" << std::endl;
             return false;
         }
+
+        // ---------------- dephasing (start times, Flip angles ) ----------------
+        // Dephase start times
+        for(i=0; i<MAX_RF && ini.get("SCAN_PARAMETERS").has("DEPHASING_T[" + std::to_string(i) + "]"); i++)           
+            param.dephasing_T[i] = std::stof(ini.get("SCAN_PARAMETERS").get("DEPHASING_T[" + std::to_string(i) + "]")) / param.dt;
+        
+        // check RF start time conditions
+        if (std::is_sorted(param.dephasing_T, param.dephasing_T + i) == false || 
+            std::adjacent_find(param.dephasing_T, param.dephasing_T + i) != param.dephasing_T + i )
+        {
+            std::copy(param.RF_ST, param.RF_ST + param.n_RF, std::ostream_iterator<int>(std::cout, " ")); std::cout << std::endl;
+            std::cout << ERR_MSG << "RF Times must be in ascending order and must not have duplicates values" << std::endl;
+            return false;
+        }
+        param.n_dephasing = i;
+
+        for(i=0; i<param.n_dephasing && ini.get("SCAN_PARAMETERS").has("DEPHASING[" + std::to_string(i) + "]"); i++)
+            param.dephasing[i] = std::stof(ini.get("SCAN_PARAMETERS").get("DEPHASING[" + std::to_string(i) + "]")) ;
+        
+        if(i != param.n_dephasing)
+        {
+            std::cout << ERR_MSG << "DEPHASING and DEPHASING_T must have the same number of elements" << std::endl;
+            return false;
+        }
     }
 
     // ============== reading section SCAN_PARAMETERS ==============
@@ -232,6 +256,10 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
     }
 
     param.prepare(); 
+
+    if (param.n_dummy_scan < 0)
+        param.n_dummy_scan = 5 * param.T1 / param.TR;
+
     return true;
 }
 
