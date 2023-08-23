@@ -192,9 +192,20 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
 
         // ---------------- dephasing (start times, Flip angles ) ----------------
         // Dephase start times
-        for(i=0; i<MAX_RF && ini.get("SCAN_PARAMETERS").has("DEPHASING_T[" + std::to_string(i) + "]"); i++)           
-            param.dephasing_T[i] = std::stof(ini.get("SCAN_PARAMETERS").get("DEPHASING_T[" + std::to_string(i) + "]")) / param.dt;
-        
+        for(i=0; i<MAX_RF && ini.get("SCAN_PARAMETERS").has("DEPHASING_T[" + std::to_string(i) + "]"); i++)     
+        {
+            try    
+            {        
+                param.dephasing_T[i] = std::stof(ini.get("SCAN_PARAMETERS").get("DEPHASING_T[" + std::to_string(i) + "]")) / param.dt;    
+            }        
+            catch(const std::exception& e)
+            {
+                break; 
+            }                      
+        }      
+            
+        param.n_dephasing = i;
+
         // check RF start time conditions
         if (std::is_sorted(param.dephasing_T, param.dephasing_T + i) == false || 
             std::adjacent_find(param.dephasing_T, param.dephasing_T + i) != param.dephasing_T + i )
@@ -202,8 +213,7 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             std::copy(param.RF_ST, param.RF_ST + param.n_RF, std::ostream_iterator<int>(std::cout, " ")); std::cout << std::endl;
             std::cout << ERR_MSG << "RF Times must be in ascending order and must not have duplicates values" << std::endl;
             return false;
-        }
-        param.n_dephasing = i;
+        }        
 
         for(i=0; i<param.n_dephasing && ini.get("SCAN_PARAMETERS").has("DEPHASING[" + std::to_string(i) + "]"); i++)
             param.dephasing[i] = std::stof(ini.get("SCAN_PARAMETERS").get("DEPHASING[" + std::to_string(i) + "]")) ;
@@ -258,7 +268,7 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
     param.prepare(); 
 
     if (param.n_dummy_scan < 0)
-        param.n_dummy_scan = 5 * param.T1 / param.TR;
+        param.n_dummy_scan = 5.0 * param.T1 / param.TR;
 
     return true;
 }
