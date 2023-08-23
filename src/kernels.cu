@@ -30,7 +30,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     thrust::minstd_rand gen(param->seed + spin_no);
     thrust::normal_distribution<float> dist_random_walk_xyz(0.f, sqrt(6 * param->diffusion_const * param->dt));
     //thrust::uniform_real_distribution<float> dist_random_walk_xyz(-sqrt(6 * param.diffusion_const * param.dt), sqrt(6 * param.diffusion_const * param.dt));
-    gen.discard(param->seed + spin_no);
+    gen.discard(param->seed + spin_no); // each spins has its own seed, but this may not be true in an HPC with multiple GPUs
 
     //uint16_t n_timepoints_local;
     float field = 0., rf_phase = 0., time_elapsed = 0.; 
@@ -68,7 +68,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
 
         // ------ loop over timepoints ------
         uint64_t ind=0, ind_old=param->matrix_length+1;
-        uint16_t current_timepoint = 0, old_timepoint = 0, current_rf = 1, current_te = 0;
+        uint16_t current_timepoint = 0, old_timepoint = 0, current_rf = 1, current_te = 0, counter_dephasing = 0;
         float accumulated_phase = 0.f, dephase_deg = 0.f;
         while (current_timepoint < param->n_timepoints) // param->n_timepoints is the total number of timepoints (= TR/dwelltime)
         {
@@ -93,6 +93,15 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 field = pFieldMap[ind_old = ind];
             }     
             accumulated_phase += field;
+
+            // ------ apply dephasing if there is any ------
+            if(counter_dephasing < param->n_dephasing && param->dephasing_T[counter_dephasing] == current_timepoint)
+            {
+                float dephase_deg  =  (float)spin_no * param->dephasing[counter_dephasing] / (float)param->n_spins; // assign dephasing linearly to spins 
+                accumulated_phase +=  dephase_deg / (param->B0 * GAMMA * param->dt * RAD2DEG); // scale dephasing to Tesla per dt
+                counter_dephasing++;
+            }
+                 
 
             // ------ apply other RF pulse if there is any ------
             if(current_rf < param->n_RF && param->RF_ST[current_rf] == current_timepoint)
