@@ -21,7 +21,7 @@
 
 #define SPINWALK_VERSION_MAJOR 1
 #define SPINWALK_VERSION_MINOR 2
-#define SPINWALK_VERSION_PATCH 0
+#define SPINWALK_VERSION_PATCH 1
 
 using namespace std;
 
@@ -104,6 +104,10 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         #pragma omp parallel for
         for(uint32_t d=0; d<device_count; d++)
         {  
+            simulation_parameters param_local;
+            memcpy(&param_local, &param, sizeof(simulation_parameters));
+            param_local.seed += d * param.n_spins; // different seed for each GPU
+
             checkCudaErrors(cudaSetDevice(d));            
             checkCudaErrors(cudaStreamCreate(&streams[d]));
 
@@ -118,10 +122,10 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             
             checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(),        fieldmap.size()*sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
             checkCudaErrors(cudaMemcpyAsync(d_pMask[d],     mask.data(),            mask.size() * sizeof(mask[0]),       cudaMemcpyHostToDevice, streams[d]));
-            checkCudaErrors(cudaMemcpyAsync(d_param[d],     &param,                 sizeof(simulation_parameters),       cudaMemcpyHostToDevice, streams[d]));
+            checkCudaErrors(cudaMemcpyAsync(d_param[d],     &param_local,           sizeof(simulation_parameters),       cudaMemcpyHostToDevice, streams[d]));
             checkCudaErrors(cudaMemcpyAsync(d_M0[d],        &M0[3*param.n_spins*d], 3*param.n_spins*sizeof(M0[0]),       cudaMemcpyHostToDevice, streams[d]));
             
-            d_param[d]->seed += d * d_param[d]->n_spins; // different seed for each GPU
+            
 
             if(hasXYZ0 == false)
             {   // generate initial spatial position for spins, based on sample_length_ref
