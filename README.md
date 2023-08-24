@@ -14,9 +14,13 @@ Simulator is written in C++ and utilizes CUDA to run in GPU. Therefore, it is po
 
 ## How to run
 ```
+./SpinWalk my_config.ini 
+```
+Several config files can be simulated sequentially:
+```
 ./SpinWalk config1.ini config2.ini ...
 ```
-Several config files can be simulated sequentially. 
+
 ## Dependencies
 - A C++ compiler supprting C++ 17
 - CUDA driver (*nvidia-smi* and *nvcc --version* must run in terminal)
@@ -28,8 +32,11 @@ cd SpinWalk
 cmake -B ./build
 cmake --build ./build --config Release
 ```
-
-To check compute capability of your GPU run following command in terminal (if does not work since your GPU driver is old, try to find compute capability of your model [here](https://developer.nvidia.com/cuda-gpus)):
+or building without using cmake:
+```
+nvcc ./src/spinwalk.cu ./src/kernels.cu -I ./include/ -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler -fopenmp -o spinwalk
+```
+The values 86 within compute_86 and sm_86 need to be substituted with the compute capability of the GPU. Run following command in terminal to check compute capability of your GPU  (if does not work since your GPU driver is old, try to find compute capability of your model [here](https://developer.nvidia.com/cuda-gpus)):
 ```bash 
 nvidia-smi --query-gpu=compute_cap --format=csv
 ```
