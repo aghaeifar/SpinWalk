@@ -14,11 +14,11 @@ Simulator is written in C++ and utilizes CUDA to run in GPU. Therefore, it is po
 
 ## How to run
 ```
-./SpinWalk my_config.ini 
+./spinwalk my_config.ini 
 ```
 Several config files can be simulated sequentially:
 ```
-./SpinWalk config1.ini config2.ini ...
+./spinwalk config1.ini config2.ini ...
 ```
 
 ## Dependencies
