@@ -6,7 +6,7 @@
 
 This program aims to simulate the behaviour of spins under a certain MR sequence in a microvascular network. Breifly, the susceptibility variation between blood and tissue leads to local field inhomogeneity which accordingly can be used to generate an MR contrast. The program tries to perform a Monte-Carlo simulation over range of spins which are randomly distributed and move in presence of user defined magnetic field. Here are example plots obtained from the simulator where show BOLD sensitivity as a function of vessel size for Gradient Echo (GRE) and Spin Echo (SE) seqeuences.
 
-![](./doc/img/gre_se.png)
+![](./doc/img/gre_se.jpggit )
 
 Some [literature](#Literature) are provided as reference to get a better feeling of what are intended to get from this kind of simulations.
 
