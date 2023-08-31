@@ -65,6 +65,8 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
         return false;
     }
 
+    std::cout << "Reading config: " << config_filename << std::endl;
+
     if(ini.has("parent"))
     {
         if(ini.get("parent").has("parent_config"))
@@ -75,7 +77,6 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
                 std::filesystem::path parent_path = std::filesystem::absolute(config_filename).parent_path();
                 parent_config = parent_path / parent_config;
             }
-            std::cout << "Reading parent config: " << parent_config << std::endl;
             if (read_config(parent_config, param, sample_length_scales, filenames) == false)
                 return false;
         }
