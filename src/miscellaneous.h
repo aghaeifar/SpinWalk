@@ -33,7 +33,7 @@ typedef struct simulation_parameters
     float dephasing[MAX_DEPHASE]; // dephasing in degree
     int32_t RF_ST[MAX_RF], TE[MAX_TE], dephasing_T[MAX_DEPHASE]; // refocusing time in dt, echo times in dt, dephasing time in dt
     float sample_length[3], scale2grid[3], diffusion_const, phase_cycling;
-    uint16_t n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF, n_dephasing;
+    int32_t n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF, n_dephasing;
     int32_t n_dummy_scan;
     uint32_t n_spins, fieldmap_size[3], seed;
     uint64_t matrix_length;
