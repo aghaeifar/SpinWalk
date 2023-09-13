@@ -246,6 +246,8 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             param.seed = std::stoi(ini.get("SIMULATION_PARAMETERS").get("SEED"));
         if(ini.get("SIMULATION_PARAMETERS").has("NUMBER_OF_SPINS"))
             param.n_spins = std::stof(ini.get("SIMULATION_PARAMETERS").get("NUMBER_OF_SPINS"));
+        if(ini.get("SIMULATION_PARAMETERS").has("CROSS_BOUNDARY"))
+            param.enCrossBoundry = ini.get("SIMULATION_PARAMETERS").get("CROSS_BOUNDARY").compare("0") != 0;
         if(ini.get("SIMULATION_PARAMETERS").has("DIFFUSION_CONSTANT"))
             param.diffusion_const = std::stof(ini.get("SIMULATION_PARAMETERS").get("DIFFUSION_CONSTANT"));        
         if(ini.get("SIMULATION_PARAMETERS").has("SAMPLE_LENGTH_SCALES[0]"))

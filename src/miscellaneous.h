@@ -64,7 +64,7 @@ typedef struct simulation_parameters
         std::cout<<"fieldmap size = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
         std::cout<<"diffusion const = "<<diffusion_const<<'\t'<<"dummy scans = "<<n_dummy_scan<<'\t'<<"spins = "<<n_spins<<'\n';
         std::cout<<"samples scales = "<<n_sample_length_scales<<'\t'<<"timepoints = "<<n_timepoints<<'\t'<<"fieldmaps = "<<n_fieldmaps<<'\n';
-        std::cout<<"Apply FA/2 = "<<enApplyFA2<<'\t'<<'\n';
+        std::cout<<"Apply FA/2 = "<<enApplyFA2<<'\t'<<"Boundry Condition = " << enCrossBoundry << '\n';
         std::cout<<"Phase cycling = "<<phase_cycling<<'\t'<<"Seed = "<<seed<<'\n';
         std::cout<<'\n';
 
