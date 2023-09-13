@@ -27,7 +27,7 @@ __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *p
 
 __host__  __device__ __forceinline__ uint64_t sub2ind(uint32_t x, uint32_t y, uint32_t z, uint32_t lenx, uint32_t leny)
 {
-    return (uint64_t(z*lenx*leny) + y*lenx + x);
+    return (uint64_t((z-1)*lenx*leny) + (y-1)*lenx + x-1); // the last -1 is because of the C++ indexing starts from 0
 }
 
 void print_device_info();

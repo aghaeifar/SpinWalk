@@ -83,7 +83,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             }
 
             // ------ subscripts to linear indices ------
-            ind = sub2ind(ROUND(xyz_new[0]*param->scale2grid[0]), ROUND(xyz_new[1]*param->scale2grid[1]), ROUND(xyz_new[2]*param->scale2grid[2]), param->fieldmap_size[0], param->fieldmap_size[1]);
+            ind = sub2ind(ROUND(xyz_new[0]*param->scale2grid[0]+1.), ROUND(xyz_new[1]*param->scale2grid[1]+1.), ROUND(xyz_new[2]*param->scale2grid[2]+1.), param->fieldmap_size[0], param->fieldmap_size[1]);
             
             // ------ accumulate phase ------
             if(ind != ind_old) // used this trick for fewer access to the global memory which is slow. Helpful for large samples!
@@ -187,7 +187,7 @@ __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *p
         return;
 
     thrust::minstd_rand  gen(param->seed + spin_no);
-    thrust::uniform_real_distribution<float> dist_initial_point(0.1, 0.9);
+    thrust::uniform_real_distribution<float> dist_initial_point(0., 1.);
     gen.discard(param->seed + spin_no);
 
     float scale2grid[3];
@@ -200,7 +200,7 @@ __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *p
     {
         for (uint8_t i = 0; i < 3; i++)
             xyz[i] = dist_initial_point(gen) * param->sample_length[i];
-        index = sub2ind(ROUND(xyz[0]*scale2grid[0]), ROUND(xyz[1]*scale2grid[1]), ROUND(xyz[2]*scale2grid[2]), param->fieldmap_size[0], param->fieldmap_size[1]);
+        index = sub2ind(ROUND(xyz[0]*scale2grid[0]+1.), ROUND(xyz[1]*scale2grid[1]+1.), ROUND(xyz[2]*scale2grid[2]+1.), param->fieldmap_size[0], param->fieldmap_size[1]);
     } while (pMask[index] == true);
 }
 
