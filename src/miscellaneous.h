@@ -37,8 +37,8 @@ typedef struct simulation_parameters
     int32_t n_dummy_scan;
     uint32_t n_spins, fieldmap_size[3], seed;
     uint64_t matrix_length;
-    bool enDebug, enApplyFA2;
-    simulation_parameters():T1(2.2),T2(0.04),TR(0.04),dt(5e-5),B0(9.4),n_TE(0),n_RF(0),n_dummy_scan(0),phase_cycling(0.),enApplyFA2(false),enDebug(false)
+    bool enDebug, enApplyFA2, enCrossBoundry;
+    simulation_parameters():T1(2.2),T2(0.04),TR(0.04),dt(5e-5),B0(9.4),n_TE(0),n_RF(0),n_dummy_scan(0),phase_cycling(0.),enApplyFA2(false),enDebug(false),enCrossBoundry(true)
     {
         memset(fieldmap_size, 0, 3*sizeof(fieldmap_size[0])); 
         memset(sample_length, 0, 3*sizeof(sample_length[0]));

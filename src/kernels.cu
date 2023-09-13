@@ -73,13 +73,15 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
         while (current_timepoint < param->n_timepoints) // param->n_timepoints is the total number of timepoints (= TR/dwelltime)
         {
             // ------ generate random walks and wrap around the boundries ------
+            float rnd_wlk;
             for (uint8_t i=0; i<3; i++)
             {
-                xyz_new[i] = xyz[i] + dist_random_walk_xyz(gen); // new spin position after random-walk
+                rnd_wlk = dist_random_walk_xyz(gen);
+                xyz_new[i] = xyz[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)
-                    xyz_new[i] += param->sample_length[i];
+                    xyz_new[i] += param->enCrossBoundry ? param->sample_length[i] : -2*rnd_wlk; // rnd_wlk is negative here
                 else if (xyz_new[i] > param->sample_length[i])
-                    xyz_new[i] -= param->sample_length[i];
+                    xyz_new[i] -= param->enCrossBoundry ? param->sample_length[i] : 2*rnd_wlk;
             }
 
             // ------ subscripts to linear indices ------
