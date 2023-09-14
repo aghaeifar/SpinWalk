@@ -3,6 +3,20 @@ message(STATUS "CMake version: ${CMAKE_VERSION}")
 
 project(spinwalk LANGUAGES CUDA CXX)
 
+# FindCUDA module
+find_package(CUDA REQUIRED)
+
+# Check for CUDA-capable GPU
+if(CUDA_FOUND)
+  # Check for GPU device
+  cuda_select_nvcc_arch_flags(ARCH_FLAGS Auto)
+  if(NOT ARCH_FLAGS)
+    message("No CUDA-capable GPU found")
+  endif()
+else()
+  message("CUDA not found")
+endif()
+
 # Find OpenMP
 find_package(OpenMP)
 
