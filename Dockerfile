@@ -1,8 +1,6 @@
-# Use a base image with MATLAB installed
-# FROM mathworks/matlab:r2022b
 # FROM ubuntu:22.04
 # FROM nvidia/cuda:12.0.1-runtime-ubuntu22.04
- FROM nvidia/cuda:12.0.1-devel-ubuntu22.04
+FROM nvidia/cuda:12.0.1-devel-ubuntu22.04
 
 USER root
 
@@ -23,7 +21,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python-is-python3 \
 	htop \
 	net-tools \
-	vim
+    iputils-ping \
+	vim \
+    git
 
 # RUN apt-get install nvidia-cuda-toolkit
 
