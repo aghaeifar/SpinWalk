@@ -21,11 +21,9 @@
 
 #define SPINWALK_VERSION_MAJOR 1
 #define SPINWALK_VERSION_MINOR 2
-#define SPINWALK_VERSION_PATCH 3
+#define SPINWALK_VERSION_PATCH 5
 
 using namespace std;
-
-
 
 bool simulate(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<float> sample_length_scales)
 {
@@ -125,8 +123,6 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             checkCudaErrors(cudaMemcpyAsync(d_param[d],     &param_local,           sizeof(simulation_parameters),       cudaMemcpyHostToDevice, streams[d]));
             checkCudaErrors(cudaMemcpyAsync(d_M0[d],        &M0[3*param.n_spins*d], 3*param.n_spins*sizeof(M0[0]),       cudaMemcpyHostToDevice, streams[d]));
             
-            
-
             if(hasXYZ0 == false)
             {   // generate initial spatial position for spins, based on sample_length_ref
                 printf("GPU %d) Generating random initial position for spins... ", d);
@@ -164,7 +160,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 
                 cu_scalePos<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_XYZ0_scaled[d], d_XYZ0[d], sample_length_scales[sl], param.n_spins);
                 gpuCheckKernelExecutionError(__FILE__, __LINE__);
-
+                
                 cu_sim<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_param[d], d_pFieldMap[d], d_pMask[d], d_M0[d], d_XYZ0_scaled[d], d_M1[d], d_XYZ1[d]);
                 gpuCheckKernelExecutionError(__FILE__, __LINE__);
 
@@ -241,7 +237,7 @@ int main(int argc, char * argv[])
         return 1;
     }
 
-    std::cout << "Running " << config_files.size() << " simulation(s)..." << std::endl;
+    std::cout << "Running simulation for " << config_files.size() << " config(s)..." << std::endl;
     for(uint8_t cnf=0; cnf<config_files.size(); cnf++)
     {
         map<string, vector<string> > filenames = {{"fieldmap", 	vector<string>()},  // input:  map of off-resonance in Tesla
@@ -275,10 +271,10 @@ int main(int argc, char * argv[])
                 for (int i = 0; i< it->second.size(); i++)
                     std::cout << it->first << "[" << i << "] = " << it->second.at(i) << std::endl;
             
-            std::cout << "\nSample length scale = [ ";
+            std::cout << "\nSample length scale = [";
             for (int32_t i = 0; i < param.n_sample_length_scales; i++)
                 std::cout << sample_length_scales[i] << ", ";
-            std::cout << "\r\r ]\n" << std::endl;
+            std::cout << "\b\b]\n" << std::endl;
 
             file_utils::input_header hdr_in;
             if(file_utils::read_header(filenames.at("fieldmap")[0], hdr_in) == false)

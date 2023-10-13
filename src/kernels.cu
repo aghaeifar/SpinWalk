@@ -26,7 +26,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     if (spin_no >= param->n_spins)
         return;
-
+    
     thrust::minstd_rand gen(param->seed + spin_no);
     thrust::normal_distribution<float> dist_random_walk_xyz(0.f, sqrt(6 * param->diffusion_const * param->dt));
     //thrust::uniform_real_distribution<float> dist_random_walk_xyz(-sqrt(6 * param.diffusion_const * param.dt), sqrt(6 * param.diffusion_const * param.dt));
@@ -49,7 +49,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
         xrot_withphase (param->s2, param->c2, rf_phase += param->phase_cycling, m0, m1);
         relax(param->e12, param->e22, m1, m0);
     }
-
+    
     bool is_lastscan = false;
     for (uint32_t dummy_scan = 0; dummy_scan < param->n_dummy_scan + 1; dummy_scan++)
     {
@@ -68,8 +68,9 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
 
         // ------ loop over timepoints ------
         uint64_t ind=0, ind_old=param->matrix_length+1;
-        uint16_t current_timepoint = 0, old_timepoint = 0, current_rf = 1, current_te = 0, counter_dephasing = 0;
-        float accumulated_phase = 0.f, dephase_deg = 0.f;
+        uint32_t current_timepoint = 0, old_timepoint = 0;
+        uint16_t current_rf = 1, current_te = 0, counter_dephasing = 0;
+        float accumulated_phase = 0.f, dephase_deg = 0.f;        
         while (current_timepoint < param->n_timepoints) // param->n_timepoints is the total number of timepoints (= TR/dwelltime)
         {
             // ------ generate random walks and wrap around the boundries ------
@@ -83,7 +84,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 else if (xyz_new[i] > param->sample_length[i])
                     xyz_new[i] -= param->enCrossBoundry ? param->sample_length[i] : 2*rnd_wlk;
             }
-
+            
             // ------ subscripts to linear indices ------
             ind = sub2ind(ROUND(xyz_new[0]*param->scale2grid[0]+1.), ROUND(xyz_new[1]*param->scale2grid[1]+1.), ROUND(xyz_new[2]*param->scale2grid[2]+1.), param->fieldmap_size[0], param->fieldmap_size[1]);
             
@@ -215,7 +216,6 @@ void print_device_info()
     const int mb = kb * kb;
     size_t free, total;
     
-
     int32_t device_count, cuda_version, driver_version;
     checkCudaErrors(cudaGetDeviceCount(&device_count));
     cudaRuntimeGetVersion(&cuda_version);
