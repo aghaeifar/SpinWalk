@@ -21,16 +21,16 @@ def create_fieldmap(f, theta_B0_all, p3, dChi, Htc, Y, BV, FoV, Res, vessel_radi
         np.random.seed(0)  # fix the seed for reproducibility 
 
     dW = np.zeros(p3.shape[0], dtype=np.float32)
-    vessel_mask = np.zeros(Res, dtype=bool).flatten(order='F')
+    vessel_mask = np.zeros_like(dW, dtype=bool)
 
     while True:
         # vessel, is a strait line defined by two points, first point is randomly generated in cartesian coordinate, second point is generated in spherical coordinate to address orientation respect to B0
         p1 = np.random.uniform(-FoV/2, FoV/2, 3).astype(np.float32) # first point
         if is_orientation_random == True:
-            phi   = np.random.uniform(0, 2*np.pi, 1).astype(np.float32)  # inplance angle of the vessel axis
-            theta_B0 = np.random.uniform(0, np.pi/2, 1).astype(np.float32)  # angle between axis of vessel and B0 if is_orientation_random == True
+            phi   = np.random.uniform(0, 2*np.pi, 1).astype(np.float32)  # inplace angle of the vessel axis, with respect to x axis (in radian)
+            theta_B0 = np.random.uniform(0, np.pi/2, 1).astype(np.float32)  # angle between axis of vessel and B0 (in radian), B0 is aligned with z axis 
         else:
-            phi = 0.
+            phi = 0. 
             theta_B0 = theta_B0_all[f]
         
         p21 = np.asarray([sin(theta_B0) * cos(phi), sin(theta_B0) * sin(phi), cos(theta_B0)], dtype=np.float32) # p2 - p1
@@ -43,18 +43,17 @@ def create_fieldmap(f, theta_B0_all, p3, dChi, Htc, Y, BV, FoV, Res, vessel_radi
         v1_u = p3 - (p1 + t * (p2 - p1))  # vector from projection point (p1 + t * (p2 - p1)) to p3
         t = None # save memory
         d = np.linalg.norm(v1_u, axis=1)  # distance from projection point (cylinder axis) to p3 (all spatial points)
-        # d = np.linalg.norm(np.cross(p2-p1,p3-p1), axis=1)/np.linalg.norm(p2-p1) # distance to vessel
 
         # reference vector of current cylinder (vessel), a vector prependicular to the cylinder axis and its Y element is zero
-        v2_u = np.asarray([1., 0., 0.], dtype = np.float32) # suppose this is a vector of form [1,0,x], connects point P3 to p1
-        v2_u[2] = -v2_u[0] * p21[0]/p21[2] # update the x (3rd) element of the v2_u. We did a dot product between v and p21 to get the x element of v2_u. Dot product should be zero since two vectors are perpendicular. We can solve for x element of v2_u.
+        v2_u      = np.asarray([1., 0., 0.], dtype = np.float32) # suppose this is a vector of form [1,0,x], connects point P3 to p1
+        v2_u[2]   = -v2_u[0] * p21[0]/p21[2] # update the x (3rd) element of the v2_u. We did a dot product between v and p21 to get the x element of v2_u. Dot product should be zero since two vectors are perpendicular. We can solve for x element of v2_u.
         cos2theta = np.divide(np.dot(v1_u, v2_u), np.linalg.norm(v1_u, axis=1)) / np.linalg.norm(v2_u)
         cos2theta = cos2theta * cos2theta
-        v1_u = None # save memory
+        v1_u      = None # save memory
 
-        dW_temp = 2*np.pi*(1-Y)*dChi*Htc * (vessel_radius**2) / (d**2) * (sin(theta_B0)**2) * (2*cos2theta - 1)
+        dW_temp   = 2*np.pi*(1-Y)*dChi*Htc * (vessel_radius**2) / (d**2) * (sin(theta_B0)**2) * (2*cos2theta - 1)
         cos2theta = None # save memory
-        f_in = 2*np.pi*(1-Y)*dChi*Htc * (cos(theta_B0)**2 - 1/3) 
+        f_in      = 2*np.pi*(1-Y)*dChi*Htc * (cos(theta_B0)**2 - 1/3) 
 
         mask_local = np.zeros_like(vessel_mask, dtype = bool) # maks for the current vessel
         np.putmask(mask_local, (d < vessel_radius), True)  
@@ -70,8 +69,8 @@ def create_fieldmap(f, theta_B0_all, p3, dChi, Htc, Y, BV, FoV, Res, vessel_radi
         if BV_t > BV:
             break
     
-    dW = dW.reshape(Res)
-    vessel_mask = vessel_mask.reshape(Res)
+    dW = dW.reshape(Res, order='F')
+    vessel_mask = vessel_mask.reshape(Res, order='F')
     filename = 'fieldmap_' + str(f) + '.mat'
     if is_orientation_random == False:
         filename = 'fieldmap_ori_' + "{:05.1f}".format(theta_B0*180/np.pi) + '.mat'
@@ -84,22 +83,22 @@ def create_fieldmap(f, theta_B0_all, p3, dChi, Htc, Y, BV, FoV, Res, vessel_radi
 if __name__ == '__main__':
 
     ########  define parameters ########
-    FoV  = np.asarray([1e3, 1e3, 1e3]) # Field of view in um
-    Res  = np.asarray([200, 200, 200]) # Resolution in voxels
+    FoV  = np.asarray([6e2, 6e2, 6e2]) # Field of view in um
+    Res  = np.asarray([900, 900, 900]) # Resolution in voxels
     FoV2 = (FoV - FoV/Res) / 2 # update Field of view to account for the voxel size and center the field map
 
     is_orientation_random = False 
-    use_fixed_seed = True # if True, the seed is fixed to 0 for reproducibility
-    theta_B0_all = np.linspace(0, np.pi/2, 10, endpoint=True) # angle between axis of vessel and B0 if is_orientation_random == False (in radian)
-    n_fieldmaps = 1 # number of field maps to generate if is_orientation_random == True
+    use_fixed_seed  = True # if True, the seed is fixed to 0 for reproducibility
+    theta_B0_all    = np.linspace(0, np.pi/2, 10, endpoint=True) # angle between axis of vessel and B0 if is_orientation_random == False (in radian)
+    n_fieldmaps     = 1 # number of field maps to generate if is_orientation_random == True
 
-    Y     = 0.75  # oxygenation level of blood
-    Htc   = 0.4   # hematocrit level
-    dChi  = 0.273e-6 # susceptibility difference between fully deoxygeneted blood and tissue
-    BV    = 0.03  # blood volume fraction
-    vessel_radius = 50 # vessel diameter in um
+    Y     = 0.75        # oxygenation level of blood
+    Htc   = 0.4         # hematocrit level
+    dChi  = 0.273e-6    # susceptibility difference between fully deoxygeneted blood and tissue
+    BV    = 0.03        # blood volume fraction
+    vessel_radius = 50  # vessel diameter in um
 
-    output_dir = '.'
+    output_dir = '/DATA2/microvascular/Cylinder/'
 
     ########  prepare ########
     # create a grid of points
