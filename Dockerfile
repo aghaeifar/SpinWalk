@@ -40,6 +40,9 @@ RUN apt-get clean \
  && apt-get -y autoremove \
  && rm -rf /var/lib/apt/lists/*
 
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir numpy torch scipy nibabel ipython jupyter matplotlib tqdm h5py pandas scikit-image scikit-learn seaborn
+
 LABEL org.opencontainers.image.authors="Ali Aghaeifar"
 
 
