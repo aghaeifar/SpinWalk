@@ -12,6 +12,7 @@
 
 #include <random>
 #include <filesystem>
+#include <iomanip>
 #include "helper_cuda.h"
 #include "kernels.cuh"
 #include "file_utils.h"
