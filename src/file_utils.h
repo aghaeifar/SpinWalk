@@ -162,16 +162,7 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
         for(i=0; i<MAX_RF && ini.get("SCAN_PARAMETERS").has("RF_ST[" + std::to_string(i) + "]"); i++)           
             param.RF_ST[i] = std::stof(ini.get("SCAN_PARAMETERS").get("RF_ST[" + std::to_string(i) + "]")) / param.dt;
         
-        // check RF start time conditions
-        if (std::is_sorted(param.RF_ST, param.RF_ST + i) == false || 
-            std::adjacent_find(param.RF_ST, param.RF_ST + i) != param.RF_ST + i || 
-            param.RF_ST[0] != 0 || 
-            (param.n_RF = i) == 0)
-        {
-            std::copy(param.RF_ST, param.RF_ST + param.n_RF, std::ostream_iterator<int>(std::cout, " ")); std::cout << std::endl;
-            std::cout << ERR_MSG << "RF Times must be in ascending order, starts with 0 and must not have duplicates values" << std::endl;
-            return false;
-        }
+        param.n_RF = i;
         // RF flip angles
         for(i=0; i<param.n_RF && ini.get("SCAN_PARAMETERS").has("RF_FA[" + std::to_string(i) + "]"); i++)
             param.RF_FA[i] = std::stof(ini.get("SCAN_PARAMETERS").get("RF_FA[" + std::to_string(i) + "]")) ;
@@ -191,31 +182,24 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             return false;
         }
 
-        // ---------------- dephasing (start times, Flip angles ) ----------------
-        // Dephase start times
-        for(i=0; i<MAX_RF && ini.get("SCAN_PARAMETERS").has("DEPHASING_T[" + std::to_string(i) + "]"); i++)     
-        {
-            try    
-            {        
-                param.dephasing_T[i] = std::stof(ini.get("SCAN_PARAMETERS").get("DEPHASING_T[" + std::to_string(i) + "]")) / param.dt;    
-            }        
-            catch(const std::exception& e)
-            {
-                break; 
-            }                      
-        }      
-            
-        param.n_dephasing = i;
-
         // check RF start time conditions
-        if (std::is_sorted(param.dephasing_T, param.dephasing_T + i) == false || 
-            std::adjacent_find(param.dephasing_T, param.dephasing_T + i) != param.dephasing_T + i )
+        if (std::is_sorted(param.RF_ST, param.RF_ST + i) == false || 
+            std::adjacent_find(param.RF_ST, param.RF_ST + i) != param.RF_ST + i || 
+            param.RF_ST[0] != 0 || 
+            param.n_RF == 0)
         {
             std::copy(param.RF_ST, param.RF_ST + param.n_RF, std::ostream_iterator<int>(std::cout, " ")); std::cout << std::endl;
-            std::cout << ERR_MSG << "RF Times must be in ascending order and must not have duplicates values" << std::endl;
+            std::cout << ERR_MSG << "RF Times must be in ascending order, starts with 0 and must not have duplicates values" << std::endl;
             return false;
-        }        
+        }
 
+        // ---------------- dephasing (start times, Flip angles ) ----------------
+        // Dephase start times
+        for(i=0; i<MAX_RF && ini.get("SCAN_PARAMETERS").has("DEPHASING_T[" + std::to_string(i) + "]"); i++)       
+            param.dephasing_T[i] = std::stof(ini.get("SCAN_PARAMETERS").get("DEPHASING_T[" + std::to_string(i) + "]")) / param.dt;    
+ 
+        param.n_dephasing = i;   
+        // Dephase flip angles
         for(i=0; i<param.n_dephasing && ini.get("SCAN_PARAMETERS").has("DEPHASING[" + std::to_string(i) + "]"); i++)
             param.dephasing[i] = std::stof(ini.get("SCAN_PARAMETERS").get("DEPHASING[" + std::to_string(i) + "]")) ;
         
@@ -223,7 +207,42 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
         {
             std::cout << ERR_MSG << "DEPHASING and DEPHASING_T must have the same number of elements" << std::endl;
             return false;
-        }
+        } 
+
+        // check Dephase start time conditions
+        if (std::is_sorted(param.dephasing_T, param.dephasing_T + i) == false || 
+            std::adjacent_find(param.dephasing_T, param.dephasing_T + i) != param.dephasing_T + i )
+        {
+            std::copy(param.dephasing_T, param.dephasing_T + param.n_dephasing, std::ostream_iterator<int>(std::cout, " ")); std::cout << std::endl;
+            std::cout << ERR_MSG << "dephasing Times must be in ascending order and must not have duplicates values" << std::endl;
+            return false;
+        } 
+            
+        // ---------------- Gradients (start times, strength (T/m) ) ----------------
+        // Gradient start times
+        for(i=0; i<MAX_GRADIENT && ini.get("SCAN_PARAMETERS").has("GRADIENT_T[" + std::to_string(i) + "]"); i++)        
+            param.gradient_T[i] = std::stof(ini.get("SCAN_PARAMETERS").get("GRADIENT_T[" + std::to_string(i) + "]")) / param.dt;    
+
+        param.n_gradient = i;
+        // Gradient strength
+        for(i=0; i<param.n_gradient && ini.get("SCAN_PARAMETERS").has("GRADIENT_XYZ[" + std::to_string(i) + "]"); i++)
+            param.gradient_xyz[i] = std::stof(ini.get("SCAN_PARAMETERS").get("GRADIENT_XYZ[" + std::to_string(i) + "]")) ;
+               
+        if(i != param.n_gradient)
+        {
+            std::cout << ERR_MSG << "GRADIENT_XYZ and GRADIENT_T must have the same number of elements" << std::endl;
+            return false;
+        } 
+
+        // check Dephase start time conditions
+        if (std::is_sorted(param.gradient_T, param.gradient_T + i) == false || 
+            std::adjacent_find(param.gradient_T, param.gradient_T + i) != param.gradient_T + i )
+        {
+            std::copy(param.gradient_T, param.gradient_T + param.n_gradient, std::ostream_iterator<int>(std::cout, " ")); std::cout << std::endl;
+            std::cout << ERR_MSG << "Gradient Times must be in ascending order and must not have duplicates values" << std::endl;
+            return false;
+        } 
+        
     }
 
     // ============== reading section SCAN_PARAMETERS ==============

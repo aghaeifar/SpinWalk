@@ -25,20 +25,36 @@
 #define MAX_RF 128          // maximum number of RF
 #define MAX_TE 256          // maximum number of echo times
 #define MAX_DEPHASE 128     // maximum number of dephasing
+#define MAX_GRADIENT 128    // maximum number of gradient
 
 typedef struct simulation_parameters
 {
     float T1, T2, TR, dt, B0, e1, e12, e2, e22, c, s, c2, s2;
     float RF_FA[MAX_RF], RF_PH[MAX_RF]; // refocusing FA
     float dephasing[MAX_DEPHASE]; // dephasing in degree
-    int32_t RF_ST[MAX_RF], TE[MAX_TE], dephasing_T[MAX_DEPHASE]; // refocusing time in dt, echo times in dt, dephasing time in dt
+    float gradient_xyz[3*MAX_GRADIENT]; // gradient in T/m
+    int32_t RF_ST[MAX_RF], TE[MAX_TE], dephasing_T[MAX_DEPHASE], gradient_T[MAX_GRADIENT]; // refocusing time in dt, echo times in dt, dephasing time in dt
     float sample_length[3], scale2grid[3], diffusion_const, phase_cycling;
-    int32_t n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF, n_dephasing;
+    int32_t n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient;
     int32_t n_dummy_scan;
     uint32_t n_spins, fieldmap_size[3], seed;
     uint64_t matrix_length;
     bool enDebug, enApplyFA2, enCrossBoundry;
-    simulation_parameters():T1(2.2),T2(0.04),TR(0.04),dt(5e-5),B0(9.4),n_TE(0),n_RF(0),n_dummy_scan(0),phase_cycling(0.),enApplyFA2(false),enDebug(false),enCrossBoundry(true)
+    simulation_parameters():
+        T1(2.2),
+        T2(0.04),
+        TR(0.04),
+        dt(5e-5),
+        B0(9.4),
+        n_TE(0),
+        n_RF(0),
+        n_dephasing(0),
+        n_gradient(0),
+        n_dummy_scan(0),
+        phase_cycling(0.),
+        enApplyFA2(false),
+        enDebug(false),
+        enCrossBoundry(true)
     {
         memset(fieldmap_size, 0, 3*sizeof(fieldmap_size[0])); 
         memset(sample_length, 0, 3*sizeof(sample_length[0]));
@@ -48,6 +64,8 @@ typedef struct simulation_parameters
         memset(RF_PH, 0, MAX_RF*sizeof(RF_PH[0]));
         memset(dephasing, 0, MAX_DEPHASE*sizeof(dephasing[0]));
         memset(dephasing_T, 0, MAX_DEPHASE*sizeof(dephasing_T[0]));
+        memset(gradient_xyz, 0, 3*MAX_GRADIENT*sizeof(gradient_xyz[0]));
+        memset(gradient_T, 0, MAX_GRADIENT*sizeof(gradient_T[0]));
     }
 
     void dump()
@@ -59,6 +77,8 @@ typedef struct simulation_parameters
         std::cout<<"RF time = "; for(int i=0; i<n_RF; i++) std::cout<<RF_ST[i]*dt<<' '; std::cout<<'\n';
         std::cout<<"dephasing degree = "; for(int i=0; i<n_dephasing; i++) std::cout<<dephasing[i]<<' '; std::cout<<'\n';
         std::cout<<"dephasing time = "; for(int i=0; i<n_dephasing; i++) std::cout<<dephasing_T[i]*dt<<' '; std::cout<<'\n';
+        std::cout<<"gradient T/m = "; for(int i=0; i<3*n_gradient; i++) std::cout<<gradient_xyz[i]<<' '; std::cout<<'\n';
+        std::cout<<"gradient time = "; for(int i=0; i<n_gradient; i++) std::cout<<gradient_T[i]<<' '; std::cout<<'\n';
         std::cout<<"sample length = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
         std::cout<<"scale2grid = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
         std::cout<<"fieldmap size = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
