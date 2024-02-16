@@ -14,16 +14,14 @@
 #include "rotation.cuh"
 #include "helper_cuda.h"
 
-#define GAMMA  267515315. // rad/s.T
-
 
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
 
-__global__ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const bool *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1, uint32_t spin_no)
+__global__ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const bool *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1)
 {
-    spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
+    uint32_t spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     if (spin_no >= param->n_spins)
         return;
     
@@ -69,8 +67,8 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
         // ------ loop over timepoints ------
         uint64_t ind=0, ind_old=param->matrix_length+1;
         uint32_t current_timepoint = 0, old_timepoint = 0;
-        uint16_t current_rf = 1, current_te = 0, counter_dephasing = 0;
-        float accumulated_phase = 0.f, dephase_deg = 0.f;        
+        uint16_t current_rf = 1, current_te = 0, counter_dephasing = 0, counter_gradient = 0;
+        float accumulated_phase = 0.f;        
         while (current_timepoint < param->n_timepoints) // param->n_timepoints is the total number of timepoints (= TR/dwelltime)
         {
             // ------ generate random walks and wrap around the boundries ------
@@ -100,9 +98,16 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             // ------ apply dephasing if there is any ------
             if(counter_dephasing < param->n_dephasing && param->dephasing_T[counter_dephasing] == current_timepoint)
             {
-                float dephase_deg  =  (float)spin_no * param->dephasing[counter_dephasing] / (float)param->n_spins; // assign dephasing linearly to spins 
-                accumulated_phase +=  dephase_deg / (param->B0 * GAMMA * param->dt * RAD2DEG); // scale dephasing to Tesla per dt
+                accumulated_phase += (float)spin_no * param->dephasing[counter_dephasing] / (float)param->n_spins; // assign dephasing linearly to spins 
                 counter_dephasing++;
+            }
+
+            // ------ apply gradient if there is any ------
+            if(counter_gradient < param->n_gradient && param->gradient_T[counter_gradient] == current_timepoint)
+            {
+                const float *Gxyz = param->gradient_xyz + 3*counter_gradient;
+                accumulated_phase +=  (Gxyz[0]*xyz_new[0] + Gxyz[1]*xyz_new[1] + Gxyz[2]*xyz_new[2]) * param->dt*GAMMA*RAD2DEG; //  Gx * x + Gy * y + Gz * z
+                counter_gradient++;
             }
                  
 
@@ -110,8 +115,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             if(current_rf < param->n_RF && param->RF_ST[current_rf] == current_timepoint)
             {
                 // dephase                
-                dephase_deg =  accumulated_phase * param->B0 * GAMMA * param->dt * RAD2DEG; // convert accumulated phase to degree
-                zrot(dephase_deg, m0, m1); 
+                zrot(accumulated_phase, m0, m1); 
                 // relax
                 time_elapsed = (current_timepoint - old_timepoint) * param->dt;
                 relax(exp(-time_elapsed/param->T1), exp(-time_elapsed/param->T2), m1);
@@ -126,8 +130,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             if (is_lastscan && current_te < param->n_TE && param->TE[current_te] == current_timepoint)
             {
                 // dephase                  
-                dephase_deg =  accumulated_phase * param->B0 * GAMMA * param->dt * RAD2DEG; // convert accumulated phase to degree  
-                zrot(dephase_deg, m0, m1);
+                zrot(accumulated_phase, m0, m1);
                 // relax                    
                 time_elapsed = (current_timepoint - old_timepoint) * param->dt;
                 relax(exp(-time_elapsed/param->T1), exp(-time_elapsed/param->T2), m1);
@@ -146,8 +149,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             current_timepoint++;            
         }
         // dephase
-        dephase_deg =  accumulated_phase * param->B0 * GAMMA * param->dt * RAD2DEG; // convert accumulated phase to degree     
-        zrot(dephase_deg, m0, m1);
+        zrot(accumulated_phase, m0, m1);
         // relax
         time_elapsed = (current_timepoint - old_timepoint) * param->dt;
         relax(exp(-time_elapsed/param->T1), exp(-time_elapsed/param->T2), m1);
@@ -166,18 +168,27 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
 //  
 //---------------------------------------------------------------------------------------------
 
-__global__ void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, uint32_t size)
+__global__ void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, uint64_t size)
 {
-    int n = blockIdx.x * blockDim.x + threadIdx.x ;
+    uint64_t n = blockIdx.x * blockDim.x + threadIdx.x ;
     if(n < size)
     {
-        uint32_t ind = 3*n;
+        uint64_t ind = 3*n;
         scaled_xyz[ind+0] = initial_xyz[ind+0] * scale;
         scaled_xyz[ind+1] = initial_xyz[ind+1] * scale;
         scaled_xyz[ind+2] = initial_xyz[ind+2] * scale;
     }
 }
 
+//---------------------------------------------------------------------------------------------
+// CUDA kernel to perform array multiplication with a constant
+//---------------------------------------------------------------------------------------------
+__global__ void cu_scaleArray(float *array, float scale, uint64_t size)
+{
+    uint64_t n = blockIdx.x * blockDim.x + threadIdx.x ;
+    if(n < size)
+        array[n] *= scale;
+}
 
 //---------------------------------------------------------------------------------------------
 // generate random initial position

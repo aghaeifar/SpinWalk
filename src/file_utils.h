@@ -110,6 +110,9 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             for (uint16_t i = 0; i<param.n_fieldmaps && ini.get("files").has(it->first + "[" + std::to_string(i) + "]"); i++)
             {
                 it->second[i] = ini.get("files").get(it->first + "[" + std::to_string(i) + "]");
+                if (std::all_of(it->second[i].begin(), it->second[i].end(), isspace))
+                    break; // if it is empty, break the loop
+                    
                 std::filesystem::path f(it->second[i]);   
                 if (f.is_relative())
                 {   // if it is relative, make it absolute
@@ -130,7 +133,6 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
                 filenames.at("m1")[i] = parent + "/" + f_config + "_" + f_field + "_m1" + ext;
             }    
     }
-
 
     // ============== reading section SCAN_PARAMETERS ==============
     if(ini.has("SCAN_PARAMETERS"))
@@ -192,16 +194,22 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             std::cout << ERR_MSG << "RF Times must be in ascending order, starts with 0 and must not have duplicates values" << std::endl;
             return false;
         }
-
+        
         // ---------------- dephasing (start times, Flip angles ) ----------------
         // Dephase start times
-        for(i=0; i<MAX_RF && ini.get("SCAN_PARAMETERS").has("DEPHASING_T[" + std::to_string(i) + "]"); i++)       
-            param.dephasing_T[i] = std::stof(ini.get("SCAN_PARAMETERS").get("DEPHASING_T[" + std::to_string(i) + "]")) / param.dt;    
+        for(i=0; i<MAX_RF && ini.get("SCAN_PARAMETERS").has("DEPHASING_T[" + std::to_string(i) + "]"); i++)  
+        {   // here we use try-catch since this field can be with empty value in the config file
+            try{param.dephasing_T[i] = std::stof(ini.get("SCAN_PARAMETERS").get("DEPHASING_T[" + std::to_string(i) + "]")) / param.dt;} 
+            catch(const std::exception& e){break;}
+        }
  
         param.n_dephasing = i;   
         // Dephase flip angles
         for(i=0; i<param.n_dephasing && ini.get("SCAN_PARAMETERS").has("DEPHASING[" + std::to_string(i) + "]"); i++)
-            param.dephasing[i] = std::stof(ini.get("SCAN_PARAMETERS").get("DEPHASING[" + std::to_string(i) + "]")) ;
+        {   
+            try{param.dephasing[i] = std::stof(ini.get("SCAN_PARAMETERS").get("DEPHASING[" + std::to_string(i) + "]")) ;}
+            catch(const std::exception& e){break;}
+        }
         
         if(i != param.n_dephasing)
         {
@@ -217,16 +225,26 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             std::cout << ERR_MSG << "dephasing Times must be in ascending order and must not have duplicates values" << std::endl;
             return false;
         } 
-            
+  
         // ---------------- Gradients (start times, strength (T/m) ) ----------------
         // Gradient start times
-        for(i=0; i<MAX_GRADIENT && ini.get("SCAN_PARAMETERS").has("GRADIENT_T[" + std::to_string(i) + "]"); i++)        
-            param.gradient_T[i] = std::stof(ini.get("SCAN_PARAMETERS").get("GRADIENT_T[" + std::to_string(i) + "]")) / param.dt;    
+        for(i=0; i<MAX_GRADIENT && ini.get("SCAN_PARAMETERS").has("GRADIENT_T[" + std::to_string(i) + "]"); i++)  
+        {   // here we use try-catch since this field can be with empty value in the config file   
+            try{param.gradient_T[i] = std::stof(ini.get("SCAN_PARAMETERS").get("GRADIENT_T[" + std::to_string(i) + "]")) / param.dt; }
+            catch(const std::exception& e){break;}  
+        }
 
         param.n_gradient = i;
         // Gradient strength
         for(i=0; i<param.n_gradient && ini.get("SCAN_PARAMETERS").has("GRADIENT_XYZ[" + std::to_string(i) + "]"); i++)
-            param.gradient_xyz[i] = std::stof(ini.get("SCAN_PARAMETERS").get("GRADIENT_XYZ[" + std::to_string(i) + "]")) ;
+        {
+            try{
+                std::istringstream iss(ini.get("SCAN_PARAMETERS").get("GRADIENT_XYZ[" + std::to_string(i) + "]"));
+                int ind = i*3;
+                while (iss >> *(param.gradient_xyz+ind++) && ind < (i+1)*3);
+            }
+            catch(const std::exception& e){break;}
+        }
                
         if(i != param.n_gradient)
         {
@@ -234,7 +252,7 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
             return false;
         } 
 
-        // check Dephase start time conditions
+        // check Gradient start time conditions
         if (std::is_sorted(param.gradient_T, param.gradient_T + i) == false || 
             std::adjacent_find(param.gradient_T, param.gradient_T + i) != param.gradient_T + i )
         {

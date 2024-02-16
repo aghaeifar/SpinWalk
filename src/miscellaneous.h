@@ -77,8 +77,8 @@ typedef struct simulation_parameters
         std::cout<<"RF time = "; for(int i=0; i<n_RF; i++) std::cout<<RF_ST[i]*dt<<' '; std::cout<<'\n';
         std::cout<<"dephasing degree = "; for(int i=0; i<n_dephasing; i++) std::cout<<dephasing[i]<<' '; std::cout<<'\n';
         std::cout<<"dephasing time = "; for(int i=0; i<n_dephasing; i++) std::cout<<dephasing_T[i]*dt<<' '; std::cout<<'\n';
-        std::cout<<"gradient T/m = "; for(int i=0; i<3*n_gradient; i++) std::cout<<gradient_xyz[i]<<' '; std::cout<<'\n';
-        std::cout<<"gradient time = "; for(int i=0; i<n_gradient; i++) std::cout<<gradient_T[i]<<' '; std::cout<<'\n';
+        std::cout<<"gradient (x,y,z) T/m =\n"; for(int i=0; i<n_gradient; i++) std::cout<<gradient_xyz[3*i+0]<<' '<<gradient_xyz[3*i+1]<<' '<<gradient_xyz[3*i+2]<<'\n';
+        std::cout<<"gradient time = "; for(int i=0; i<n_gradient; i++) std::cout<<gradient_T[i]*dt<<' '; std::cout<<'\n';
         std::cout<<"sample length = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
         std::cout<<"scale2grid = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
         std::cout<<"fieldmap size = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';

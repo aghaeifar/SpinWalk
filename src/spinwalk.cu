@@ -21,8 +21,8 @@
 #define THREADS_PER_BLOCK  64
 
 #define SPINWALK_VERSION_MAJOR 1
-#define SPINWALK_VERSION_MINOR 2
-#define SPINWALK_VERSION_PATCH 5
+#define SPINWALK_VERSION_MINOR 3
+#define SPINWALK_VERSION_PATCH 0
 
 using namespace std;
 
@@ -109,7 +109,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 
             checkCudaErrors(cudaSetDevice(d));            
             checkCudaErrors(cudaStreamCreate(&streams[d]));
-
+            // allocate memory on GPU
             checkCudaErrors(cudaMalloc((void**)&d_param[d],         sizeof(simulation_parameters)));
             checkCudaErrors(cudaMalloc((void**)&d_pFieldMap[d],     sizeof(fieldmap[0]) * fieldmap.size()));   
             checkCudaErrors(cudaMalloc((void**)&d_pMask[d],         sizeof(mask[0]) * mask.size())); 
@@ -118,12 +118,14 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             checkCudaErrors(cudaMalloc((void**)&d_XYZ1[d],          sizeof(float) * 3 * param.n_spins));
             checkCudaErrors(cudaMalloc((void**)&d_M0[d],            sizeof(float) * 3 * param.n_spins));
             checkCudaErrors(cudaMalloc((void**)&d_M1[d],            sizeof(float) * 3 * param.n_TE * param.n_spins));
-            
+            // copy data to GPU
             checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(),        fieldmap.size()*sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
             checkCudaErrors(cudaMemcpyAsync(d_pMask[d],     mask.data(),            mask.size() * sizeof(mask[0]),       cudaMemcpyHostToDevice, streams[d]));
             checkCudaErrors(cudaMemcpyAsync(d_param[d],     &param_local,           sizeof(simulation_parameters),       cudaMemcpyHostToDevice, streams[d]));
             checkCudaErrors(cudaMemcpyAsync(d_M0[d],        &M0[3*param.n_spins*d], 3*param.n_spins*sizeof(M0[0]),       cudaMemcpyHostToDevice, streams[d]));
-            
+
+            // convert fieldmap from Tesla to degree per dwell time
+            cu_scaleArray<<<uint64_t(fieldmap.size()/THREADS_PER_BLOCK)+1, THREADS_PER_BLOCK, 0, streams[d]>>>(d_pFieldMap[d], param.B0*GAMMA*param.dt*RAD2DEG, fieldmap.size());
             if(hasXYZ0 == false)
             {   // generate initial spatial position for spins, based on sample_length_ref
                 printf("GPU %d) Generating random initial position for spins... ", d);
@@ -132,7 +134,8 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
                 printf("Done!\n");
             }
             else // copy initial spatial position and magnetization for spins
-                checkCudaErrors(cudaMemcpyAsync(d_XYZ0[d], &XYZ0[3*param.n_spins*d], 3*param.n_spins*sizeof(XYZ0[0]), cudaMemcpyHostToDevice, streams[d]));      
+                checkCudaErrors(cudaMemcpyAsync(d_XYZ0[d], &XYZ0[3*param.n_spins*d], 3*param.n_spins*sizeof(XYZ0[0]), cudaMemcpyHostToDevice, streams[d]));  
+            checkCudaErrors(cudaStreamSynchronize(streams[d]));    
         }
 
         // ========== run ==========        
@@ -208,7 +211,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         std::cout << std::string(50, '=') << std::endl;
     }
     return true;
-}
+} 
 
 
 int main(int argc, char * argv[])
@@ -216,13 +219,15 @@ int main(int argc, char * argv[])
     std::cout << "SpinWalk ver. " << SPINWALK_VERSION_MAJOR << "." << SPINWALK_VERSION_MINOR << "." << SPINWALK_VERSION_PATCH << std::endl;
     // ========== parse command line arguments ==========
     std::vector<std::string> config_files;    
-    bool bVerbose = false, bHelp = false;
+    bool bVerbose = false, bHelp = false, bNoSim = false;
     for(uint8_t i=1; i<argc; i++)
     {
         if (strcmp(argv[i], "-v") == 0)
             bVerbose = true;
         else if (strcmp(argv[i], "-h") == 0)
             bHelp = true;
+        else if (strcmp(argv[i], "-n") == 0)
+            bNoSim = true;
         else
             config_files.push_back(argv[i]);
     }
@@ -233,9 +238,10 @@ int main(int argc, char * argv[])
         std::cout << "Usage: " << argv[0] << " -options <config_file1> <config_file2> ... <config_filen>" << std::endl;
         std::cout << "Options:" << std::endl;
         std::cout << "  -v: verbose" << std::endl;  
+        std::cout << "  -n: only read config" << std::endl;  
         std::cout << "  -h: help (this menu)" << std::endl;      
         print_device_info();
-        return 1;
+        return 1;  
     }
 
     std::cout << "Running simulation for " << config_files.size() << " config(s)..." << std::endl;
@@ -286,6 +292,8 @@ int main(int argc, char * argv[])
             std::cout<< std::string(50, '=')  << std::endl;
         }
 
+        if (bNoSim)
+            continue;
         if(simulate(param, filenames, sample_length_scales) == false)
             return 1;
     }
