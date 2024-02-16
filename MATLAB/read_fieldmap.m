@@ -1,6 +1,5 @@
 function [fieldmap, mask, fov] = read_fieldmap(filename)
 
-
 fileID = fopen(filename);
 dim = fread(fileID, 3, 'int32=>int32'); %this is the matrix size
 fov = fread(fileID, 3, 'single=>single');% FOV in [m]
