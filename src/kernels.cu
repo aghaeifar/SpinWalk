@@ -31,7 +31,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     gen.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
 
     //uint16_t n_timepoints_local;
-    float field = 0., rf_phase = 0., time_elapsed = 0.; 
+    float field = 0., rf_phase = param->RF_PH[0], time_elapsed = 0.; 
     float m0[3], m1[3]; 
     float xyz[3], xyz_new[3];
     for(uint32_t i=0, shift=3*spin_no; i<3; i++)
@@ -136,7 +136,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 relax(exp(-time_elapsed/param->T1), exp(-time_elapsed/param->T2), m1);
                 // save echo and copy m1 to m0 for the next iteration
                 for (uint32_t i=0, shift=3*param->n_TE*spin_no + 3*current_te; i<3; i++)
-                    M1[shift + i] = m0[i] = m1[i];   
+                    M1[shift + i] = m0[i] = m1[i];
                 accumulated_phase = 0; // reset phase since we have applied it in the previous step
                 old_timepoint = current_timepoint;
                 current_te++;
