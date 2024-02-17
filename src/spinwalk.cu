@@ -22,7 +22,7 @@
 
 #define SPINWALK_VERSION_MAJOR 1
 #define SPINWALK_VERSION_MINOR 3
-#define SPINWALK_VERSION_PATCH 0
+#define SPINWALK_VERSION_PATCH 1
 
 using namespace std;
 
