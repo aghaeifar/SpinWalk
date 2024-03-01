@@ -268,8 +268,6 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
     {
         if(ini.get("STEADY_STATE").has("DUMMY_SCAN"))
             param.n_dummy_scan  = std::stoi(ini.get("STEADY_STATE").get("DUMMY_SCAN"));
-        if(ini.get("STEADY_STATE").has("APPLY_FA/2"))
-            param.enApplyFA2 = ini.get("STEADY_STATE").get("APPLY_FA/2").compare("0") != 0;
         if(ini.get("STEADY_STATE").has("PHASE_CYCLING"))
             param.phase_cycling = std::stof(ini.get("STEADY_STATE").get("PHASE_CYCLING")) ; // convert to radian
     }
@@ -299,16 +297,29 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
     // ============== reading section TISSUE_PARAMETERS ==============
     if(ini.has("TISSUE_PARAMETERS"))
     {
-        if(ini.get("TISSUE_PARAMETERS").has("T1"))
-            param.T1 = std::stof(ini.get("TISSUE_PARAMETERS").get("T1"));
-        if(ini.get("TISSUE_PARAMETERS").has("T2"))
-            param.T2 = std::stof(ini.get("TISSUE_PARAMETERS").get("T2"));
-    }
+        uint16_t i = 0;
+        param.n_T12 = 0;
+        for(i=0; i<MAX_T12 && ini.get("TISSUE_PARAMETERS").has("T1[" + std::to_string(i) + "]"); i++)        
+            param.T1[i] = std::stof(ini.get("TISSUE_PARAMETERS").get("T1[" + std::to_string(i) + "]"));
+        param.n_T12 = i;
 
+        for(i=0; i<MAX_T12 && ini.get("TISSUE_PARAMETERS").has("T2[" + std::to_string(i) + "]"); i++)        
+            param.T2[i] = std::stof(ini.get("TISSUE_PARAMETERS").get("T2[" + std::to_string(i) + "]"));
+        if(i != param.n_T12)
+        {
+            std::cout << ERR_MSG << "T1 and T2 must have the same number of elements" << std::endl;
+            return false;
+        }
+
+        if(ini.get("TISSUE_PARAMETERS").has("MultiTissue"))
+            param.enMultiTissue = ini.get("TISSUE_PARAMETERS").get("MultiTissue").compare("0") != 0;
+    }   
+
+    // ============== prep ==============
     param.prepare(); 
 
     if (param.n_dummy_scan < 0)
-        param.n_dummy_scan = 5.0 * param.T1 / param.TR;
+        param.n_dummy_scan = 5.0 * param.T1[0] / param.TR;
 
     return true;
 }
@@ -334,7 +345,7 @@ bool read_header(std::string filename, input_header &hdr_in)
 }
 
 
-bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<char> &mask, simulation_parameters& param)
+bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<uint8_t> &mask, simulation_parameters& param)
 {
     if(std::filesystem::exists(fieldmap_filename) == false)
     {
@@ -368,7 +379,7 @@ bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, 
 
     std::cout << "Reading...fieldmap...";
     in_field.read((char*)fieldmap.data(), sizeof(float) * param.matrix_length); std::cout << "done...mask...";
-    in_field.read((char*)mask.data(), sizeof(bool) * param.matrix_length); std::cout << "done." << std::endl;
+    in_field.read((char*)mask.data(), sizeof(uint8_t) * param.matrix_length); std::cout << "done." << std::endl;
     in_field.close();
     return true;
 }

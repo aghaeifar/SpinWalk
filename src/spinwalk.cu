@@ -21,7 +21,7 @@
 #define THREADS_PER_BLOCK  64
 
 #define SPINWALK_VERSION_MAJOR 1
-#define SPINWALK_VERSION_MINOR 3
+#define SPINWALK_VERSION_MINOR 4
 #define SPINWALK_VERSION_PATCH 1
 
 using namespace std;
@@ -29,7 +29,7 @@ using namespace std;
 bool simulate(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<float> sample_length_scales)
 {
     std::vector<float> fieldmap;
-    std::vector<char> mask;
+    std::vector<uint8_t> mask;
     // ========== checking GPU(s) ==========
     int32_t device_count;
     checkCudaErrors(cudaGetDeviceCount(&device_count));
@@ -58,12 +58,14 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             if(file_utils::read_file(filenames.at("xyz0")[fieldmap_no], XYZ0) == false)
                 return false;
             
-            std::cout << "Checking XYZ0 is not in the mask..." << std::endl;
-            uint32_t t = is_masked(XYZ0, mask, &param);
-            if(t>0)
+            if(param.enMultiTissue == false)
             {
-                std::cout << ERR_MSG << t << " element(s) of XYZ0 is in the mask. Aborting...!" << std::endl;
-                return 1;
+                std::cout << "Checking XYZ0 is not in the mask..." << std::endl;
+                if(is_masked(XYZ0, mask, &param))
+                {
+                    std::cout << ERR_MSG << " element(s) of XYZ0 is in the mask. Aborting...!" << std::endl;
+                    return false;
+                }
             }
             hasXYZ0 = true;
         }
@@ -96,7 +98,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         std::vector<float *> d_pFieldMap(device_count, NULL);
         std::vector<float *> d_M0(device_count, NULL), d_M1(device_count, NULL);
         std::vector<float *> d_XYZ1(device_count, NULL), d_XYZ0(device_count, NULL), d_XYZ0_scaled(device_count, NULL);
-        std::vector<bool *>  d_pMask(device_count, NULL);
+        std::vector<uint8_t *>  d_pMask(device_count, NULL);
         std::vector<simulation_parameters *> d_param(device_count, NULL);
         std::vector<cudaStream_t> streams(device_count, NULL);
 

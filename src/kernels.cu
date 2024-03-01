@@ -19,7 +19,7 @@
 //  
 //---------------------------------------------------------------------------------------------
 
-__global__ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const bool *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1)
+__global__ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1)
 {
     uint32_t spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     if (spin_no >= param->n_spins)
@@ -31,21 +31,13 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     gen.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
 
     //uint16_t n_timepoints_local;
-    float field = 0., rf_phase = param->RF_PH[0], time_elapsed = 0.; 
+    float field = 0., T1=0., T2=0., rf_phase = param->RF_PH[0], time_elapsed = 0.; 
     float m0[3], m1[3]; 
     float xyz[3], xyz_new[3];
     for(uint32_t i=0, shift=3*spin_no; i<3; i++)
     {
         xyz[i] = XYZ0[shift + i];
         m0[i]  = M0[shift + i];
-    }
-
-    // -alpha/2 RF pulse (along x-axis) + TR/2 relaxation
-    if (param->enApplyFA2)
-    {
-        //xrot(-param->s2, param->c2, m0, m1); // note this is -FA/2
-        xrot_withphase (param->s2, param->c2, rf_phase += param->phase_cycling, m0, m1);
-        relax(param->e12, param->e22, m1, m0);
     }
     
     bool is_lastscan = false;
@@ -89,9 +81,12 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             // ------ accumulate phase ------
             if(ind != ind_old) // used this trick for fewer access to the global memory which is slow. Helpful for large samples!
             {               
-                if (pMask[ind] == true) // check doesn't cross a vessel 
+                if (pMask[ind] != 0 && param->enMultiTissue == false) // check doesn't cross a vessel 
                     continue;       
                 field = pFieldMap[ind_old = ind];
+                ind = pMask[ind]; // the index of the tissue type
+                T1 = param->T1[ind];
+                T2 = param->T2[ind];
             }     
             accumulated_phase += field;
 
@@ -110,7 +105,6 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 counter_gradient++;
             }
                  
-
             // ------ apply other RF pulse if there is any ------
             if(current_rf < param->n_RF && param->RF_ST[current_rf] == current_timepoint)
             {
@@ -118,7 +112,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 zrot(accumulated_phase, m0, m1); 
                 // relax
                 time_elapsed = (current_timepoint - old_timepoint) * param->dt;
-                relax(exp(-time_elapsed/param->T1), exp(-time_elapsed/param->T2), m1);
+                relax(exp(-time_elapsed/T1), exp(-time_elapsed/T2), m1);
                 // apply RF pulse
                 xrot_withphase (param->RF_FA[current_rf], param->RF_PH[current_rf], m1, m0); // Note m0 and m1 are swapped here, so that we can use m0 for the next iteration
                 accumulated_phase = 0; // reset phase since we have it now applied
@@ -133,7 +127,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 zrot(accumulated_phase, m0, m1);
                 // relax                    
                 time_elapsed = (current_timepoint - old_timepoint) * param->dt;
-                relax(exp(-time_elapsed/param->T1), exp(-time_elapsed/param->T2), m1);
+                relax(exp(-time_elapsed/T1), exp(-time_elapsed/T2), m1);
                 // save echo and copy m1 to m0 for the next iteration
                 for (uint32_t i=0, shift=3*param->n_TE*spin_no + 3*current_te; i<3; i++)
                     M1[shift + i] = m0[i] = m1[i];
@@ -145,14 +139,14 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             // update old position with the new one
             for (uint8_t i = 0; i < 3; i++)
                 xyz[i] = xyz_new[i];
- 
+            // increase timepoint
             current_timepoint++;            
         }
         // dephase
         zrot(accumulated_phase, m0, m1);
         // relax
         time_elapsed = (current_timepoint - old_timepoint) * param->dt;
-        relax(exp(-time_elapsed/param->T1), exp(-time_elapsed/param->T2), m1);
+        relax(exp(-time_elapsed/T1), exp(-time_elapsed/T2), m1);
 
         // copy m1 to m0 for the next iteration
         for(uint8_t i=0; i<3; i++)
@@ -194,7 +188,7 @@ __global__ void cu_scaleArray(float *array, float scale, uint64_t size)
 // generate random initial position
 //---------------------------------------------------------------------------------------------
 
-__global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *param, bool *pMask, uint32_t spin_no)
+__global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *param, const uint8_t *pMask, uint32_t spin_no)
 {
     spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     if(spin_no >= param->n_spins)
@@ -215,7 +209,7 @@ __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *p
         for (uint8_t i = 0; i < 3; i++)
             xyz[i] = dist_initial_point(gen) * param->sample_length[i];
         index = sub2ind(ROUND(xyz[0]*scale2grid[0]+1.), ROUND(xyz[1]*scale2grid[1]+1.), ROUND(xyz[2]*scale2grid[2]+1.), param->fieldmap_size[0], param->fieldmap_size[1]);
-    } while (pMask[index] == true);
+    } while (pMask[index] != 0);
 }
 
 //---------------------------------------------------------------------------------------------
