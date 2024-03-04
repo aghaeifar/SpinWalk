@@ -298,16 +298,19 @@ bool read_config(std::string config_filename, simulation_parameters& param, std:
     if(ini.has("TISSUE_PARAMETERS"))
     {
         uint16_t i = 0;
-        param.n_T12 = 0;
+        bool bT1exist = ini.get("TISSUE_PARAMETERS").has("T1[0]");
+        param.n_T12 = bT1exist ? 0:param.n_T12;
+
         for(i=0; i<MAX_T12 && ini.get("TISSUE_PARAMETERS").has("T1[" + std::to_string(i) + "]"); i++)        
             param.T1[i] = std::stof(ini.get("TISSUE_PARAMETERS").get("T1[" + std::to_string(i) + "]"));
-        param.n_T12 = i;
+
+        param.n_T12 = bT1exist ? i:param.n_T12;
 
         for(i=0; i<MAX_T12 && ini.get("TISSUE_PARAMETERS").has("T2[" + std::to_string(i) + "]"); i++)        
             param.T2[i] = std::stof(ini.get("TISSUE_PARAMETERS").get("T2[" + std::to_string(i) + "]"));
-        if(i != param.n_T12)
+        if(i != param.n_T12 && bT1exist)
         {
-            std::cout << ERR_MSG << "T1 and T2 must have the same number of elements" << std::endl;
+            std::cout << ERR_MSG << "T1 and T2 must have the same number of elements (" << param.n_T12 << " vs " << i << ")" << std::endl;
             return false;
         }
 
