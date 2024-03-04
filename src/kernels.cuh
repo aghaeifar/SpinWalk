@@ -27,7 +27,6 @@ __global__ void cu_scaleArray(float *array, float scale, uint64_t size);
 // generate random initial position
 __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *param, const uint8_t *pMask, uint32_t spin_no = 0);
 
-
 __host__  __device__ __forceinline__ uint64_t sub2ind(uint32_t x, uint32_t y, uint32_t z, uint32_t lenx, uint32_t leny)
 {
     return (uint64_t((z-1)*lenx*leny) + (y-1)*lenx + x-1); // the last -1 is because of the C++ indexing starts from 0
@@ -49,6 +48,11 @@ bool is_masked(std::vector<T> &XYZ0, std::vector<uint8_t> &mask, simulation_para
         if (index >= mask.size())
         {
             std::cout << ERR_MSG << "For "<<i<< "th element, index is out of range: " << index << " >= " << mask.size() << std::endl;
+            return false;
+        }
+        if (mask[index] != 0 && param->enMultiTissue == false)
+        {
+            std::cout << ERR_MSG << " " << i<< "th element located in the masked!" << std::endl;
             return false;
         }
     }
