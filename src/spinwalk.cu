@@ -22,7 +22,7 @@
 
 #define SPINWALK_VERSION_MAJOR 1
 #define SPINWALK_VERSION_MINOR 4
-#define SPINWALK_VERSION_PATCH 1
+#define SPINWALK_VERSION_PATCH 4
 
 using namespace std;
 
@@ -63,7 +63,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
                 std::cout << "Checking XYZ0 is not in the mask..." << std::endl;
                 if(is_masked(XYZ0, mask, &param))
                 {
-                    std::cout << ERR_MSG << " element(s) of XYZ0 is in the mask. Aborting...!" << std::endl;
+                    std::cout << ERR_MSG << " elements of XYZ0 are in the mask or out of range. Aborting...!" << std::endl;
                     return false;
                 }
             }
