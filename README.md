@@ -1,8 +1,22 @@
-<a href={[https://github.com/Ehyaei/Open-Academic-Graph](https://github.com/aghaeifar/SpinWalk/)}><img src="doc/img/logo.png" alt="SpinWalk Logo" align="right" width="160" style="padding: 0 10px; float: right;"/>
 
-# Spins Random Walk Simulator
+
 ![Build Status](https://github.com/aghaeifar/SpinWalk/workflows/CMake/badge.svg)
 [![Lates Release](https://img.shields.io/github/v/release/aghaeifar/SpinWalk)](https://github.com/aghaeifar/SpinWalk/releases)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/aghaeifar/SpinWalk)
+![GitHub top language](https://img.shields.io/github/languages/top/aghaeifar/SpinWalk)
+![GitHub](https://img.shields.io/github/license/top/aghaeifar/)
+
+<p align="center">
+  <a href="https://github.com/aghaeifar/SpinWalk">
+    <img src="doc/img/logo.png" alt="MC/DC logo" width="160" height="180">
+  </a>
+</p>
+
+<p align="center">
+   <strong>Spins Random Walk Simulator</strong>
+  <br>
+</p>
+
 
 This program aims to simulate the behaviour of spins under a certain MR sequence in a microvascular network. Breifly, the susceptibility variation between blood and tissue leads to local field inhomogeneity which accordingly can be used to generate an MR contrast. The program tries to perform a Monte-Carlo simulation over range of spins which are randomly distributed and move in presence of user defined magnetic field. Here are example plots obtained from the simulator where show BOLD sensitivity as a function of vessel size for Gradient Echo (GRE) and Spin Echo (SE) seqeuences.
 
