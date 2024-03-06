@@ -1,11 +1,14 @@
 
 
+<div align="center">
+
 ![Build Status](https://github.com/aghaeifar/SpinWalk/workflows/CMake/badge.svg)
 [![Lates Release](https://img.shields.io/github/v/release/aghaeifar/SpinWalk)](https://github.com/aghaeifar/SpinWalk/releases)
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/aghaeifar/SpinWalk)
 ![GitHub top language](https://img.shields.io/github/languages/top/aghaeifar/SpinWalk)
 ![License](https://img.shields.io/github/license/aghaeifar/SpinWalk)
 
+</div>
 
 <p align="center">
   <a href="https://github.com/aghaeifar/SpinWalk">

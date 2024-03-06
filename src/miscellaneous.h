@@ -23,11 +23,11 @@
 
 #define ERR_MSG  "\033[1;31mError:\033[0m "
 #define ROUND(x) ((long)((x)+0.5))
-#define MAX_RF 128          // maximum number of RF
+#define MAX_RF 256          // maximum number of RF
 #define MAX_TE 256          // maximum number of echo times
-#define MAX_T12 128         // maximum number of relaxation times
-#define MAX_DEPHASE 128     // maximum number of dephasing
-#define MAX_GRADIENT 128    // maximum number of gradient
+#define MAX_T12 256         // maximum number of relaxation times
+#define MAX_DEPHASE 256     // maximum number of dephasing
+#define MAX_GRADIENT 256    // maximum number of gradient
 
 typedef struct simulation_parameters
 {

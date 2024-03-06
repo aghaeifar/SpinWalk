@@ -46,6 +46,7 @@ for seq = 1:numel(fname)
         relative_signal  = squeeze(relative_signal);       
         h = semilogx(vessel_radius, relative_signal); xlabel('Vessel radius (um)'); ylabel('BOLD Signal %'); 
         hold on;
+        ylim([0, 7])
 %     else
 %         subplot(2,1,2)
 %         relative_signal  = signal_magnitude{seq}(:,:,:,:,2) - signal_magnitude{seq}(:,:,:,:,1);
