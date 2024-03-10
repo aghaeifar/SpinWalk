@@ -17,6 +17,7 @@
 #include <algorithm> 
 #include <iterator>
 #include "ini.h"
+#include "miscellaneous.h"
 
 namespace file_utils
 {

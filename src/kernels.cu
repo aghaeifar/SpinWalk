@@ -29,7 +29,7 @@ __device__ __forceinline__ void dephase_relax(float *m0, float *m1, float accumu
 
 __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1)
 {
-    uint32_t spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
+    auto spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     if (spin_no >= param->n_spins)
         return;
     
@@ -181,13 +181,13 @@ __global__ void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, 
 //---------------------------------------------------------------------------------------------
 __global__ void cu_scaleArray(float *array, float scale, uint64_t size)
 {
-    uint64_t n = blockIdx.x * blockDim.x + threadIdx.x ;
+    auto n = blockIdx.x * blockDim.x + threadIdx.x ;
     if(n < size)
         array[n] *= scale;
 }
 
 //---------------------------------------------------------------------------------------------
-// generate random initial position
+// CUDA kernel to generate random initial position
 //---------------------------------------------------------------------------------------------
 
 __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *param, const uint8_t *pMask, uint32_t spin_no)
@@ -215,7 +215,7 @@ __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *p
 }
 
 //---------------------------------------------------------------------------------------------
-//  
+//  check for CUDA and GPU device
 //---------------------------------------------------------------------------------------------
 void print_device_info()
 {

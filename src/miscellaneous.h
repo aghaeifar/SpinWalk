@@ -114,5 +114,15 @@ typedef struct simulation_parameters
 } simulation_parameters;
 
 
+inline void print_logo()
+{ 
+  std::cout << " \n"
+" ____            _          __        __          _   _        \n"
+"/ ___|   _ __   (_)  _ __   \\ \\      / /   __ _  | | | | __    \n"
+"\\___ \\  | '_ \\  | | | '_ \\   \\ \\ /\\ / /   / _` | | | | |/ /    \n"
+" ___) | | |_) | | | | | | |   \\ V  V /   | (_| | | | |   <     \n"
+"|____/  | .__/  |_| |_| |_|    \\_/\\_/     \\__,_| |_| |_|\\_\\    \n"
+"        |_|                                                    \n\n";
+}
 
 #endif // __MISCELLANEOUS_H__
