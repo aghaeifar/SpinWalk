@@ -13,16 +13,13 @@
 #include <random>
 #include <filesystem>
 #include <iomanip>
+#include <boost/program_options.hpp>
 #include "helper_cuda.h"
 #include "kernels.cuh"
 #include "file_utils.h"
 #include "tqdm.h"
 
 #define THREADS_PER_BLOCK  64
-
-#define SPINWALK_VERSION_MAJOR 1
-#define SPINWALK_VERSION_MINOR 4
-#define SPINWALK_VERSION_PATCH 4
 
 using namespace std;
 
@@ -219,36 +216,31 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 int main(int argc, char * argv[])
 {
     print_logo();
-    std::cout << "SpinWalk ver. " << SPINWALK_VERSION_MAJOR << "." << SPINWALK_VERSION_MINOR << "." << SPINWALK_VERSION_PATCH << std::endl;
     // ========== parse command line arguments ==========
-    std::vector<std::string> config_files;    
-    bool bVerbose = false, bHelp = false, bNoSim = false;
-    for(uint8_t i=1; i<argc; i++)
+    boost::program_options::options_description desc("Options");
+    desc.add_options()
+        ("help,h", "help message (this menu)")
+        ("verbose,v", "enable verbose mode")
+        ("sim_off,s", "no simulation, only read config files")
+        ("configs,c", boost::program_options::value<std::vector<std::string>>()->multitoken(), "config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini");
+
+    boost::program_options::variables_map vm;
+    boost::program_options::store(boost::program_options::command_line_parser(argc, argv).options(desc).allow_unregistered().run(), vm);
+    boost::program_options::notify(vm);
+    // ========== print help ==========
+    if (vm.count("help") || vm.count("configs") == 0 || argc == 1)
     {
-        if (strcmp(argv[i], "-v") == 0)
-            bVerbose = true;
-        else if (strcmp(argv[i], "-h") == 0)
-            bHelp = true;
-        else if (strcmp(argv[i], "-n") == 0)
-            bNoSim = true;
-        else
-            config_files.push_back(argv[i]);
+        std::cout << desc;
+        print_device_info();
+        return 1;
     }
 
-    // ========== print help ==========
-    if(argc < 2 || bHelp || config_files.size() == 0)
-    {
-        std::cout << "Usage: " << argv[0] << " -options <config_file1> <config_file2> ... <config_filen>" << std::endl;
-        std::cout << "Options:" << std::endl;
-        std::cout << "  -v: verbose" << std::endl;  
-        std::cout << "  -n: only read config" << std::endl;  
-        std::cout << "  -h: help (this menu)" << std::endl;      
-        print_device_info();
-        return 1;  
-    }
+    std::vector<std::string> config_files = vm["configs"].as<std::vector<std::string>>();  
+    bool bVerbose   = vm.count("verbose") > 0;
+    bool bNoSim     = vm.count("sim_off") > 0;
 
     std::cout << "Running simulation for " << config_files.size() << " config(s)..." << std::endl;
-    for(uint8_t cnf=0; cnf<config_files.size(); cnf++)
+    for(const auto& cfile : config_files)
     {
         map<string, vector<string> > filenames = {{"fieldmap", 	vector<string>()},  // input:  map of off-resonance in Tesla
                                                   {"xyz0", 		vector<string>()},  // input:  spins starting spatial positions in meters
@@ -262,7 +254,7 @@ int main(int argc, char * argv[])
         // ========== read config file ==========
         param.fieldmap_size[0] = param.fieldmap_size[1] = param.fieldmap_size[2] = 0;
         param.sample_length[0] = param.sample_length[1] = param.sample_length[2] = 0.f;
-        if(file_utils::read_config(config_files[cnf], param, sample_length_scales, filenames) == false)
+        if(file_utils::read_config(cfile, param, sample_length_scales, filenames) == false)
         {
             std::cout << ERR_MSG << "reading config file failed. Aborting...!" << std::endl;
             return 1;

@@ -17,9 +17,13 @@
 #include <fstream>
 #include <vector>
 
+
+#define SPINWALK_VERSION_MAJOR 1
+#define SPINWALK_VERSION_MINOR 4
+#define SPINWALK_VERSION_PATCH 5
+
 #define DEG2RAD 0.0174532925199433 // = M_PI/180 
 #define RAD2DEG 57.2957795130823
-
 
 #define ERR_MSG  "\033[1;31mError:\033[0m "
 #define ROUND(x) ((long)((x)+0.5))
@@ -123,6 +127,8 @@ inline void print_logo()
 " ___) | | |_) | | | | | | |   \\ V  V /   | (_| | | | |   <     \n"
 "|____/  | .__/  |_| |_| |_|    \\_/\\_/     \\__,_| |_| |_|\\_\\    \n"
 "        |_|                                                    \n\n";
+
+std::cout << "SpinWalk ver. " << SPINWALK_VERSION_MAJOR << "." << SPINWALK_VERSION_MINOR << "." << SPINWALK_VERSION_PATCH << std::endl;
 }
 
 #endif // __MISCELLANEOUS_H__

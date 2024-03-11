@@ -19,7 +19,8 @@ endif()
 
 # Find OpenMP
 find_package(OpenMP)
-
+# Boost
+find_package(Boost COMPONENTS program_options REQUIRED)
 # Set CUDA architecture (change according to your GPU)
 # set(CUDA_ARCH "-arch=sm_75" CACHE STRING "CUDA architecture")
 set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES native)
@@ -29,6 +30,10 @@ set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES native)
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 set(CMAKE_CXX_STANDARD 17)
 
+set(CMAKE_CXX_FLAGS "-lboost_program_options")
+
+
+include_directories(${Boost_INCLUDE_DIRS})
 
 # Add CUDA include directories
 include_directories(./include)
@@ -40,7 +45,7 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${CUDA_ARCH} -Xcompiler=${OpenMP_CXX_F
 add_executable(spinwalk ./src/spinwalk.cu ./src/kernels.cu)
 
 # Link CUDA and OpenMP libraries
-target_link_libraries(spinwalk ${CUDA_LIBRARIES} ${OpenMP_CXX_LIBRARIES})
+target_link_libraries(spinwalk ${CUDA_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${Boost_LIBRARIES})
 
 if (UNIX)
     install(TARGETS spinwalk DESTINATION bin)    
