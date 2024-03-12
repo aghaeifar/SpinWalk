@@ -35,9 +35,10 @@ set(CMAKE_CXX_FLAGS "-lboost_program_options")
 # Add Boost and CUDA include directories
 include_directories(${Boost_INCLUDE_DIRS} ./include)
 
-
 # Add CUDA and OpenMP flags
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${CUDA_ARCH} -Xcompiler=${OpenMP_CXX_FLAGS}")
+
+set(Boost_USE_STATIC_LIBS OFF)
 
 # Add the executable
 add_executable(spinwalk ./src/spinwalk.cu ./src/kernels.cu ./src/file_utils.cpp)
