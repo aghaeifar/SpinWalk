@@ -13,8 +13,8 @@
 #include "kernels.cuh"
 #include "rotation.cuh"
 #include "helper_cuda.h"
-
-
+#include <cuda_runtime.h>
+#include <boost/log/trivial.hpp>
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
@@ -223,8 +223,8 @@ void print_device_info()
     const int mb = kb * kb;
     size_t free, total;
     
-    int32_t device_count, cuda_version, driver_version;
-    checkCudaErrors(cudaGetDeviceCount(&device_count));
+    int32_t cuda_version, driver_version;
+    int32_t device_count = getDeviceCount();
     cudaRuntimeGetVersion(&cuda_version);
     cudaDriverGetVersion(&driver_version);
     std::cout << "\nDriver version: "<< driver_version << ", CUDA version: "<< cuda_version << ", Number of devices: " << device_count << std::endl;
@@ -239,4 +239,29 @@ void print_device_info()
         cudaMemGetInfo(&free, &total);
         std::cout << "Free GPU memory: " << free / mb << " MB (out of " << total / mb << " MB)" << std::endl;
     }
+}
+
+uint32_t getDeviceCount()
+{
+    int32_t device_count;
+    checkCudaErrors(cudaGetDeviceCount(&device_count));
+    return device_count;
+}
+
+bool check_memory_size(size_t required_size_MB)
+{
+    size_t free, total;
+    bool memory_ok = true;
+    int32_t device_count = getDeviceCount();
+    cudaDeviceProp device_properties;
+    std::cout << "Device(s) memeory check:" << '\n';
+    for(int i=0; i<device_count; i++)
+    {
+        cudaSetDevice(i);
+        cudaGetDeviceProperties(&device_properties, i);
+        cudaMemGetInfo(&free, &total);
+        std::cout << "  Device " << i+1 << ", " << device_properties.name  << ": " << (free>required_size_MB ? "OK" : "Not enough") << '\n';
+        memory_ok = free<required_size_MB ? false:memory_ok;
+    }
+    return memory_ok;
 }

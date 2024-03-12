@@ -4,7 +4,7 @@
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
- * Descrip  : simulating BOLD in microvascular network
+ * Descrip  : simulating randomwalk in microvascular network
  * -------------------------------------------------------------------------- */
 
 // compile(lin) :  nvcc ./src/spinwalk.cu ./src/kernels.cu -I ./include/ -Xptxas -v -O3  -arch=compute_75 -code=sm_75  -Xcompiler -fopenmp -o spinwalk
@@ -13,13 +13,20 @@
 #include <random>
 #include <filesystem>
 #include <iomanip>
-#include <boost/program_options.hpp>
 #include "helper_cuda.h"
+#include <cuda_runtime.h>
 #include "kernels.cuh"
 #include "file_utils.h"
+#include "miscellaneous.h"
 #include "tqdm.h"
 
+#include <boost/program_options.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+
 #define THREADS_PER_BLOCK  64
+#define LOG_FILE "spinwalk.log"
 
 using namespace std;
 
@@ -32,15 +39,17 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     checkCudaErrors(cudaGetDeviceCount(&device_count));
 
     param.n_spins /= device_count; // spins will be distributed in multiple GPUs (if there is). We hope it is divisible 
-    int32_t numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
+    size_t numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
 
-    uint32_t len0 = 3 * param.n_spins * device_count;
-    uint32_t len1 = len0 * param.n_sample_length_scales;
-    uint32_t len2 = len1 * param.n_TE;
+    size_t len0 = 3 * param.n_spins * device_count;
+    size_t len1 = len0 * param.n_sample_length_scales;
+    size_t len2 = len1 * param.n_TE;
+    size_t len3 = len0 * param.n_timepoints * param.enRecordTrajectory;        
     std::vector<float> XYZ0(len0, 0.f); // memory layout(column-wise): [3 x n_spins]
     std::vector<float> XYZ1(len1, 0.f); // memory layout(column-wise): [3 x n_spins x n_sample_length_scales]
     std::vector<float> M0(len0, 0.f);   // memory layout(column-wise): [3 x n_spins]
     std::vector<float> M1(len2, 0.f);   // memory layout(column-wise): [3 x n_TE x n_spins x n_sample_length_scales]
+    std::vector<float> Trajectory(len3, 0.f);   // memory layout(column-wise): [3 x n_TE x n_spins x n_sample_length_scales]
 
     std::cout << std::string(50, '=') << std::endl;
     for (int16_t fieldmap_no=0; fieldmap_no<param.n_fieldmaps; fieldmap_no++)
@@ -57,10 +66,10 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             
             if(param.enMultiTissue == false)
             {
-                std::cout << "Checking XYZ0 is not in the mask..." << std::endl;
+                BOOST_LOG_TRIVIAL(info)  << "Checking XYZ0 is not in the mask..." << std::endl;
                 if(is_masked(XYZ0, mask, &param))
                 {
-                    std::cout << ERR_MSG << " elements of XYZ0 are in the mask or out of range. Aborting...!" << std::endl;
+                    BOOST_LOG_TRIVIAL(error)  << "Elements of XYZ0 are in the mask or out of range. Aborting...!" << std::endl;
                     return false;
                 }
             }
@@ -70,24 +79,26 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         if(filenames.at("m0")[fieldmap_no].empty() == false)
         {
             if(file_utils::read_file(filenames.at("m0")[fieldmap_no], M0) == false)
+            {
                 return false;
+            }
         }
         else
         {   // all spins are aligned with B0 (M0 = (0, 0, 1))
             long index = 0;
-            std::cout << "Generating M0(0, 0, 1)..." << std::endl;
+            BOOST_LOG_TRIVIAL(info) << "Generating M0(0, 0, 1)..." << std::endl;
             std::generate(M0.begin(), M0.end(), [&index](){return (index++ % 3 == 2) ? 1.f : 0.f;});
         }
 
-        for(int i=0; i<M0.size()/3 && param.enDebug; i += M0.size()/3/2)
-            std::cout << "M0 of the spin " << i << " = (" << M0[3*i] << ", " << M0[3*i+1] << ", " << M0[3*i+2] << ")" << std::endl;
+        for(int i=0; i<M0.size()/3; i += M0.size()/3/2)
+            BOOST_LOG_TRIVIAL(info) << "M0 of the spin " << i << " = (" << M0[3*i] << ", " << M0[3*i+1] << ", " << M0[3*i+2] << ")" << std::endl;
 
         for(int i=0; i<3; i++)
             param.scale2grid[i] = (param.fieldmap_size[i] - 1.) / param.sample_length[i];
         
         if (hasXYZ0 && param.n_sample_length_scales > 1)
         {
-            std::cout << ERR_MSG << "loading XYZ0 from file while having more than 1 sample length scales is not supported!" << std::endl;
+            BOOST_LOG_TRIVIAL(error) << "loading XYZ0 from file while having more than 1 sample length scales is not supported!" << std::endl;
             return false;
         }
 
@@ -127,10 +138,10 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             cu_scaleArray<<<uint64_t(fieldmap.size()/THREADS_PER_BLOCK)+1, THREADS_PER_BLOCK, 0, streams[d]>>>(d_pFieldMap[d], param.B0*GAMMA*param.dt*RAD2DEG, fieldmap.size());
             if(hasXYZ0 == false)
             {   // generate initial spatial position for spins, based on sample_length_ref
-                printf("GPU %d) Generating random initial position for spins... ", d);
+                BOOST_LOG_TRIVIAL(info) << "GPU" << d << " Generating random initial position for spins... ";
                 cu_randPosGen<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_XYZ0[d], d_param[d], d_pMask[d]);
                 gpuCheckKernelExecutionError( __FILE__, __LINE__);
-                printf("Done!\n");
+                BOOST_LOG_TRIVIAL(info) << "GPU" << d << " Done!";
             }
             else // copy initial spatial position and magnetization for spins
                 checkCudaErrors(cudaMemcpyAsync(d_XYZ0[d], &XYZ0[3*param.n_spins*d], 3*param.n_spins*sizeof(XYZ0[0]), cudaMemcpyHostToDevice, streams[d]));  
@@ -213,20 +224,50 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 } 
 
 
+bool dump_settings(simulation_parameters param, map<string, vector<string> > filenames, std::vector<float> sample_length_scales)
+{
+    std::stringstream ss;
+    ss  << "Dumping settings:" << std::endl;
+    for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it)
+        for (int i = 0; i< it->second.size(); i++)
+            ss << it->first << "[" << i << "] = " << it->second.at(i) << std::endl;
+    
+    ss<< "\nSample length scale = [";
+    for (int32_t i = 0; i < param.n_sample_length_scales; i++)
+        ss << sample_length_scales[i] << ", ";
+    ss << "\b\b]\n" << std::endl;
+
+    file_utils::input_header hdr_in;
+    if(file_utils::read_header(filenames.at("fieldmap")[0], hdr_in) == false)
+    {
+        BOOST_LOG_TRIVIAL(error) << "reading header of fieldmap " << filenames.at("fieldmap")[0] << " failed. Aborting...!";
+        return false;
+    }
+    std::copy(hdr_in.fieldmap_size, hdr_in.fieldmap_size+3, param.fieldmap_size);
+    std::copy(hdr_in.sample_length, hdr_in.sample_length+3, param.sample_length);
+    ss << param.dump();
+    BOOST_LOG_TRIVIAL(info) << ss.str();
+    return true;
+}
+
 int main(int argc, char * argv[])
 {
+    bool bStatus = true;
     print_logo();
     // ========== parse command line arguments ==========
     boost::program_options::options_description desc("Options");
     desc.add_options()
         ("help,h", "help message (this menu)")
-        ("verbose,v", "enable verbose mode")
         ("sim_off,s", "no simulation, only read config files")
         ("configs,c", boost::program_options::value<std::vector<std::string>>()->multitoken(), "config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini");
 
     boost::program_options::variables_map vm;
     boost::program_options::store(boost::program_options::command_line_parser(argc, argv).options(desc).allow_unregistered().run(), vm);
     boost::program_options::notify(vm);
+
+    boost::log::add_file_log(boost::log::keywords::file_name=LOG_FILE, boost::log::keywords::target_file_name = LOG_FILE, boost::log::keywords::format = "[%TimeStamp%] [%Severity%]: %Message%");
+    boost::log::add_common_attributes();
+    
     // ========== print help ==========
     if (vm.count("help") || vm.count("configs") == 0 || argc == 1)
     {
@@ -236,9 +277,9 @@ int main(int argc, char * argv[])
     }
 
     std::vector<std::string> config_files = vm["configs"].as<std::vector<std::string>>();  
-    bool bVerbose   = vm.count("verbose") > 0;
-    bool bNoSim     = vm.count("sim_off") > 0;
+    bool bNoSim = vm.count("sim_off") > 0;
 
+    // ========== loop over configs and simulate ==========
     std::cout << "Running simulation for " << config_files.size() << " config(s)..." << std::endl;
     for(const auto& cfile : config_files)
     {
@@ -254,43 +295,31 @@ int main(int argc, char * argv[])
         // ========== read config file ==========
         param.fieldmap_size[0] = param.fieldmap_size[1] = param.fieldmap_size[2] = 0;
         param.sample_length[0] = param.sample_length[1] = param.sample_length[2] = 0.f;
-        if(file_utils::read_config(cfile, param, sample_length_scales, filenames) == false)
-        {
-            std::cout << ERR_MSG << "reading config file failed. Aborting...!" << std::endl;
-            return 1;
-        }
-
+        bStatus &= file_utils::read_config(cfile, param, sample_length_scales, filenames);
+ 
         if (param.seed == 0)
             param.seed = std::random_device{}();
 
         param.n_timepoints = param.TR / param.dt; // includes start point
 
-        // ========== Dump Settings ==========
-        if(param.enDebug = bVerbose)
+        // ========== dump settings ==========
+        bStatus &= dump_settings(param, filenames, sample_length_scales);
+        // ========== GPU memory is enough ==========
+        bStatus &= check_memory_size(param.get_required_memory(getDeviceCount()));
+        if (bStatus == false)
         {
-            std::cout << "Dumping settings:" << std::endl;
-            for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it)
-                for (int i = 0; i< it->second.size(); i++)
-                    std::cout << it->first << "[" << i << "] = " << it->second.at(i) << std::endl;
-            
-            std::cout << "\nSample length scale = [";
-            for (int32_t i = 0; i < param.n_sample_length_scales; i++)
-                std::cout << sample_length_scales[i] << ", ";
-            std::cout << "\b\b]\n" << std::endl;
-
-            file_utils::input_header hdr_in;
-            if(file_utils::read_header(filenames.at("fieldmap")[0], hdr_in) == false)
-                return 1;
-            std::copy(hdr_in.fieldmap_size, hdr_in.fieldmap_size+3, param.fieldmap_size);
-            std::copy(hdr_in.sample_length, hdr_in.sample_length+3, param.sample_length);
-            param.dump();
-            std::cout<< std::string(50, '=')  << std::endl;
+            std::cout << ERR_MSG << "Simulation failed. See the log file: " << LOG_FILE <<". Aborting...!" << std::endl;
+            return 1;
         }
-
+        
         if (bNoSim)
             continue;
+
         if(simulate(param, filenames, sample_length_scales) == false)
+        {
+            std::cout << ERR_MSG << "Simulation failed. See the log file: " << LOG_FILE <<". Aborting...!" << std::endl;
             return 1;
+        }
     }
     std::cout << "Simulation(s) finished successfully!" << std::endl;
     return 0;

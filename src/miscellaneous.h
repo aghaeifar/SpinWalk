@@ -10,13 +10,15 @@
 #ifndef __MISCELLANEOUS_H__
 #define __MISCELLANEOUS_H__
 
-#include <cuda_runtime.h>
+
 #include <algorithm>
 #include <stdint.h>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <vector>
-
+#include <cstring>
+#include <cmath>
 
 #define SPINWALK_VERSION_MAJOR 1
 #define SPINWALK_VERSION_MINOR 4
@@ -46,7 +48,7 @@ typedef struct simulation_parameters
     int32_t n_dummy_scan;
     uint32_t n_spins, fieldmap_size[3], seed;
     uint64_t matrix_length;
-    bool enDebug, enCrossBoundry, enMultiTissue;
+    bool enDebug, enCrossBoundry, enMultiTissue, enRecordTrajectory;
     simulation_parameters():
         TR(0.04),
         dt(5e-5),
@@ -60,7 +62,8 @@ typedef struct simulation_parameters
         phase_cycling(0.),
         enDebug(false),
         enCrossBoundry(true),
-        enMultiTissue(false)
+        enMultiTissue(false),
+        enRecordTrajectory(false)
     {
         memset(fieldmap_size, 0, 3*sizeof(fieldmap_size[0])); 
         memset(sample_length, 0, 3*sizeof(sample_length[0]));
@@ -77,35 +80,46 @@ typedef struct simulation_parameters
         std::fill(T2, T2 + MAX_T12, 0.04);
     }
 
-    void dump()
+    std::string dump()
     {
-        std::cout<<"TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
-        std::cout<<"T1 = "; for(int i=0; i<n_T12; i++) std::cout<<T1[i]<<' '; std::cout<<'\n';
-        std::cout<<"T2 = "; for(int i=0; i<n_T12; i++) std::cout<<T2[i]<<' '; std::cout<<'\n';
-        std::cout<<"TE = "; for(int i=0; i<n_TE; i++) std::cout<<TE[i]*dt<<' '; std::cout<<'\n';
+        std::stringstream ss;
+        ss<<"TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
+        ss<<"T1 = "; for(int i=0; i<n_T12; i++) ss<<T1[i]<<' '; ss<<'\n';
+        ss<<"T2 = "; for(int i=0; i<n_T12; i++) ss<<T2[i]<<' '; ss<<'\n';
+        ss<<"TE = "; for(int i=0; i<n_TE; i++) ss<<TE[i]*dt<<' '; ss<<'\n';
 
-        std::cout<<"RF flip-angle   = "; for(int i=0; i<n_RF; i++) std::cout<<RF_FA[i]<<' '; std::cout<<'\n';
-        std::cout<<"RF phase        = "; for(int i=0; i<n_RF; i++) std::cout<<RF_PH[i]<<' '; std::cout<<'\n';
-        std::cout<<"RF time         = "; for(int i=0; i<n_RF; i++) std::cout<<RF_ST[i]*dt<<' '; std::cout<<'\n';
+        ss<<"RF flip-angle   = "; for(int i=0; i<n_RF; i++) ss<<RF_FA[i]<<' '; ss<<'\n';
+        ss<<"RF phase        = "; for(int i=0; i<n_RF; i++) ss<<RF_PH[i]<<' '; ss<<'\n';
+        ss<<"RF time         = "; for(int i=0; i<n_RF; i++) ss<<RF_ST[i]*dt<<' '; ss<<'\n';
 
-        std::cout<<"dephasing deg.  = "; for(int i=0; i<n_dephasing; i++) std::cout<<dephasing[i]<<' '; std::cout<<'\n';
-        std::cout<<"dephasing time  = "; for(int i=0; i<n_dephasing; i++) std::cout<<dephasing_T[i]*dt<<' '; std::cout<<'\n';
-        std::cout<<"gradient (x,y,z)=\n"; for(int i=0; i<n_gradient; i++) std::cout<<gradient_xyz[3*i+0]<<' '<<gradient_xyz[3*i+1]<<' '<<gradient_xyz[3*i+2]<<'\n';
-        std::cout<<"gradient time   = "; for(int i=0; i<n_gradient; i++) std::cout<<gradient_T[i]*dt<<' '; std::cout<<'\n';
+        ss<<"dephasing deg.  = "; for(int i=0; i<n_dephasing; i++) ss<<dephasing[i]<<' '; ss<<'\n';
+        ss<<"dephasing time  = "; for(int i=0; i<n_dephasing; i++) ss<<dephasing_T[i]*dt<<' '; ss<<'\n';
+        ss<<"gradient (x,y,z)=\n"; for(int i=0; i<n_gradient; i++) ss<<gradient_xyz[3*i+0]<<' '<<gradient_xyz[3*i+1]<<' '<<gradient_xyz[3*i+2]<<'\n';
+        ss<<"gradient time   = "; for(int i=0; i<n_gradient; i++) ss<<gradient_T[i]*dt<<' '; ss<<'\n';
 
-        std::cout<<"sample length   = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
-        std::cout<<"scale2grid      = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
-        std::cout<<"fieldmap size   = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
-        std::cout<<"diffusion const = "<<diffusion_const<<'\t'<<"dummy scans = "<<n_dummy_scan<<'\t'<<"spins = "<<n_spins<<'\n';
-        std::cout<<"samples scales  = "<<n_sample_length_scales<<'\t'<<"timepoints = "<<n_timepoints<<'\t'<<"fieldmaps = "<<n_fieldmaps<<'\n';
-        std::cout<<"Multi-Tissues   = "<<enMultiTissue<<'\t'<<"Boundry Condition = " << enCrossBoundry << '\n';
-        std::cout<<"Phase cycling   = "<<phase_cycling<<'\t'<<"Seed = "<<seed<<'\n';
-        std::cout<<'\n';
+        ss<<"sample length   = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
+        ss<<"scale2grid      = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
+        ss<<"fieldmap size   = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
+        ss<<"diffusion const = "<<diffusion_const<<'\t'<<"dummy scans = "<<n_dummy_scan<<'\t'<<"spins = "<<n_spins<<'\n';
+        ss<<"samples scales  = "<<n_sample_length_scales<<'\t'<<"timepoints = "<<n_timepoints<<'\t'<<"fieldmaps = "<<n_fieldmaps<<'\n';
+        ss<<"Multi-Tissues   = "<<enMultiTissue<<'\t'<<"Boundry Condition = " << enCrossBoundry << '\n';
+        ss<<"Phase cycling   = "<<phase_cycling<<'\t'<<"Seed = "<<seed<<'\n';
+        ss<<'\n';
 
-        uint16_t fieldmap_size_MB = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2] * (sizeof(float) + sizeof(char)) / 1024 / 1024;
-        uint16_t variables_size_MB = n_spins * 3 *  (4 + n_TE) * sizeof(float) / 1024 / 1024;
-        std::cout<<"Required GPU memory ≈ " << fieldmap_size_MB << " MB + " << variables_size_MB << " MB (fieldmap + variables)" << '\n';
-        std::cout<<"Required RAM ≈ " << fieldmap_size_MB << " MB + " << variables_size_MB * n_sample_length_scales << " MB (fieldmap + variables)" << '\n';
+        auto fieldmap_size_MB = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2] * (sizeof(float) + sizeof(char)) / 1024 / 1024;
+        auto variables_size_MB = n_spins * 3 *  (4 + n_TE) * sizeof(float) / 1024 / 1024;
+        ss<<"Required GPU memory ≈ " << fieldmap_size_MB << " MB + " << variables_size_MB << " MB (fieldmap + variables)" << '\n';
+        ss<<"Required RAM ≈ " << fieldmap_size_MB << " MB + " << variables_size_MB * n_sample_length_scales << " MB (fieldmap + variables)" << '\n';
+
+        return ss.str();
+    }
+
+    uint32_t get_required_memory(uint32_t n_device=1)
+    {
+        auto fieldmap_mask_size_MB = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2] * (sizeof(float) + sizeof(char)) / 1024 / 1024;
+        auto variables_size_MB = n_spins * 3 *  (4 + n_TE) * sizeof(float) / 1024 / 1024 / n_device; // 3 for x,y,z, 4 for M0, XYZ0, XYZ0_scaled, XYZ1,  n_TE for M1
+        auto trajectory_size_MB = enRecordTrajectory ? n_spins * n_timepoints * 3 * sizeof(float) / 1024 / 1024 / n_device: 0; // 3 for x,y,z,
+        return fieldmap_mask_size_MB + variables_size_MB + trajectory_size_MB;
     }
 
     void prepare()
@@ -120,7 +134,7 @@ typedef struct simulation_parameters
 
 inline void print_logo()
 { 
-  std::cout << " \n"
+ std::cout << " \n"
 " ____            _          __        __          _   _        \n"
 "/ ___|   _ __   (_)  _ __   \\ \\      / /   __ _  | | | | __    \n"
 "\\___ \\  | '_ \\  | | | '_ \\   \\ \\ /\\ / /   / _` | | | | |/ /    \n"

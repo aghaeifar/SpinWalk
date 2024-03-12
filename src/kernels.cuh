@@ -32,8 +32,9 @@ __host__  __device__ __forceinline__ uint64_t sub2ind(uint32_t x, uint32_t y, ui
     return (uint64_t((z-1)*lenx*leny) + (y-1)*lenx + x-1); // the last -1 is because of the C++ indexing starts from 0
 }
 
+uint32_t getDeviceCount();
 void print_device_info();
-
+bool check_memory_size(size_t required_size_MB);
 
 template <typename T>
 bool is_masked(std::vector<T> &XYZ0, std::vector<uint8_t> &mask, simulation_parameters *param)
