@@ -27,12 +27,6 @@ jobs:
       id: boost-install
       run: sudo apt-get update && sudo apt-get install -yq libboost-all-dev
       
-    - name: Show paths
-      run: |
-        printf 'Boost has been unpacked to: %s\n' '${{ steps.boost.outputs.root }}'
-        printf 'Libraries can be found here: %s\n' '${{ steps.boost.outputs.librarydir }}'
-      shell: bash
-      
     - uses: actions/checkout@v3
     
     - name: echo settings
