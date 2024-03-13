@@ -27,8 +27,8 @@ jobs:
       id: boost
       uses: egor-tensin/build-boost@v1
       with:
-        version: 1.71.0
-        libraries: filesystem program_options system
+        version: 1.74.0
+        libraries: program_options log log_setup
         platform: x64
         configuration: Release
 
@@ -46,7 +46,7 @@ jobs:
     - run: mkdir ${{github.workspace}}/build   
 
     - name: Configure CMake      
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBoost_LIBRARY_DIRS=${{ steps.boost.outputs.librarydir }} -DBoost_INCLUDE_DIR=${{ steps.boost.outputs.root }}/include -DBOOST_ROOT=${{steps.boost.outputs.root}}
 
     - name: Build
       # Build your program with the given configuration
