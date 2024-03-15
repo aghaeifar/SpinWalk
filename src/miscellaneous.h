@@ -18,15 +18,17 @@
 #include <sstream>
 #include <vector>
 #include <cstring>
+#include <cctype>
 #include <cmath>
 
 #define SPINWALK_VERSION_MAJOR 1
-#define SPINWALK_VERSION_MINOR 4
-#define SPINWALK_VERSION_PATCH 5
+#define SPINWALK_VERSION_MINOR 5
+#define SPINWALK_VERSION_PATCH 0
 
 #define DEG2RAD 0.0174532925199433 // = M_PI/180 
 #define RAD2DEG 57.2957795130823
 
+#define B2MB 1048576
 #define ERR_MSG  "\033[1;31mError:\033[0m "
 #define ROUND(x) ((long)((x)+0.5))
 #define MAX_RF 256          // maximum number of RF
@@ -34,6 +36,7 @@
 #define MAX_T12 256         // maximum number of relaxation times
 #define MAX_DEPHASE 256     // maximum number of dephasing
 #define MAX_GRADIENT 256    // maximum number of gradient
+#define MAX_TISSUE_TYPE 8   // maximum number of tissue types
 
 typedef struct simulation_parameters
 {
@@ -42,13 +45,15 @@ typedef struct simulation_parameters
     float RF_FA[MAX_RF], RF_PH[MAX_RF]; // refocusing FA
     float dephasing[MAX_DEPHASE]; // dephasing in degree
     float gradient_xyz[3*MAX_GRADIENT]; // gradient in T/m
-    int32_t RF_ST[MAX_RF], TE[MAX_TE], dephasing_T[MAX_DEPHASE], gradient_T[MAX_GRADIENT]; // refocusing time in dt, echo times in dt, dephasing time in dt
+    float pXY[MAX_TISSUE_TYPE*MAX_TISSUE_TYPE];
+    uint32_t RF_ST[MAX_RF], TE[MAX_TE], dephasing_T[MAX_DEPHASE], gradient_T[MAX_GRADIENT]; // refocusing time in dt, echo times in dt, dephasing time in dt
     float sample_length[3], scale2grid[3], diffusion_const, phase_cycling;
-    int32_t n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient, n_T12;
-    int32_t n_dummy_scan;
+    uint32_t n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient, n_T12;
+    int32_t n_dummy_scan ;
+    uint32_t n_tissue_type;
     uint32_t n_spins, fieldmap_size[3], seed;
     uint64_t matrix_length;
-    bool enDebug, enCrossBoundry, enMultiTissue, enRecordTrajectory;
+    bool enDebug, enCrossBoundry, enRecordTrajectory;
     simulation_parameters():
         TR(0.04),
         dt(5e-5),
@@ -59,10 +64,10 @@ typedef struct simulation_parameters
         n_dephasing(0),
         n_gradient(0),
         n_dummy_scan(0),
+        n_tissue_type(0),
         phase_cycling(0.),
         enDebug(false),
         enCrossBoundry(true),
-        enMultiTissue(false),
         enRecordTrajectory(false)
     {
         memset(fieldmap_size, 0, 3*sizeof(fieldmap_size[0])); 
@@ -75,6 +80,7 @@ typedef struct simulation_parameters
         memset(dephasing_T, 0, MAX_DEPHASE*sizeof(dephasing_T[0]));
         memset(gradient_xyz, 0, 3*MAX_GRADIENT*sizeof(gradient_xyz[0]));
         memset(gradient_T, 0, MAX_GRADIENT*sizeof(gradient_T[0]));
+        memset(pXY, 0, MAX_TISSUE_TYPE*MAX_TISSUE_TYPE*sizeof(pXY[0]));
 
         std::fill(T1, T1 + MAX_T12, 2.2);
         std::fill(T2, T2 + MAX_T12, 0.04);
@@ -83,7 +89,8 @@ typedef struct simulation_parameters
     std::string dump()
     {
         std::stringstream ss;
-        ss<<"TR="<<TR<<" dt="<<dt<<" B0="<<B0<<'\n';
+        ss<<"B0="<<B0<<'\n'<<"dt="<<dt<<'\n';
+        ss<<"TR="<<TR<<"\n";
         ss<<"T1 = "; for(int i=0; i<n_T12; i++) ss<<T1[i]<<' '; ss<<'\n';
         ss<<"T2 = "; for(int i=0; i<n_T12; i++) ss<<T2[i]<<' '; ss<<'\n';
         ss<<"TE = "; for(int i=0; i<n_TE; i++) ss<<TE[i]*dt<<' '; ss<<'\n';
@@ -96,30 +103,37 @@ typedef struct simulation_parameters
         ss<<"dephasing time  = "; for(int i=0; i<n_dephasing; i++) ss<<dephasing_T[i]*dt<<' '; ss<<'\n';
         ss<<"gradient (x,y,z)=\n"; for(int i=0; i<n_gradient; i++) ss<<gradient_xyz[3*i+0]<<' '<<gradient_xyz[3*i+1]<<' '<<gradient_xyz[3*i+2]<<'\n';
         ss<<"gradient time   = "; for(int i=0; i<n_gradient; i++) ss<<gradient_T[i]*dt<<' '; ss<<'\n';
+        ss<<"Cross Tissue Probability =\n"; for(int i=0; i<n_tissue_type; i++) {for(int j=0; j<n_tissue_type; j++) ss<<pXY[j+i*n_tissue_type]<<' '; ss<<'\n';};
 
         ss<<"sample length   = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
         ss<<"scale2grid      = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
         ss<<"fieldmap size   = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
-        ss<<"diffusion const = "<<diffusion_const<<'\t'<<"dummy scans = "<<n_dummy_scan<<'\t'<<"spins = "<<n_spins<<'\n';
-        ss<<"samples scales  = "<<n_sample_length_scales<<'\t'<<"timepoints = "<<n_timepoints<<'\t'<<"fieldmaps = "<<n_fieldmaps<<'\n';
-        ss<<"Multi-Tissues   = "<<enMultiTissue<<'\t'<<"Boundry Condition = " << enCrossBoundry << '\n';
-        ss<<"Phase cycling   = "<<phase_cycling<<'\t'<<"Seed = "<<seed<<'\n';
-        ss<<'\n';
-
-        auto fieldmap_size_MB = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2] * (sizeof(float) + sizeof(char)) / 1024 / 1024;
-        auto variables_size_MB = n_spins * 3 *  (4 + n_TE) * sizeof(float) / 1024 / 1024;
-        ss<<"Required GPU memory ≈ " << fieldmap_size_MB << " MB + " << variables_size_MB << " MB (fieldmap + variables)" << '\n';
-        ss<<"Required RAM ≈ " << fieldmap_size_MB << " MB + " << variables_size_MB * n_sample_length_scales << " MB (fieldmap + variables)" << '\n';
+        ss<<"diffusion const = "<<diffusion_const<<'\n'<<"dummy scans = "<<n_dummy_scan<<'\n'<<"spins = "<<n_spins<<'\n';
+        ss<<"samples scales  = "<<n_sample_length_scales<<'\n'<<"timepoints = "<<n_timepoints<<'\n'<<"fieldmaps = "<<n_fieldmaps<<'\n';
+        ss<<"Tissue Types = " <<n_tissue_type << '\n'<< "Boundry Condition = " << enCrossBoundry << '\n';
+        ss<<"Phase cycling   = "<<phase_cycling<<'\n'<<"Seed = "<<seed<<'\n' << "Record Trajectory = " << enRecordTrajectory << '\n';
+        ss<<"Required CPU memory = "<<get_required_memory(1, "cpu")<<" MB\n";
+        ss<<"Required GPU memory = "<<get_required_memory(1, "gpu")<<" MB\n";
 
         return ss.str();
     }
 
-    uint32_t get_required_memory(uint32_t n_device=1)
+    size_t get_required_memory(uint8_t n_device=1, std::string type="gpu")
     {
-        auto fieldmap_mask_size_MB = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2] * (sizeof(float) + sizeof(char)) / 1024 / 1024;
-        auto variables_size_MB = n_spins * 3 *  (4 + n_TE) * sizeof(float) / 1024 / 1024 / n_device; // 3 for x,y,z, 4 for M0, XYZ0, XYZ0_scaled, XYZ1,  n_TE for M1
-        auto trajectory_size_MB = enRecordTrajectory ? n_spins * n_timepoints * 3 * sizeof(float) / 1024 / 1024 / n_device: 0; // 3 for x,y,z,
-        return fieldmap_mask_size_MB + variables_size_MB + trajectory_size_MB;
+        std::transform(type.begin(), type.end(), type.begin(), [](unsigned char c){ return std::tolower(c); }); 
+        size_t spin = (type == "gpu") ? n_spins/n_device : n_spins;
+        // fieldmap and mask
+        size_t data_size_MB = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2] * (sizeof(float) + sizeof(char)) / B2MB;
+        // variables (M0, XYZ0, XYZ0_scaled, XYZ1, M1)
+        size_t variables_size_MB = 3 * spin;   // M0
+        variables_size_MB += 3 * spin * n_TE ; // M1    
+        variables_size_MB += 3 * spin ;        // XYZ0
+        variables_size_MB += (type == "gpu") ? 3 * spin : 0;        // XYZ0_scaled
+        variables_size_MB += 3 * spin * (enRecordTrajectory ?  n_timepoints * (n_dummy_scan+1) : 1) * ((type == "cpu") ? n_sample_length_scales:1); // XYZ1 
+        variables_size_MB *= sizeof(float);
+        variables_size_MB /= B2MB;
+
+        return data_size_MB + variables_size_MB;
     }
 
     void prepare()

@@ -33,6 +33,8 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     if (spin_no >= param->n_spins)
         return;
     
+    float *xyz1 = XYZ1 + 3*spin_no * (param->enRecordTrajectory ? (param->n_dummy_scan + 1)*(param->n_timepoints) : 1);
+
     thrust::minstd_rand gen(param->seed + spin_no);
     thrust::normal_distribution<float> dist_random_walk_xyz(0.f, sqrt(6 * param->diffusion_const * param->dt));
     //thrust::uniform_real_distribution<float> dist_random_walk_xyz(-sqrt(6 * param.diffusion_const * param.dt), sqrt(6 * param.diffusion_const * param.dt));
@@ -41,13 +43,13 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     //uint16_t n_timepoints_local;
     float field = 0., T1=0., T2=0., rf_phase = param->RF_PH[0], time_elapsed = 0.; 
     float m0[3], m1[3]; 
-    float xyz[3], xyz_new[3];
+    float xyz_new[3];
     for(uint32_t i=0, shift=3*spin_no; i<3; i++)
     {
-        xyz[i] = XYZ0[shift + i];
+        xyz1[i] = XYZ0[shift + i];
         m0[i]  = M0[shift + i];
     }
-    
+
     bool is_lastscan = false;
     for (uint32_t dummy_scan = 0; dummy_scan < param->n_dummy_scan + 1; dummy_scan++)
     {
@@ -76,20 +78,20 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             for (uint8_t i=0; i<3; i++)
             {
                 rnd_wlk = dist_random_walk_xyz(gen);
-                xyz_new[i] = xyz[i] + rnd_wlk; // new spin position after random-walk
+                xyz_new[i] = xyz1[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)
                     xyz_new[i] += param->enCrossBoundry ? param->sample_length[i] : -2*rnd_wlk; // rnd_wlk is negative here
                 else if (xyz_new[i] > param->sample_length[i])
                     xyz_new[i] -= param->enCrossBoundry ? param->sample_length[i] : 2*rnd_wlk;
             }
-            
+           
             // ------ subscripts to linear indices ------
             ind = sub2ind(ROUND(xyz_new[0]*param->scale2grid[0]+1.), ROUND(xyz_new[1]*param->scale2grid[1]+1.), ROUND(xyz_new[2]*param->scale2grid[2]+1.), param->fieldmap_size[0], param->fieldmap_size[1]);
             
             // ------ accumulate phase ------
             if(ind != ind_old) // used this trick for fewer access to the global memory which is slow. Helpful for large samples!
             {               
-                if (pMask[ind] != 0 && param->enMultiTissue == false) // check doesn't cross a vessel 
+                if (pMask[ind] != 0) // check doesn't cross a vessel 
                     continue;       
                 field = pFieldMap[ind_old = ind];
                 ind = pMask[ind]; // the index of the tissue type
@@ -97,7 +99,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 T2 = param->T2[ind];
             }     
             accumulated_phase += field;
-
+         
             // ------ apply dephasing if there is any ------
             if(counter_dephasing < param->n_dephasing && param->dephasing_T[counter_dephasing] == current_timepoint)
             {
@@ -141,8 +143,11 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             }
 
             // update old position with the new one
-            for (uint8_t i = 0; i < 3; i++)
-                xyz[i] = xyz_new[i];
+            if(param->enRecordTrajectory && current_timepoint != 0 && dummy_scan != 0)
+                xyz1 += 3;            
+            for (uint8_t i=0; i < 3; i++)
+                xyz1[i] = xyz_new[i];
+
             // increase timepoint
             current_timepoint++;            
         }
@@ -154,9 +159,6 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
         for(uint8_t i=0; i<3; i++)
             m0[i] = m1[i];
     }
-    // save final position
-    for (uint32_t i=0, shift=3*spin_no; i<3; i++)
-        XYZ1[shift + i] = xyz[i];
 }
 
 
@@ -211,7 +213,7 @@ __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *p
         for (uint8_t i = 0; i < 3; i++)
             xyz[i] = dist_initial_point(gen) * param->sample_length[i];
         index = sub2ind(ROUND(xyz[0]*scale2grid[0]+1.), ROUND(xyz[1]*scale2grid[1]+1.), ROUND(xyz[2]*scale2grid[2]+1.), param->fieldmap_size[0], param->fieldmap_size[1]);
-    } while (pMask[index] != 0 && param->enMultiTissue == false);
+    } while (pMask[index] != 0);
 }
 
 //---------------------------------------------------------------------------------------------
@@ -261,6 +263,8 @@ bool check_memory_size(size_t required_size_MB)
         cudaGetDeviceProperties(&device_properties, i);
         cudaMemGetInfo(&free, &total);
         std::cout << "  Device " << i+1 << ", " << device_properties.name  << ": " << (free>required_size_MB ? "OK" : "Not enough") << '\n';
+        if(free<required_size_MB)
+            BOOST_LOG_TRIVIAL(fatal) << "Not enough GPU memory for the simulation in device "<< i <<"! Required=" << required_size_MB <<" MB, Available=" << free << " MB";
         memory_ok = free<required_size_MB ? false:memory_ok;
     }
     return memory_ok;

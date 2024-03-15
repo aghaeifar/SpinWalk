@@ -51,7 +51,7 @@ bool is_masked(std::vector<T> &XYZ0, std::vector<uint8_t> &mask, simulation_para
             std::cout << ERR_MSG << "For "<<i<< "th element, index is out of range: " << index << " >= " << mask.size() << std::endl;
             return false;
         }
-        if (mask[index] != 0 && param->enMultiTissue == false)
+        if (mask[index] != 0)
         {
             std::cout << ERR_MSG << " " << i<< "th element located in the masked!" << std::endl;
             return false;
