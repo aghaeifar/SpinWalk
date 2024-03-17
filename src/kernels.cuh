@@ -14,6 +14,7 @@
 #include <numeric>
 #include "miscellaneous.h"
 
+
 #define GAMMA  267515315. // rad/s.T
 
 __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1);
@@ -35,30 +36,6 @@ __host__  __device__ __forceinline__ uint64_t sub2ind(uint32_t x, uint32_t y, ui
 uint32_t getDeviceCount();
 void print_device_info();
 bool check_memory_size(size_t required_size_MB);
-
-template <typename T>
-bool is_masked(std::vector<T> &XYZ0, std::vector<uint8_t> &mask, simulation_parameters *param)
-{
-    float scale2grid[3];
-    for(uint8_t i=0; i<3; i++)
-        scale2grid[i] = (param->fieldmap_size[i]-1.) / param->sample_length[i];
-
-    for (int32_t i=0; i<XYZ0.size()/3; i++)
-    {
-        uint64_t index = sub2ind(ROUND(XYZ0[3*i] * scale2grid[0]), ROUND(XYZ0[3*i+1] * scale2grid[1]), ROUND(XYZ0[3*i+2] * scale2grid[2]), param->fieldmap_size[0], param->fieldmap_size[1]);
-        if (index >= mask.size())
-        {
-            std::cout << ERR_MSG << "For "<<i<< "th element, index is out of range: " << index << " >= " << mask.size() << std::endl;
-            return false;
-        }
-        if (mask[index] != 0)
-        {
-            std::cout << ERR_MSG << " " << i<< "th element located in the masked!" << std::endl;
-            return false;
-        }
-    }
-    return true;
-}
 
 
 #endif // _KERNELS_H_
