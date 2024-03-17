@@ -9,15 +9,24 @@
 
 
 #include <algorithm>
-#include <thrust/random.h>
 #include "kernels.cuh"
 #include "rotation.cuh"
 #include "helper_cuda.h"
 #include <cuda_runtime.h>
 #include <boost/log/trivial.hpp>
+#include <thrust/random.h>
+#include <thrust/device_vector.h>
+#include <thrust/extrema.h>
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
+
+uint8_t find_max(const std::vector<uint8_t> &data)
+{
+    thrust::device_vector<uint8_t> gpu_vec(data.begin(), data.end());
+    uint8_t m = *thrust::max_element(gpu_vec.begin(), gpu_vec.end());
+    return m;
+}
 
 __device__ __forceinline__ void dephase_relax(float *m0, float *m1, float accumulated_phase, float T1, float T2, float time_elapsed)
 {
@@ -32,13 +41,16 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     auto spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     if (spin_no >= param->n_spins)
         return;
-    
+
     float *xyz1 = XYZ1 + 3*spin_no * (param->enRecordTrajectory ? (param->n_dummy_scan + 1)*(param->n_timepoints) : 1);
 
-    thrust::minstd_rand gen(param->seed + spin_no);
+    thrust::minstd_rand gen_r(param->seed + spin_no);
+    thrust::minstd_rand gen_u(param->seed + spin_no);
     thrust::normal_distribution<float> dist_random_walk_xyz(0.f, sqrt(6 * param->diffusion_const * param->dt));
-    //thrust::uniform_real_distribution<float> dist_random_walk_xyz(-sqrt(6 * param.diffusion_const * param.dt), sqrt(6 * param.diffusion_const * param.dt));
-    gen.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
+    // thrust::uniform_real_distribution<float> dist_random_walk_xyz(-sqrt(6 * param->diffusion_const * param->dt), sqrt(6 * param->diffusion_const * param->dt));
+    thrust::uniform_real_distribution<float> dist_cross_tissue(0.0, 1.0);
+    gen_r.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
+    gen_u.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
 
     //uint16_t n_timepoints_local;
     float field = 0., T1=0., T2=0., rf_phase = param->RF_PH[0], time_elapsed = 0.; 
@@ -49,6 +61,9 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
         xyz1[i] = XYZ0[shift + i];
         m0[i]  = M0[shift + i];
     }
+    // tissue type
+    uint8_t ts, ts_old;
+    ts_old = pMask[sub2ind(ROUND(xyz1[0]*param->scale2grid[0]+1.), ROUND(xyz1[1]*param->scale2grid[1]+1.), ROUND(xyz1[2]*param->scale2grid[2]+1.), param->fieldmap_size[0], param->fieldmap_size[1])];
 
     bool is_lastscan = false;
     for (uint32_t dummy_scan = 0; dummy_scan < param->n_dummy_scan + 1; dummy_scan++)
@@ -77,7 +92,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             float rnd_wlk;
             for (uint8_t i=0; i<3; i++)
             {
-                rnd_wlk = dist_random_walk_xyz(gen);
+                rnd_wlk = dist_random_walk_xyz(gen_r);
                 xyz_new[i] = xyz1[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)
                     xyz_new[i] += param->enCrossBoundry ? param->sample_length[i] : -2*rnd_wlk; // rnd_wlk is negative here
@@ -89,10 +104,16 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             ind = sub2ind(ROUND(xyz_new[0]*param->scale2grid[0]+1.), ROUND(xyz_new[1]*param->scale2grid[1]+1.), ROUND(xyz_new[2]*param->scale2grid[2]+1.), param->fieldmap_size[0], param->fieldmap_size[1]);
             
             // ------ accumulate phase ------
-            if(ind != ind_old) // used this trick for fewer access to the global memory which is slow. Helpful for large samples!
-            {               
-                if (pMask[ind] != 0) // check doesn't cross a vessel 
-                    continue;       
+            if(ind != ind_old) // fewer access to the global memory which is slow. Helpful for large samples!
+            {   
+                // cross-tissue diffusion
+                ts = pMask[ind];           
+                if (ts != ts_old) 
+                    if (dist_cross_tissue(gen_u) >= param->pXY[ts_old*param->n_tissue_type + ts])
+                        continue;
+                    else
+                        ts_old = ts;
+       
                 field = pFieldMap[ind_old = ind];
                 ind = pMask[ind]; // the index of the tissue type
                 T1 = param->T1[ind];
@@ -202,18 +223,9 @@ __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *p
     thrust::uniform_real_distribution<float> dist_initial_point(0., 1.);
     gen.discard(param->seed + spin_no);
 
-    float scale2grid[3];
-    for(int i=0; i<3; i++)
-        scale2grid[i] = (param->fieldmap_size[i]-1.) / param->sample_length[i];
-
-    uint64_t index = 0;
     float *xyz = spin_position_xyz + 3*spin_no;
-    do
-    {
-        for (uint8_t i = 0; i < 3; i++)
-            xyz[i] = dist_initial_point(gen) * param->sample_length[i];
-        index = sub2ind(ROUND(xyz[0]*scale2grid[0]+1.), ROUND(xyz[1]*scale2grid[1]+1.), ROUND(xyz[2]*scale2grid[2]+1.), param->fieldmap_size[0], param->fieldmap_size[1]);
-    } while (pMask[index] != 0);
+    for (uint8_t i = 0; i < 3; i++)
+        xyz[i] = dist_initial_point(gen) * param->sample_length[i];
 }
 
 //---------------------------------------------------------------------------------------------

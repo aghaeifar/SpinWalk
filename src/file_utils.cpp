@@ -17,11 +17,12 @@
 #include <boost/property_tree/ini_parser.hpp>
 #include "file_utils.h"
 
-
+uint8_t find_max(const std::vector<uint8_t> &data);
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
 std::filesystem::path output_dir("./output");
+
 bool file_utils::read_config(std::string config_filename, simulation_parameters& param, std::vector<float>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames)
 {
     std::stringstream ss;
@@ -298,12 +299,13 @@ bool file_utils::read_fieldmap(std::string fieldmap_filename, std::vector<float>
     in_field.read((char*)mask.data(), sizeof(uint8_t) * param.matrix_length); BOOST_LOG_TRIVIAL(info) << "done.";
     in_field.close();
 
-    // int n_tissue = *std::max_element(mask.begin(), mask.end()) + 1;
-    // if (n_tissue != param.n_tissue_type)
-    // {
-    //     BOOST_LOG_TRIVIAL(error) << "The number of tissue types in the mask does not match the number of tissue types in the config file: " << n_tissue << " vs " << param.n_tissue_type;
-    //     return false;
-    // }
+    // int n_tissue = *std::max_element(mask.begin(), mask.end(),  [](const uint8_t &x,const uint8_t &y) {return x<y;}) + 1;
+    int n_tissue = find_max(mask) + 1;
+    if (n_tissue != param.n_tissue_type)
+    {
+        BOOST_LOG_TRIVIAL(error) << "The number of tissue types in the mask does not match the number of tissue types in the config file: " << n_tissue << " vs " << param.n_tissue_type;
+        return false;
+    }
     return true;
 }
 
