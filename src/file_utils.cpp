@@ -297,6 +297,13 @@ bool file_utils::read_fieldmap(std::string fieldmap_filename, std::vector<float>
     in_field.read((char*)fieldmap.data(), sizeof(float) * param.matrix_length); BOOST_LOG_TRIVIAL(info) << "done...mask...";
     in_field.read((char*)mask.data(), sizeof(uint8_t) * param.matrix_length); BOOST_LOG_TRIVIAL(info) << "done.";
     in_field.close();
+
+    // int n_tissue = *std::max_element(mask.begin(), mask.end()) + 1;
+    // if (n_tissue != param.n_tissue_type)
+    // {
+    //     BOOST_LOG_TRIVIAL(error) << "The number of tissue types in the mask does not match the number of tissue types in the config file: " << n_tissue << " vs " << param.n_tissue_type;
+    //     return false;
+    // }
     return true;
 }
 
