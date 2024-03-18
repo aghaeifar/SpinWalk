@@ -164,11 +164,10 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             }
 
             // update old position with the new one
-            if(param->enRecordTrajectory && current_timepoint != 0 && dummy_scan != 0)
-                xyz1 += 3;            
+            if(param->enRecordTrajectory && (current_timepoint != 0 || dummy_scan != 0))
+                xyz1 += 3;      
             for (uint8_t i=0; i < 3; i++)
                 xyz1[i] = xyz_new[i];
-
             // increase timepoint
             current_timepoint++;            
         }
@@ -180,6 +179,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
         for(uint8_t i=0; i<3; i++)
             m0[i] = m1[i];
     }
+    
 }
 
 

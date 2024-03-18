@@ -48,7 +48,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     std::vector<float> fieldmap(param.matrix_length, 0.f);
     std::vector<uint8_t> mask(param.matrix_length, 0);
     std::vector<float> XYZ0(len0, 0.f); // memory layout(column-wise): [3 x n_spins]
-    std::vector<float> XYZ1(len1, 0.f); // memory layout(column-wise): [3 x timepoints x n_spins x n_sample_length_scales] or [3 x n_spins x n_sample_length_scales]
+    std::vector<float> XYZ1(len1, 0.f); // memory layout(column-wise): [3 x timepoints x n_spins x n_sample_length_scales] or [3 x 1 x n_spins x n_sample_length_scales]
     std::vector<float> M0(len0, 0.f);   // memory layout(column-wise): [3 x n_spins]
     std::vector<float> M1(len2, 0.f);   // memory layout(column-wise): [3 x n_TE x n_spins x n_sample_length_scales]
     BOOST_LOG_TRIVIAL(info) << "Memory allocation (CPU) took " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - st).count() << " ms";
@@ -177,7 +177,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
                 size_t shift = 3*param.n_TE*param.n_spins*device_count*sl + 3*param.n_TE*param.n_spins*d;
                 checkCudaErrors(cudaMemcpyAsync(M1.data()   + shift, d_M1[d]  , 3*param.n_TE*param.n_spins*sizeof(float), cudaMemcpyDeviceToHost, streams[d]));                
                 shift = 3*param.n_spins*trj*device_count*sl + 3*param.n_spins*trj*d;
-                checkCudaErrors(cudaMemcpyAsync(XYZ1.data() + shift, d_XYZ1[d], 3*param.n_spins*sizeof(float), cudaMemcpyDeviceToHost, streams[d]));
+                checkCudaErrors(cudaMemcpyAsync(XYZ1.data() + shift, d_XYZ1[d], 3*param.n_spins*trj*sizeof(float), cudaMemcpyDeviceToHost, streams[d]));
             } 
             bar.progress(sl, param.n_sample_length_scales);
         }
@@ -188,16 +188,14 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         checkCudaErrors(cudaDeviceSynchronize());        
         checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start, end));
         std::cout << "Simulation over " << device_count << " GPU(s) took " << std::fixed << std::setprecision(2) << elapsedTime/1000. << " second(s)" << '\n';
-        std::cout << "Saving the results to disk" << '\n';
 
         // ========== save results ========== 
+        std::cout << "Saving the results to disk" << '\n';
         file_utils::output_header hdr(3, param.n_TE, param.n_spins * device_count, param.n_sample_length_scales);
         file_utils::save_output(M1, filenames.at("M1")[fieldmap_no], hdr, sample_length_scales);
 
-        hdr.dim2 = 1;
-        if(filenames.at("XYZ1")[fieldmap_no].empty() == false) // do not save if filename is empty
-            file_utils::save_output(XYZ1, filenames.at("XYZ1")[fieldmap_no], hdr, sample_length_scales);
-
+        hdr.dim2 = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
+        file_utils::save_output(XYZ1, filenames.at("XYZ1")[fieldmap_no], hdr, sample_length_scales);
         std::cout << std::string(50, '=') << std::endl;
     }
 
@@ -233,7 +231,7 @@ bool dump_settings(simulation_parameters param, std::map<std::string, std::vecto
     ss<< "\nSample length scale = [";
     for (int32_t i = 0; i < param.n_sample_length_scales; i++)
         ss << sample_length_scales[i] << ", ";
-    ss << "\b\b]\n" << std::endl;
+    ss << "]\n";
     
     file_utils::input_header hdr_in;
     if(file_utils::read_header(filenames.at("FIELDMAP")[0], hdr_in) == false)
