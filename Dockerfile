@@ -23,7 +23,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 	net-tools \
     iputils-ping \
 	vim \
-    git
+    git \
+    libboost-all-dev
 
 # RUN apt-get install nvidia-cuda-toolkit
 
@@ -43,12 +44,16 @@ RUN apt-get clean \
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir numpy torch scipy nibabel ipython jupyter matplotlib tqdm h5py pandas scikit-image scikit-learn seaborn
 
+
+# Clone the Git repository
+RUN git clone https://github.com/aghaeifar/SpinWalk.git /opt/SpinWalk
+WORKDIR /opt/SpinWalk
+RUN cmake -B ./build && cmake --build ./build --config Release
+RUN cmake --install ./build
+
+
 LABEL org.opencontainers.image.authors="Ali Aghaeifar"
 
 
-
-# Mount the host's home directory in the container
-
-
-# Set the default command to start MATLAB
-# CMD matlab
+# docker build -t spinwalk .
+# docker run --gpus all --rm -it --runtime=nvidia spinwalk bash
