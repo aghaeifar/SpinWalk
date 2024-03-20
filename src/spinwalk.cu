@@ -28,6 +28,8 @@
 #define THREADS_PER_BLOCK  64
 #define LOG_FILE "spinwalk.log"
 
+namespace bl = boost::log;
+
 bool simulate(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<float> sample_length_scales)
 {
     // ========== checking number of GPU(s) ==========
@@ -137,10 +139,10 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             cu_scaleArray<<<uint64_t(fieldmap.size()/THREADS_PER_BLOCK)+1, THREADS_PER_BLOCK, 0, streams[d]>>>(d_pFieldMap[d], param.B0*GAMMA*param.dt*RAD2DEG, fieldmap.size());
             if(hasXYZ0 == false)
             {   // generate initial spatial position for spins, based on sample_length_ref
-                BOOST_LOG_TRIVIAL(info) << "GPU " << d << " Generating random initial position for spins... ";
+                BOOST_LOG_TRIVIAL(info) << "GPU " << d << ") Generating random initial position for spins... ";
                 cu_randPosGen<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_XYZ0[d], d_param[d], d_pMask[d]);
                 gpuCheckKernelExecutionError( __FILE__, __LINE__);
-                BOOST_LOG_TRIVIAL(info) << "GPU " << d << " Done!";
+                BOOST_LOG_TRIVIAL(info) << "GPU " << d << ") Done!";
             }
             else // copy initial spatial position and magnetization for spins
                 checkCudaErrors(cudaMemcpyAsync(d_XYZ0[d], &XYZ0[3*param.n_spins*d], 3*param.n_spins*sizeof(XYZ0[0]), cudaMemcpyHostToDevice, streams[d]));  
@@ -164,7 +166,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             #pragma omp parallel for
             for (int32_t d = 0; d < device_count; d++)
             {   
-                BOOST_LOG_TRIVIAL(info) << "Fieldmap " << fieldmap_no << ", GPU " << d << ", simulating sample length scale " << sample_length_scales[sl];     
+                BOOST_LOG_TRIVIAL(info) << "GPU " << d << ") Fieldmap " << fieldmap_no << ", simulating sample length scale " << sample_length_scales[sl];     
                 checkCudaErrors(cudaSetDevice(d));
                 cudaMemcpy(d_param[d], &param_local, sizeof(simulation_parameters), cudaMemcpyHostToDevice);
 
@@ -223,10 +225,10 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 bool dump_settings(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<float> sample_length_scales)
 {
     std::stringstream ss;
-    ss  << "Dumping settings:" << std::endl;
+    ss  << "Dumping settings:" << '\n';
     for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it)
         for (int i = 0; i< it->second.size(); i++)
-            ss << it->first << "[" << i << "] = " << it->second.at(i) << std::endl;
+            ss << it->first << "[" << i << "] = " << it->second.at(i) << '\n';
     
     ss<< "\nSample length scale = [";
     for (int32_t i = 0; i < param.n_sample_length_scales; i++)
@@ -263,8 +265,8 @@ int main(int argc, char * argv[])
     std::vector<std::string> unreg = boost::program_options::collect_unrecognized(parsed.options, boost::program_options::include_positional);
     boost::program_options::notify(vm);
 
-    boost::log::add_file_log(boost::log::keywords::file_name=LOG_FILE, boost::log::keywords::target_file_name = LOG_FILE, boost::log::keywords::format = "[%TimeStamp%] [%Severity%]: %Message%");
-    boost::log::add_common_attributes();
+    bl::add_file_log(bl::keywords::file_name=LOG_FILE, bl::keywords::target_file_name = LOG_FILE, bl::keywords::format = "[%TimeStamp%] [%Severity%]: %Message%", bl::keywords::auto_flush = true);
+    bl::add_common_attributes();
     
     // ========== print help ==========
     if (vm.count("help") || vm.count("configs") == 0 || argc == 1 || unreg.size() > 0)
