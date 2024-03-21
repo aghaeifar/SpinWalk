@@ -31,8 +31,8 @@ typedef struct output_header
 typedef struct input_header
 {
     uint32_t fieldmap_size[3];
-    float sample_length[3];
-    input_header(uint32_t *a, float *b) {memcpy(fieldmap_size, a, 3*sizeof(uint32_t)); memcpy(sample_length, b, 3*sizeof(float));}
+    double sample_length[3];
+    input_header(uint32_t *a, double *b) {memcpy(fieldmap_size, a, 3*sizeof(uint32_t)); memcpy(sample_length, b, 3*sizeof(sample_length[0]));}
     input_header(){};
 } input_header;
 
@@ -40,7 +40,7 @@ typedef struct input_header
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
-bool read_config(std::string config_filename, simulation_parameters& param, std::vector<float>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames);
+bool read_config(std::string config_filename, simulation_parameters& param, std::vector<double>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames);
 
 bool read_header(std::string filename, input_header &hdr_in);
 
@@ -48,7 +48,7 @@ bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, 
 
 bool read_file(std::string filename, std::vector<float> &storage);
 
-bool save_output(std::vector<float> &data, std::string output_filename, output_header hdr, std::vector<float> &additional_hdr);
+bool save_output(char *data, size_t bytes, std::string output_filename, output_header hdr, std::vector<double> &additional_hdr);
 
 }
 #endif  // __FILE_UTILS_H__

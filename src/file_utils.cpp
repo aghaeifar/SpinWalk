@@ -23,7 +23,7 @@ uint8_t find_max(const std::vector<uint8_t> &data);
 //---------------------------------------------------------------------------------------------
 std::filesystem::path output_dir("./output");
 
-bool file_utils::read_config(std::string config_filename, simulation_parameters& param, std::vector<float>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames)
+bool file_utils::read_config(std::string config_filename, simulation_parameters& param, std::vector<double>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames)
 {
     std::stringstream ss;
     if (std::filesystem::exists(config_filename) == false)
@@ -86,6 +86,11 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
     for (const auto& path : filenames["FIELDMAP"])
         file_paths.push_back((output_dir / (seq_name + "_xyz1_" + std::filesystem::path(path).filename().string())).string());
     filenames["XYZ1"] = file_paths;
+    // generae names for T  
+    file_paths.clear();
+    for (const auto& path : filenames["FIELDMAP"])
+        file_paths.push_back((output_dir / (seq_name + "_T_" + std::filesystem::path(path).filename().string())).string());
+    filenames["T"] = file_paths;
     
     // check header of fieldmap matches
     file_utils::input_header hdr_in;
@@ -103,7 +108,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
     uint16_t i=0, j=0;
     // ---------------- Echo times ----------------       
     for(i=0; i<MAX_TE && pt.get("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", -1.f) != -1.f; i++)        
-        param.TE[i] = pt.get("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", 0.f) / param.dt;
+        param.TE[i] = pt.get<double>("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", 0.) / param.dt;
     param.n_TE = i==0?param.n_TE:i;
     // check TE conditions
     if (std::is_sorted(param.TE, param.TE + i) == false || std::adjacent_find(param.TE, param.TE + i) != param.TE + i || param.TE[0] < 0 || param.n_TE == 0)
@@ -116,11 +121,11 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
     // ---------------- RF pulses (start times, Flip angles, phases and ) ----------------
     // RF start times
     for(i=0; i<MAX_RF && pt.get("SCAN_PARAMETERS.RF_ST[" + std::to_string(i) + "]", -1.f) != -1.f; i++)           
-        param.RF_ST[i] = pt.get("SCAN_PARAMETERS.RF_ST[" + std::to_string(i) + "]", 0.f) / param.dt;
+        param.RF_ST[i] = pt.get<double>("SCAN_PARAMETERS.RF_ST[" + std::to_string(i) + "]", 0.) / param.dt;
     param.n_RF = i==0?param.n_RF:i;
     // RF flip angles    
     for(j=0; j<param.n_RF && pt.get("SCAN_PARAMETERS.RF_FA[" + std::to_string(j) + "]", -1.f) != -1.f; j++)
-        param.RF_FA[j] = pt.get("SCAN_PARAMETERS.RF_FA[" + std::to_string(j) + "]", 0.f) ; 
+        param.RF_FA[j] = pt.get<double>("SCAN_PARAMETERS.RF_FA[" + std::to_string(j) + "]", 0.) ; 
     if(j !=i && j != param.n_RF)
     {
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "RF_FA and RF_ST must have the same number of elements " << j << " vs " << param.n_RF;
@@ -128,7 +133,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
     }
     // RF phases
     for(j=0; j<param.n_RF && pt.get("SCAN_PARAMETERS.RF_PH[" + std::to_string(j) + "]", -1.f) != -1.f; j++)
-        param.RF_PH[j] = pt.get("SCAN_PARAMETERS.RF_PH[" + std::to_string(j) + "]", 0.f) ;
+        param.RF_PH[j] = pt.get<double>("SCAN_PARAMETERS.RF_PH[" + std::to_string(j) + "]", 0.) ;
     if(j !=i && j != param.n_RF)
     {
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "RF_PH and RF_ST must have the same number of elements " << j << " vs " << param.n_RF; 
@@ -145,11 +150,11 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
     // ---------------- dephasing (start times, Flip angles ) ----------------
     // Dephase start times
     for(i=0; i<MAX_RF && pt.get("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", -1.f) != -1.f; i++)  
-        param.dephasing_T[i] = pt.get<float>("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]") / param.dt;
+        param.dephasing_T[i] = pt.get<double>("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", 0.) / param.dt;
     param.n_dephasing = i==0?param.n_dephasing:i;
     // Dephase flip angles
     for(j=0; j<param.n_dephasing && pt.get_child_optional("SCAN_PARAMETERS.DEPHASING[" + std::to_string(j) + "]"); j++)
-        param.dephasing[j] = pt.get("SCAN_PARAMETERS.DEPHASING[" + std::to_string(j) + "]", 0.f) ;
+        param.dephasing[j] = pt.get<double>("SCAN_PARAMETERS.DEPHASING[" + std::to_string(j) + "]", 0.) ;
     if(j !=i && j != param.n_dephasing)
     {
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "DEPHASING and DEPHASING_T must have the same number of elements " << j << " vs " << param.n_dephasing;
@@ -166,7 +171,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
     // ---------------- Gradients (start times, strength (T/m) ) ----------------
     // Gradient start times
     for(i=0; i<MAX_GRADIENT && pt.get("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", -1.f) != -1.f; i++)  
-        param.gradient_T[i] = pt.get("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", 0.f) / param.dt;
+        param.gradient_T[i] = pt.get<double>("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", 0.) / param.dt;
     param.n_gradient = i==0?param.n_gradient:i;
     // Gradient strength
     for(j=0; j<param.n_gradient && pt.get_child_optional("SCAN_PARAMETERS.GRADIENT_XYZ[" + std::to_string(j) + "]"); j++)
@@ -193,16 +198,17 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
     param.phase_cycling = pt.get("STEADY_STATE.PHASE_CYCLING", param.phase_cycling); 
 
     // ============== reading section SIMULATION_PARAMETERS ==============
-    param.B0 = pt.get<float>("SIMULATION_PARAMETERS.B0", param.B0);
-    param.seed = pt.get<float>("SIMULATION_PARAMETERS.SEED", param.seed);
-    param.n_spins = pt.get<float>("SIMULATION_PARAMETERS.NUMBER_OF_SPINS", param.n_spins);
-    param.enCrossBoundry = pt.get<float>("SIMULATION_PARAMETERS.CROSS_BOUNDARY", param.enCrossBoundry);
-    param.enRecordTrajectory = pt.get<float>("SIMULATION_PARAMETERS.RECORD_TRAJECTORY", param.enRecordTrajectory);
-    param.diffusion_const = pt.get<float>("SIMULATION_PARAMETERS.DIFFUSION_CONSTANT", param.diffusion_const);
+    param.B0                    = pt.get("SIMULATION_PARAMETERS.B0", param.B0);
+    param.seed                  = pt.get<float>("SIMULATION_PARAMETERS.SEED", param.seed);
+    param.n_spins               = pt.get<float>("SIMULATION_PARAMETERS.NUMBER_OF_SPINS", param.n_spins); // template type must be float since input can be of form scientific notation
+    param.enCrossBoundry        = pt.get("SIMULATION_PARAMETERS.CROSS_BOUNDARY", param.enCrossBoundry);
+    param.enRecordTrajectory    = pt.get("SIMULATION_PARAMETERS.RECORD_TRAJECTORY", param.enRecordTrajectory);
+    param.diffusion_const       = pt.get("SIMULATION_PARAMETERS.DIFFUSION_CONSTANT", param.diffusion_const);
+    param.max_iterations        = pt.get<float>("SIMULATION_PARAMETERS.MAX_ITERATIONS", param.max_iterations);
 
-    std::vector<float> sls;
+    std::vector<double> sls;
     for(i=0; i<MAX_RF && pt.get_child_optional("SIMULATION_PARAMETERS.SAMPLE_LENGTH_SCALES[" + std::to_string(i) + "]"); i++) 
-        sls.push_back(pt.get("SIMULATION_PARAMETERS.SAMPLE_LENGTH_SCALES[" + std::to_string(i) + "]", 0.f));
+        sls.push_back(pt.get("SIMULATION_PARAMETERS.SAMPLE_LENGTH_SCALES[" + std::to_string(i) + "]", 0.));
 
     if(sls.size() > 0)
         sample_length_scales = sls;
@@ -256,8 +262,11 @@ bool file_utils::read_header(std::string filename, input_header &hdr_in)
         BOOST_LOG_TRIVIAL(error) << "Error reading header of " << filename;
         return false;
     }
-
-    in_field.read((char*)&hdr_in, sizeof(input_header));
+    float buff;
+    in_field.read((char*)hdr_in.fieldmap_size, sizeof(hdr_in.fieldmap_size));
+    in_field.read((char*)&buff, sizeof(buff)); hdr_in.sample_length[0] = buff;
+    in_field.read((char*)&buff, sizeof(buff)); hdr_in.sample_length[1] = buff;
+    in_field.read((char*)&buff, sizeof(buff)); hdr_in.sample_length[2] = buff;
     return true;
 }
 
@@ -279,7 +288,11 @@ bool file_utils::read_fieldmap(std::string fieldmap_filename, std::vector<float>
         return false;
     }
 
-    in_field.read((char*)&hdr_in, sizeof(input_header));
+    float buff;
+    in_field.read((char*)hdr_in.fieldmap_size, sizeof(hdr_in.fieldmap_size));
+    in_field.read((char*)&buff, sizeof(buff)); hdr_in.sample_length[0] = buff;
+    in_field.read((char*)&buff, sizeof(buff)); hdr_in.sample_length[1] = buff;
+    in_field.read((char*)&buff, sizeof(buff)); hdr_in.sample_length[2] = buff;
 
     BOOST_LOG_TRIVIAL(info) << "Size = " << hdr_in.fieldmap_size[0] << " x " << hdr_in.fieldmap_size[1] << " x " << hdr_in.fieldmap_size[2] << std::endl;
     BOOST_LOG_TRIVIAL(info) << "Length = " << hdr_in.sample_length[0]*1e6 << " x " << hdr_in.sample_length[1]*1e6 << " x " << hdr_in.sample_length[2]*1e6 << " um^3" << std::endl;
@@ -333,7 +346,7 @@ bool file_utils::read_file(std::string filename, std::vector<float> &storage)
 }
 
 
-bool file_utils::save_output(std::vector<float> &data, std::string output_filename, output_header hdr, std::vector<float> &additional_hdr)
+bool file_utils::save_output(char *data, size_t bytes, std::string output_filename, output_header hdr, std::vector<double> &additional_hdr)
 {
     BOOST_LOG_TRIVIAL(info) << "Saving output to: " << std::filesystem::absolute(output_filename);
     std::filesystem::path parent_path = std::filesystem::absolute(output_filename).parent_path();
@@ -359,7 +372,7 @@ bool file_utils::save_output(std::vector<float> &data, std::string output_filena
     file.write((char*)&header_size, sizeof(int32_t));
     file.write((char*)&hdr, sizeof(output_header));
     file.write((char*)additional_hdr.data(), add_hdr_size);
-    file.write((char*)data.data(), data.size() * sizeof(data[0]));
+    file.write(data, bytes);
     file.close();
     return true; 
 }
