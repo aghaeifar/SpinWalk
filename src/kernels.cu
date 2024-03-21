@@ -97,7 +97,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 xyz_new[i] = xyz1[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)
                     xyz_new[i] += param->enCrossBoundry ? param->sample_length[i] : -2*rnd_wlk; // rnd_wlk is negative here
-                else if (xyz_new[i] > param->sample_length[i])
+                else if (xyz_new[i] >= param->sample_length[i])
                     xyz_new[i] -= param->enCrossBoundry ? param->sample_length[i] : 2*rnd_wlk;
             }
            
