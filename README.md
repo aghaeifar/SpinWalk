@@ -1,9 +1,7 @@
-
-
 <div align="center">
 
 ![Build Status](https://github.com/aghaeifar/SpinWalk/workflows/CMake/badge.svg)
-[![Lates Release](https://img.shields.io/github/v/release/aghaeifar/SpinWalk)](https://github.com/aghaeifar/SpinWalk/releases)
+![Lates Release](https://img.shields.io/github/v/release/aghaeifar/SpinWalk)
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/aghaeifar/SpinWalk)
 ![GitHub top language](https://img.shields.io/github/languages/top/aghaeifar/SpinWalk)
 ![License](https://img.shields.io/github/license/aghaeifar/SpinWalk)
@@ -11,64 +9,71 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/aghaeifar/SpinWalk">
-    <img src="doc/img/logo.png" alt="MC/DC logo" width="160" height="180">
-  </a>
+<a href="https://github.com/aghaeifar/SpinWalk">
+<img src="doc/img/logo.png" alt="MC/DC logo" width="160" height="180">
+</a>
 </p>
 
 <p align="center">
-   <strong>Spins Random Walk Simulator</strong>
-  <br>
+<strong>Spins Random Walk Simulator</strong>
+<br />
 </p>
-
 
 This program aims to simulate the behaviour of spins under a certain MR sequence in a microvascular network. Breifly, the susceptibility variation between blood and tissue leads to local field inhomogeneity which accordingly can be used to generate an MR contrast. The program tries to perform a Monte-Carlo simulation over range of spins which are randomly distributed and move in presence of user defined magnetic field. Here are example plots obtained from the simulator where show BOLD sensitivity as a function of vessel size for Gradient Echo (GRE) and Spin Echo (SE) seqeuences.
 
-![](./doc/img/gre_se.jpg )
+![](./doc/img/gre_se.jpg)
 
 Some [literature](#Literature) are provided as reference to get a better feeling of what are intended to get from this kind of simulations.
 
 Simulator is written in C++ and utilizes CUDA to run in GPU. Therefore, it is possible to run a simulation within a short period of time provided that a good GPU presents. Simulator can detect all GPU cards, if there is more than one, and can distribute the task to run in parallel in multiple GPUs. This is helpful if you wan to run the simulator in HPC cluster with mutliple GPUs available in a node.
 
 ## How to run
+
 ```
-./spinwalk my_config.ini 
+./spinwalk -c my_config.ini 
 ```
+
 Several config files can be simulated sequentially:
+
 ```
-./spinwalk config1.ini config2.ini ...
+./spinwalk -c config1.ini config2.ini ...
 ```
 
 ## Dependencies
+
 - A C++ compiler supprting C++ 17
 - CUDA driver (*nvidia-smi* and *nvcc --version* must run in terminal)
-## How to compile
+- Boost libraries ([+](https://www.boost.org/))
+
+## How to build
+### Docker
+We suggest utilizing the provided Dockerfile, which automates the installation of all dependencies, as well as the cloning and building of the program. Download the [Dockerfile](./Dockerfile) to your current directory and then execute the following commands:
 
 ```
+docker build -t spinwalk .
+docker run --gpus all --rm -it --runtime=nvidia spinwalk bash
+```
+Execute the **spinwalk** command, and you'll encounter the help menu along with the list of available GPU(s) in the output.
+### CMake
+If you prefer to install the program without using Docker, follow these steps (in Ubuntu):
+
+```
+sudo apt-get update && apt-get install -y libboost-all-dev
 git clone https://github.com/aghaeifar/SpinWalk.git
 cd SpinWalk
 cmake -B ./build
 cmake --build ./build --config Release
 ```
-or building without using cmake:
-```
-nvcc ./src/spinwalk.cu ./src/kernels.cu -I ./include/ -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler -fopenmp -o spinwalk
-```
-The values 86 within compute_86 and sm_86 need to be substituted with the compute capability of the GPU. Run following command in terminal to check compute capability of your GPU  (if does not work since your GPU driver is old, try to find compute capability of your model [here](https://developer.nvidia.com/cuda-gpus)):
-```bash 
-nvidia-smi --query-gpu=compute_cap --format=csv
-```
-My GPU is NVIDIA RTX A4000 and the command above gives me:
-```
-compute_cap
-8.6
-```
+
 
 ## Configuration files
-Configruation file is a text based [ini file](https://en.wikipedia.org/wiki/INI_file) used to provide simulation parameters for simulator. Simulator can accept more than one configuration to simulation several configurations. A configuration file can inherit from another configuration file to avoid writing repetitive simulation parmeters. All the possible parameters are provided in [config_default.ini](./config/config_default.ini). 
+
+Configruation file is a text based [ini file](https://en.wikipedia.org/wiki/INI_file) used to provide simulation parameters for simulator. Simulator can accept more than one configuration to simulation several configurations. A configuration file can inherit from another configuration file to avoid writing repetitive simulation parmeters. All the possible parameters are provided in [config_default.ini](./config/config_default.ini).
 
 ## Binary file format
+
 ### Fieldmap
+
 The simulation requires at least one fieldmap and mask. The fieldmap unit is Tesla and must be normalized to the static magnetic field where is intended to be used for simulation (i.e., fieldmap must be calculated for 1T). The fieldmap file is stored in binary format and follows a specific structure:
 
 ![](./doc/img/fieldmap_memory_layout.png)
@@ -76,21 +81,24 @@ The simulation requires at least one fieldmap and mask. The fieldmap unit is Tes
 1. Size = 3 unsigned int (3*4 bytes in total) representing 3D volume size (e.g., 1024 x 1024 x 1024).
 2. Length = 3 single precision float (3*4 bytes in total) representing length in meter for each dimension (e.g., 0.001 x 0.001 x 0.001).
 3. Fieldmap = n single precision float (n*4 bytes in total) where n = product of **size** array elements. Field map is stored in [column-major order](https://en.wikipedia.org/wiki/Row-_and_column-major_order).
-4. Mask =  n unsigned char (n bytes in total) where n = product of **size** array elements. Mask is stored in column-major order.
+4. Mask = n unsigned char (n bytes in total) where n = product of **size** array elements. Mask is stored in column-major order.
 
 The path to fieldmap is set in configuration file under section "FILES":
 
-
 ### Other inputs [optional]
-M0 and XYZ0 are two additional inputs in configuration file which define starting magnization and initial spatial position of spins, respectively. These two are optional inputs, if not set or empty, spins will be positioned randomly with M0 = [0, 0, 1]. Please note that initial spatial positions must not intersect with mask. 
+
+M0 and XYZ0 are two additional inputs in configuration file which define starting magnization and initial spatial position of spins, respectively. These two are optional inputs, if not set or empty, spins will be positioned randomly with M0 = [0, 0, 1]. Please note that initial spatial positions must not intersect with mask.
 
 binary file containing M0 or XYZ0 is of size *3 * number of spins* single precision float which are stored in the file with following pattern:
+
 ```
 x0 y0 z0 x1 y1 z1 x2 y2 z2 .... xn yn zn
 ```
+
 unit for spatial position is meter.
 
 ### Outputs
+
 The simulator stores the magnetization at echo time(s) as M1 and the optional spatial positions as XYZ1. The paths for both M1 and XYZ1 can be specified in the configuration file. These data are saved in a binary file using the following layout:
 
 ![](./doc/img/M1XYZ1_memory_layout.png)
@@ -103,6 +111,7 @@ The simulator stores the magnetization at echo time(s) as M1 and the optional sp
 A MATLAB script is provided to read output files. See [read_spinwalk.m](./matlab/read_spinwalk.m).
 
 ## Literature
+
 There are many nice papers published about simulation of BOLD signal in vessels network. A few are listed here for reference:
 
 - Bieri O, Scheffler K. Effect of diffusion in inhomogeneous magnetic fields on balanced steady-state free precession. NMR Biomed. 2007 Feb;20(1):1-10. doi: 10.1002/nbm.1079. PMID: 16947639.
@@ -111,7 +120,6 @@ There are many nice papers published about simulation of BOLD signal in vessels 
 - Khajehim M, Nasiraei Moghaddam A. Investigating the spatial specificity of S2-SSFP fMRI: A Monte Carlo simulation approach. Magn Reson Imaging. 2017 Apr;37:282-289. doi: 10.1016/j.mri.2016.11.016. Epub 2016 Nov 24. PMID: 27890778.
 - Weisskoff RM, Zuo CS, Boxerman JL, Rosen BR. Microscopic susceptibility variation and transverse relaxation: theory and experiment. Magn Reson Med. 1994 Jun;31(6):601-10. doi: 10.1002/mrm.1910310605. PMID: 8057812.
 - Scheffler K, Engelmann J, Heule R. BOLD sensitivity and vessel size specificity along CPMG and GRASE echo trains. Magn Reson Med. 2021 Oct;86(4):2076-2083. doi: 10.1002/mrm.28871. Epub 2021 May 31. PMID: 34056746.
-
 
 ## Contributing
 
