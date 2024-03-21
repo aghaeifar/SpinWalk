@@ -22,7 +22,7 @@
 #include <cmath>
 
 #define SPINWALK_VERSION_MAJOR 1
-#define SPINWALK_VERSION_MINOR 6
+#define SPINWALK_VERSION_MINOR 7
 #define SPINWALK_VERSION_PATCH 0
 
 #define DEG2RAD 0.0174532925199433 // = M_PI/180 
@@ -40,18 +40,19 @@
 
 typedef struct simulation_parameters
 {
-    float TR, dt, B0, c, s, c2, s2;
+    float B0, c, s, c2, s2;
     float T1[MAX_T12], T2[MAX_T12];
     float RF_FA[MAX_RF], RF_PH[MAX_RF]; // refocusing FA
     float dephasing[MAX_DEPHASE]; // dephasing in degree
     float gradient_xyz[3*MAX_GRADIENT]; // gradient in T/m
     float pXY[MAX_TISSUE_TYPE*MAX_TISSUE_TYPE];
     uint32_t RF_ST[MAX_RF], TE[MAX_TE], dephasing_T[MAX_DEPHASE], gradient_T[MAX_GRADIENT]; // refocusing time in dt, echo times in dt, dephasing time in dt
-    float sample_length[3], scale2grid[3], diffusion_const, phase_cycling;
+    double sample_length[3], scale2grid[3], diffusion_const, TR, dt;
+    float phase_cycling;
     uint32_t n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient, n_T12;
     int32_t n_dummy_scan ;
     uint32_t n_tissue_type;
-    uint32_t n_spins, fieldmap_size[3], seed;
+    uint32_t n_spins, fieldmap_size[3], seed, max_iterations;
     uint64_t matrix_length;
     bool enDebug, enCrossBoundry, enRecordTrajectory;
     simulation_parameters():
@@ -65,6 +66,8 @@ typedef struct simulation_parameters
         n_gradient(0),
         n_dummy_scan(0),
         n_tissue_type(0),
+        max_iterations(9999),
+        diffusion_const(1.2e-9),
         phase_cycling(0.),
         enDebug(false),
         enCrossBoundry(true),
@@ -89,8 +92,8 @@ typedef struct simulation_parameters
     std::string dump()
     {
         std::stringstream ss;
-        ss<<"B0="<<B0<<'\n'<<"dt="<<dt<<'\n';
-        ss<<"TR="<<TR<<"\n";
+        ss<<"B0 = "<<B0<<'\n'<<"dt = "<<dt<<'\n';
+        ss<<"TR = "<<TR<<"\n";
         ss<<"T1 = "; for(int i=0; i<n_T12; i++) ss<<T1[i]<<' '; ss<<'\n';
         ss<<"T2 = "; for(int i=0; i<n_T12; i++) ss<<T2[i]<<' '; ss<<'\n';
         ss<<"TE = "; for(int i=0; i<n_TE; i++) ss<<TE[i]*dt<<' '; ss<<'\n';
@@ -108,8 +111,10 @@ typedef struct simulation_parameters
         ss<<"sample length   = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
         ss<<"scale2grid      = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
         ss<<"fieldmap size   = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
+        ss<<"matrix length   = "<< matrix_length << '\n';
         ss<<"diffusion const = "<<diffusion_const<<'\n'<<"dummy scans = "<<n_dummy_scan<<'\n'<<"spins = "<<n_spins<<'\n';
         ss<<"samples scales  = "<<n_sample_length_scales<<'\n'<<"timepoints = "<<n_timepoints<<'\n'<<"fieldmaps = "<<n_fieldmaps<<'\n';
+        ss<<"max iterations  = "<<max_iterations<<'\n';
         ss<<"Tissue Types = " <<n_tissue_type << '\n'<< "Boundry Condition = " << enCrossBoundry << '\n';
         ss<<"Phase cycling   = "<<phase_cycling<<'\n'<<"Seed = "<<seed<<'\n' << "Record Trajectory = " << enRecordTrajectory << '\n';
         ss<<"Required CPU memory = "<<get_required_memory(1, "cpu")<<" MB\n";
@@ -123,15 +128,22 @@ typedef struct simulation_parameters
         std::transform(type.begin(), type.end(), type.begin(), [](unsigned char c){ return std::tolower(c); }); 
         size_t spin = (type == "gpu") ? n_spins/n_device : n_spins;
         // fieldmap and mask
-        size_t data_size_MB = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2] * (sizeof(float) + sizeof(char)) / B2MB;
+        size_t data_size_MB = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2] * (sizeof(float) + sizeof(uint8_t)) / B2MB;
         // variables (M0, XYZ0, XYZ0_scaled, XYZ1, M1)
-        size_t variables_size_MB = 3 * spin;   // M0
-        variables_size_MB += 3 * spin * n_TE ; // M1    
-        variables_size_MB += 3 * spin ;        // XYZ0
-        variables_size_MB += (type == "gpu") ? 3 * spin : 0;        // XYZ0_scaled
-        variables_size_MB += 3 * spin * (enRecordTrajectory ?  n_timepoints * (n_dummy_scan+1) : 1) * ((type == "cpu") ? n_sample_length_scales:1); // XYZ1 
-        variables_size_MB *= sizeof(float);
-        variables_size_MB /= B2MB;
+        size_t variables_size_B = 0;
+        // M0
+        variables_size_B += sizeof(float) * 3 * spin ;     
+        // M1     
+        variables_size_B += sizeof(float) * 3 * spin * n_TE * ((type == "cpu") ? n_sample_length_scales:1);    
+        // XYZ0  
+        variables_size_B += sizeof(float) * 3 * spin ;     
+        // XYZ0_scaled    
+        variables_size_B += sizeof(float) * ((type == "gpu") ? 3 * spin : 0);        
+        // XYZ1 
+        variables_size_B += sizeof(float) * 3 * spin * (enRecordTrajectory ?  n_timepoints * (n_dummy_scan+1) : 1) * ((type == "cpu") ? n_sample_length_scales:1); 
+        // T 
+        variables_size_B += sizeof(uint8_t) * spin * n_TE * ((type == "cpu") ? n_sample_length_scales:1);
+        size_t variables_size_MB = variables_size_B / B2MB;
 
         return data_size_MB + variables_size_MB;
     }
