@@ -17,7 +17,7 @@
 
 #define GAMMA  267515315. // rad/s.T
 
-__global__ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1);
+__global__ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1, uint8_t *T);
 
 // scale position to mimic the different volume size
 __global__ void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, uint64_t size);
@@ -30,7 +30,7 @@ __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *p
 
 __host__  __device__ __forceinline__ uint64_t sub2ind(uint32_t x, uint32_t y, uint32_t z, uint32_t lenx, uint32_t leny)
 {
-    return (uint64_t((z-1)*lenx*leny) + (y-1)*lenx + x-1); // the last -1 is because of the C++ indexing starts from 0
+    return (z*uint64_t(lenx*leny) + y*lenx + x); 
 }
 
 uint32_t getDeviceCount();

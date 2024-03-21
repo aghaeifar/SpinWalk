@@ -36,7 +36,7 @@ __device__ __forceinline__ void dephase_relax(float *m0, float *m1, float accumu
     relax(exp(-time_elapsed/T1), exp(-time_elapsed/T2), m1);
 }
 
-__global__ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1)
+__global__ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1, uint8_t *T)
 {
     auto spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     if (spin_no >= param->n_spins)
@@ -46,13 +46,13 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
 
     thrust::minstd_rand gen_r(param->seed + spin_no);
     thrust::minstd_rand gen_u(param->seed + spin_no);
-    thrust::normal_distribution<float> dist_random_walk_xyz(0.f, sqrt(6 * param->diffusion_const * param->dt));
+    thrust::normal_distribution<float> dist_random_walk_xyz(0., sqrt(6. * param->diffusion_const * param->dt));
     // thrust::uniform_real_distribution<float> dist_random_walk_xyz(-sqrt(6 * param->diffusion_const * param->dt), sqrt(6 * param->diffusion_const * param->dt));
-    thrust::uniform_real_distribution<float> dist_cross_tissue(0.0, 1.0);
+    thrust::uniform_real_distribution<float> dist_cross_tissue(0.0f, 1.0f);
     gen_r.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
     gen_u.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
 
-    //uint16_t n_timepoints_local;
+    uint32_t itr = 0;
     float field = 0., T1=0., T2=0., rf_phase = param->RF_PH[0], time_elapsed = 0.; 
     float m0[3], m1[3]; 
     float xyz_new[3];
@@ -63,7 +63,8 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     }
     // tissue type
     uint8_t ts, ts_old;
-    ts_old = pMask[sub2ind(ROUND(xyz1[0]*param->scale2grid[0]+1.), ROUND(xyz1[1]*param->scale2grid[1]+1.), ROUND(xyz1[2]*param->scale2grid[2]+1.), param->fieldmap_size[0], param->fieldmap_size[1])];
+    auto indx = sub2ind(xyz1[0]*param->scale2grid[0], xyz1[1]*param->scale2grid[1], xyz1[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1]);
+    ts_old = pMask[indx];
 
     bool is_lastscan = false;
     for (uint32_t dummy_scan = 0; dummy_scan < param->n_dummy_scan + 1; dummy_scan++)
@@ -101,8 +102,12 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             }
            
             // ------ subscripts to linear indices ------
-            ind = sub2ind(ROUND(xyz_new[0]*param->scale2grid[0]+1.), ROUND(xyz_new[1]*param->scale2grid[1]+1.), ROUND(xyz_new[2]*param->scale2grid[2]+1.), param->fieldmap_size[0], param->fieldmap_size[1]);
-            
+            ind = sub2ind(xyz_new[0]*param->scale2grid[0], xyz_new[1]*param->scale2grid[1], xyz_new[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1]);
+            if(ind > param->matrix_length)
+            {
+                printf("Error:spin=%d, ind=%llu, %d,  scale=(%f), xyz_new=(%f, %f, %f)\n",spin_no, ind, current_timepoint, param->scale2grid[0], xyz_new[0], xyz_new[1], xyz_new[2]);
+                return;
+            }
             // ------ accumulate phase ------
             if(ind != ind_old) // fewer access to the global memory which is slow. Helpful for large samples!
             {   
@@ -110,10 +115,17 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 ts = pMask[ind];           
                 if (ts != ts_old) 
                     if (dist_cross_tissue(gen_u) >= param->pXY[ts_old*param->n_tissue_type + ts])
+                    {
+                        if(itr++ > param->max_iterations)
+                        {
+                            printf("Warning! spin %d is stuck at (%f, %f, %f) and is considered lost (dummy=%d time=%d).\n", spin_no, xyz_new[0], xyz_new[1], xyz_new[2], dummy_scan, current_timepoint);
+                            return;
+                        }
                         continue;
+                    }
                     else
                         ts_old = ts;
-       
+                itr = 0;       
                 field = pFieldMap[ind_old = ind];
                 ind = pMask[ind]; // the index of the tissue type
                 T1 = param->T1[ind];
@@ -158,6 +170,8 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 // save echo and copy m1 to m0 for the next iteration
                 for (uint32_t i=0, shift=3*param->n_TE*spin_no + 3*current_te; i<3; i++)
                     M1[shift + i] = m0[i] = m1[i];
+                T[spin_no*param->n_TE + current_te] = ts;
+
                 accumulated_phase = 0; // reset phase since we have applied it in the previous step
                 old_timepoint = current_timepoint;
                 current_te++;
@@ -179,7 +193,6 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
         for(uint8_t i=0; i<3; i++)
             m0[i] = m1[i];
     }
-    
 }
 
 
@@ -220,7 +233,7 @@ __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *p
         return;
 
     thrust::minstd_rand  gen(param->seed + spin_no);
-    thrust::uniform_real_distribution<float> dist_initial_point(0., 1.);
+    thrust::uniform_real_distribution<float> dist_initial_point(0.f, 1.f);
     gen.discard(param->seed + spin_no);
 
     float *xyz = spin_position_xyz + 3*spin_no;
