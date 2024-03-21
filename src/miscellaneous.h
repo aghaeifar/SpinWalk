@@ -23,7 +23,7 @@
 
 #define SPINWALK_VERSION_MAJOR 1
 #define SPINWALK_VERSION_MINOR 7
-#define SPINWALK_VERSION_PATCH 0
+#define SPINWALK_VERSION_PATCH 1
 
 #define DEG2RAD 0.0174532925199433 // = M_PI/180 
 #define RAD2DEG 57.2957795130823
@@ -53,7 +53,7 @@ typedef struct simulation_parameters
     int32_t n_dummy_scan ;
     uint32_t n_tissue_type;
     uint32_t n_spins, fieldmap_size[3], seed, max_iterations;
-    uint64_t matrix_length;
+    int64_t matrix_length;
     bool enDebug, enCrossBoundry, enRecordTrajectory;
     simulation_parameters():
         TR(0.04),

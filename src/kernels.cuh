@@ -28,9 +28,9 @@ __global__ void cu_scaleArray(float *array, float scale, uint64_t size);
 // generate random initial position
 __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *param, const uint8_t *pMask, uint32_t spin_no = 0);
 
-__host__  __device__ __forceinline__ uint64_t sub2ind(uint32_t x, uint32_t y, uint32_t z, uint32_t lenx, uint32_t leny)
+__host__  __device__ __forceinline__ int64_t sub2ind(int32_t x, int32_t y, int32_t z, int32_t lenx, int32_t leny)
 {
-    return (z*uint64_t(lenx*leny) + y*lenx + x); 
+    return (int64_t(z)*int64_t(lenx*leny) + y*lenx + x); 
 }
 
 uint32_t getDeviceCount();

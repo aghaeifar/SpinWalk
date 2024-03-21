@@ -7,7 +7,7 @@
  * Descrip  : simulating BOLD in microvascular network
  * -------------------------------------------------------------------------- */
 
-
+#include <cinttypes>
 #include <algorithm>
 #include "kernels.cuh"
 #include "rotation.cuh"
@@ -58,7 +58,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     float xyz_new[3];
     for(uint32_t i=0, shift=3*spin_no; i<3; i++)
     {
-        xyz1[i] = XYZ0[shift + i];
+        xyz_new[i] = xyz1[i] = XYZ0[shift + i];
         m0[i]  = M0[shift + i];
     }
     // tissue type
@@ -83,7 +83,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             m0[i] = m1[i];
 
         // ------ loop over timepoints ------
-        uint64_t ind=0, ind_old=param->matrix_length+1;
+        int64_t ind=0, ind_old=param->matrix_length+1;
         uint32_t current_timepoint = 0, old_timepoint = 0;
         uint16_t current_rf = 1, current_te = 0, counter_dephasing = 0, counter_gradient = 0;
         float accumulated_phase = 0.f;        
@@ -103,9 +103,9 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
            
             // ------ subscripts to linear indices ------
             ind = sub2ind(xyz_new[0]*param->scale2grid[0], xyz_new[1]*param->scale2grid[1], xyz_new[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1]);
-            if(ind > param->matrix_length)
+            if(ind > param->matrix_length || ind < 0)
             {
-                printf("Error:spin=%d, ind=%llu, %d,  scale=(%f), xyz_new=(%f, %f, %f)\n",spin_no, ind, current_timepoint, param->scale2grid[0], xyz_new[0], xyz_new[1], xyz_new[2]);
+                printf("Error:spin=%d, ind=%" PRId64 ", %d,  scale=(%f), xyz_new=(%f, %f, %f), (%f, %f, %f)\n",spin_no, ind, current_timepoint, param->scale2grid[0], xyz_new[0], xyz_new[1], xyz_new[2], param->scale2grid[0]*xyz_new[0], param->scale2grid[1]*xyz_new[1], param->scale2grid[2]*xyz_new[2]);
                 return;
             }
             // ------ accumulate phase ------
