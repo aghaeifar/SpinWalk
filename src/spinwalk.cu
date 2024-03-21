@@ -223,6 +223,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         checkCudaErrors(cudaFree(d_XYZ0_scaled[d]));
         checkCudaErrors(cudaFree(d_M1[d]));
         checkCudaErrors(cudaFree(d_XYZ1[d]));
+        checkCudaErrors(cudaFree(d_T[d]));
         checkCudaErrors(cudaStreamDestroy(streams[d]));            
     }
     checkCudaErrors(cudaEventDestroy(start));
