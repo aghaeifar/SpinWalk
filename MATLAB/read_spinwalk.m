@@ -13,7 +13,7 @@ dims        = fread(fileID, 4, 'int32=>int32'); % 3 * n_echo * n_spins * n_sampl
 hdr_extra   = fread(fileID, (hdr_size - 4*numel(dims))/8, 'double=>double');
 
 % guess data type
-datasize = filesize - hdr_size - 4;
+datasize = filesize - double(hdr_size) - 4;
 if datasize == prod(dims)
     m_xyz   = fread(fileID, prod(dims), 'uint8=>uint8');
 elseif datasize == 4*prod(dims)
