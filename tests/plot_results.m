@@ -135,7 +135,7 @@ legend('STE Rest', 'STE Act', 'SE Rest', 'SE Act')
 %% random-walk trajectory
 clear
 clc;
-filename = '../../outputs/gre_trajectory_xyz1_fieldmap_0.dat';
+filename = '../../outputs/gre_trajectory_T_fieldmap_0.dat';
 [xyz_all, dims, hdr_extra] = read_spinwalk(filename);
 size(xyz_all)
 xyz_all = xyz_all * 1e6;
@@ -153,31 +153,50 @@ hold off
 clear
 clc
 
-file_fieldmap = '../../field_maps/restricted_diffusion_model.dat';
+fieldmap = '../../field_maps/restricted_diffusion_model.dat';
+% [fieldmap, mask, fov] = read_fieldmap(fieldmap);
 
 file_m1{1} = '../../outputs/dwi_base_m1_restricted_diffusion_model.dat';
 file_m1{2} = '../../outputs/dwi_x_m1_restricted_diffusion_model.dat';
 file_m1{3} = '../../outputs/dwi_y_m1_restricted_diffusion_model.dat';
 file_m1{4} = '../../outputs/dwi_z_m1_restricted_diffusion_model.dat';
 
-file_T{1} = '../../outputs/dwi_base_xyz1_restricted_diffusion_model.dat';
-file_T{2} = '../../outputs/dwi_x_xyz1_restricted_diffusion_model.dat';
-file_T{3} = '../../outputs/dwi_y_xyz1_restricted_diffusion_model.dat';
-file_T{4} = '../../outputs/dwi_z_xyz1_restricted_diffusion_model.dat';
+file_T{1} = '../../outputs/dwi_base_T_restricted_diffusion_model.dat';
+file_T{2} = '../../outputs/dwi_x_T_restricted_diffusion_model.dat';
+file_T{3} = '../../outputs/dwi_y_T_restricted_diffusion_model.dat';
+file_T{4} = '../../outputs/dwi_z_T_restricted_diffusion_model.dat';
 
+file_xyz1{1} = '../../outputs/dwi_base_xyz1_restricted_diffusion_model.dat';
+file_xyz1{2} = '../../outputs/dwi_x_xyz1_restricted_diffusion_model.dat';
+file_xyz1{3} = '../../outputs/dwi_y_xyz1_restricted_diffusion_model.dat';
+file_xyz1{4} = '../../outputs/dwi_z_xyz1_restricted_diffusion_model.dat';
 
-tissue_type = 1; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
-[~, mask, fov] = read_fieldmap(file_fieldmap);
+tissue_type = 0; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
 
 s = zeros(numel(file_m1), 1);
 for i=1:numel(file_m1)
-    [m1, dims, scales] = read_spinwalk(file_m1{i});
-    [xyz1, ~, ~] = read_spinwalk(file_T{i}); 
-    mxyz_f = filter_spinwalk(m1(:,end,:,1), xyz1(:,end,:,1), tissue_type, mask, fov);
+    m1 = read_spinwalk(file_m1{i});
+    T = read_spinwalk(file_T{i}); 
+    ind = ismember(T(1,end,:,1), tissue_type);
+    mxyz_f = m1(:,end,ind(:),1);
     s(i)  = abs(complex(sum(mxyz_f(1,:)), sum(mxyz_f(2,:))));
 end
-
 s
+
+
+T = read_spinwalk(file_T{1}); 
+ind = ismember(T(1,end,:,1), tissue_type);
+xyz_all = read_spinwalk(file_xyz1{1});
+xyz_all = xyz_all(:,:,ind(:),1);
+
+n_spins = size(xyz_all, 3);
+scale = 1e6;
+for sp=round(linspace(1, n_spins, 30))
+    xyz = xyz_all(:,:,sp,1) * scale;
+    plot3(xyz(1,:), xyz(2,:), xyz(3,:))
+    hold on;
+end
+hold off
 
 %%
 clear

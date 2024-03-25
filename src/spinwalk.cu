@@ -47,7 +47,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     size_t len1 = len0 * param.n_sample_length_scales * trj;
     size_t len2 = len0 * param.n_sample_length_scales * param.n_TE;
     BOOST_LOG_TRIVIAL(info) << "Memory size: XYZ0=" << len0 << ", XYZ1=" << len1 << ", M0=" << len0 << ", M1=" << len2 << "";
-    std::vector<float> fieldmap(param.matrix_length, 0.f);
+    std::vector<float> fieldmap(param.fieldmap_exist?param.matrix_length:0, 0.f);
     std::vector<uint8_t> mask(param.matrix_length, 0);
     std::vector<float> XYZ0(len0, 0.f);     // memory layout(column-wise): [3 x n_spins]
     std::vector<float> XYZ1(len1, 0.f);     // memory layout(column-wise): [3 x timepoints x n_spins x n_sample_length_scales] or [3 x 1 x n_spins x n_sample_length_scales]
@@ -56,13 +56,13 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     std::vector<uint8_t> T(M1.size()/3, 0); // memory layout(column-wise): [1 x n_TE x n_spins x n_sample_length_scales]
     BOOST_LOG_TRIVIAL(info) << "Memory allocation (CPU) took " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - st).count() << " ms";
     // ========== allocate memory on GPU ==========
-    std::vector<float *> d_pFieldMap(device_count, NULL);
-    std::vector<float *> d_M0(device_count, NULL), d_M1(device_count, NULL);
-    std::vector<float *> d_XYZ1(device_count, NULL), d_XYZ0(device_count, NULL), d_XYZ0_scaled(device_count, NULL);
-    std::vector<uint8_t *>  d_T(device_count, NULL);
-    std::vector<uint8_t *>  d_pMask(device_count, NULL);
-    std::vector<simulation_parameters *> d_param(device_count, NULL);
-    std::vector<cudaStream_t> streams(device_count, NULL);
+    std::vector<float *> d_pFieldMap(device_count, nullptr);
+    std::vector<float *> d_M0(device_count, nullptr), d_M1(device_count, nullptr);
+    std::vector<float *> d_XYZ1(device_count, nullptr), d_XYZ0(device_count, nullptr), d_XYZ0_scaled(device_count, nullptr);
+    std::vector<uint8_t *>  d_T(device_count, nullptr);
+    std::vector<uint8_t *>  d_pMask(device_count, nullptr);
+    std::vector<simulation_parameters *> d_param(device_count, nullptr);
+    std::vector<cudaStream_t> streams(device_count, nullptr);
     
     #pragma omp parallel for
     for(int32_t d=0; d<device_count; d++)
@@ -70,15 +70,16 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         checkCudaErrors(cudaSetDevice(d));            
         checkCudaErrors(cudaStreamCreate(&streams[d]));
         // allocate memory on GPU
-        checkCudaErrors(cudaMalloc((void**)&d_param[d],         sizeof(simulation_parameters)));
-        checkCudaErrors(cudaMalloc((void**)&d_pFieldMap[d],     sizeof(fieldmap[0]) * fieldmap.size()));   
-        checkCudaErrors(cudaMalloc((void**)&d_pMask[d],         sizeof(mask[0]) * mask.size())); 
+        checkCudaErrors(cudaMalloc((void**)&d_param[d],         sizeof(simulation_parameters)));         
         checkCudaErrors(cudaMalloc((void**)&d_XYZ0[d],          sizeof(XYZ0[0]) * XYZ0.size() / device_count));
         checkCudaErrors(cudaMalloc((void**)&d_XYZ0_scaled[d],   sizeof(XYZ0[0]) * XYZ0.size() / device_count));
         checkCudaErrors(cudaMalloc((void**)&d_XYZ1[d],          sizeof(XYZ1[0]) * XYZ1.size() / device_count / param.n_sample_length_scales));
         checkCudaErrors(cudaMalloc((void**)&d_M0[d],            sizeof(M0[0]) * M0.size() / device_count));
         checkCudaErrors(cudaMalloc((void**)&d_M1[d],            sizeof(M1[0]) * M1.size() / device_count / param.n_sample_length_scales));
         checkCudaErrors(cudaMalloc((void**)&d_T[d],             sizeof(T[0]) * T.size() / device_count / param.n_sample_length_scales));
+        checkCudaErrors(cudaMalloc((void**)&d_pMask[d],         sizeof(mask[0]) * mask.size())); 
+        if(param.fieldmap_exist)
+            checkCudaErrors(cudaMalloc((void**)&d_pFieldMap[d], sizeof(fieldmap[0]) * fieldmap.size())); 
         checkCudaErrors(cudaStreamSynchronize(streams[d]));    
     }
     cudaEvent_t start;
@@ -132,14 +133,16 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             simulation_parameters param_local;
             memcpy(&param_local, &param, sizeof(simulation_parameters));
             param_local.seed += d * param.n_spins; // different seed for each GPU
-            checkCudaErrors(cudaSetDevice(d));            
-            checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(),        fieldmap.size()*sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
+            checkCudaErrors(cudaSetDevice(d));               
             checkCudaErrors(cudaMemcpyAsync(d_pMask[d],     mask.data(),            mask.size() * sizeof(mask[0]),       cudaMemcpyHostToDevice, streams[d]));
             checkCudaErrors(cudaMemcpyAsync(d_param[d],     &param_local,           sizeof(simulation_parameters),       cudaMemcpyHostToDevice, streams[d]));
             checkCudaErrors(cudaMemcpyAsync(d_M0[d],        &M0[3*param.n_spins*d], 3*param.n_spins*sizeof(M0[0]),       cudaMemcpyHostToDevice, streams[d]));
-
-            // convert fieldmap from Tesla to degree per dwell time
-            cu_scaleArray<<<uint64_t(fieldmap.size()/THREADS_PER_BLOCK)+1, THREADS_PER_BLOCK, 0, streams[d]>>>(d_pFieldMap[d], param.B0*GAMMA*param.dt*RAD2DEG, fieldmap.size());
+            if(param.fieldmap_exist)   
+            {      
+                checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(),    fieldmap.size()*sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
+                // convert fieldmap from Tesla to degree per dwell time
+                cu_scaleArray<<<uint64_t(fieldmap.size()/THREADS_PER_BLOCK)+1, THREADS_PER_BLOCK, 0, streams[d]>>>(d_pFieldMap[d], param.B0*GAMMA*param.dt*RAD2DEG, fieldmap.size());
+            }
             if(hasXYZ0 == false)
             {   // generate initial spatial position for spins, based on sample_length_ref
                 BOOST_LOG_TRIVIAL(info) << "GPU " << d << ") Generating random initial position for spins... (seed = " << param_local.seed << " grid = " << numBlocks << " x " << THREADS_PER_BLOCK << ")";
@@ -216,14 +219,15 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     for(int32_t d=0; d<device_count; d++)
     {
         checkCudaErrors(cudaSetDevice(d));   
-        checkCudaErrors(cudaFree(d_param[d]));
-        checkCudaErrors(cudaFree(d_pFieldMap[d]));
-        checkCudaErrors(cudaFree(d_pMask[d]));
+        checkCudaErrors(cudaFree(d_param[d]));        
         checkCudaErrors(cudaFree(d_XYZ0[d]));
         checkCudaErrors(cudaFree(d_XYZ0_scaled[d]));
         checkCudaErrors(cudaFree(d_M1[d]));
         checkCudaErrors(cudaFree(d_XYZ1[d]));
         checkCudaErrors(cudaFree(d_T[d]));
+        checkCudaErrors(cudaFree(d_pMask[d]));
+        if(param.fieldmap_exist) 
+            checkCudaErrors(cudaFree(d_pFieldMap[d]));
         checkCudaErrors(cudaStreamDestroy(streams[d]));            
     }
     checkCudaErrors(cudaEventDestroy(start));
@@ -244,16 +248,7 @@ bool dump_settings(simulation_parameters param, std::map<std::string, std::vecto
     ss<< "\nSample length scale = [";
     for (int32_t i = 0; i < param.n_sample_length_scales; i++)
         ss << sample_length_scales[i] << ", ";
-    ss << "]\n";
-    
-    file_utils::input_header hdr_in;
-    if(file_utils::read_header(filenames.at("FIELDMAP")[0], hdr_in) == false)
-    {
-        BOOST_LOG_TRIVIAL(error) << "reading header of fieldmap " << filenames.at("FIELDMAP")[0] << " failed. Aborting...!";
-        return false;
-    }
-    std::copy(hdr_in.fieldmap_size, hdr_in.fieldmap_size+3, param.fieldmap_size);
-    std::copy(hdr_in.sample_length, hdr_in.sample_length+3, param.sample_length);
+    ss << "]\n";    
     ss << param.dump();
     BOOST_LOG_TRIVIAL(info) << ss.str();
     return true;

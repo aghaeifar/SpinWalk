@@ -32,7 +32,9 @@ typedef struct input_header
 {
     uint32_t fieldmap_size[3];
     double sample_length[3];
-    input_header(uint32_t *a, double *b) {memcpy(fieldmap_size, a, 3*sizeof(uint32_t)); memcpy(sample_length, b, 3*sizeof(sample_length[0]));}
+    bool fieldmap_exists=true, mask_exists=true;
+    size_t file_size=0;
+    input_header(uint32_t *a, double *b) {memcpy(fieldmap_size, a, 3*sizeof(uint32_t)); memcpy(sample_length, b, 3*sizeof(sample_length[0])); }
     input_header(){};
 } input_header;
 

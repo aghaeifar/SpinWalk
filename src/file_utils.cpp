@@ -100,6 +100,10 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
         return false;
     }
     std::copy(hdr_in.fieldmap_size, hdr_in.fieldmap_size+3, param.fieldmap_size);
+    std::copy(hdr_in.sample_length, hdr_in.sample_length+3, param.sample_length);
+    param.file_size = hdr_in.file_size;
+    param.fieldmap_exist = hdr_in.fieldmap_exists;
+    param.mask_exist = hdr_in.mask_exists;
 
     // ============== reading section SCAN_PARAMETERS ==============
     param.TR = pt.get("SCAN_PARAMETERS.TR", param.TR);
@@ -201,7 +205,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
     param.B0                    = pt.get("SIMULATION_PARAMETERS.B0", param.B0);
     param.seed                  = pt.get<float>("SIMULATION_PARAMETERS.SEED", param.seed);
     param.n_spins               = pt.get<float>("SIMULATION_PARAMETERS.NUMBER_OF_SPINS", param.n_spins); // template type must be float since input can be of form scientific notation
-    param.enCrossBoundry        = pt.get("SIMULATION_PARAMETERS.CROSS_BOUNDARY", param.enCrossBoundry);
+    param.enCrossFOV            = pt.get("SIMULATION_PARAMETERS.CROSS_FOV", param.enCrossFOV);
     param.enRecordTrajectory    = pt.get("SIMULATION_PARAMETERS.RECORD_TRAJECTORY", param.enRecordTrajectory);
     param.diffusion_const       = pt.get("SIMULATION_PARAMETERS.DIFFUSION_CONSTANT", param.diffusion_const);
     param.max_iterations        = pt.get<float>("SIMULATION_PARAMETERS.MAX_ITERATIONS", param.max_iterations);
@@ -237,12 +241,8 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
         for(j=0; j<param.n_tissue_type; j++)
             ss >> param.pXY[j+i*param.n_tissue_type];
     
-
     // ============== prep ==============
     param.prepare(); 
-
-    if (param.n_dummy_scan < 0)
-        param.n_dummy_scan = 5.0 * param.T1[0] / param.TR;
 
     return true;
 }
@@ -256,6 +256,8 @@ bool file_utils::read_header(std::string filename, input_header &hdr_in)
         return false;
     }
 
+    hdr_in.file_size = std::filesystem::file_size(filename);
+
     std::ifstream in_field(filename, std::ios::in | std::ios::binary);
     if (!in_field.is_open()) 
     {
@@ -267,6 +269,21 @@ bool file_utils::read_header(std::string filename, input_header &hdr_in)
     in_field.read((char*)&buff, sizeof(buff)); hdr_in.sample_length[0] = buff;
     in_field.read((char*)&buff, sizeof(buff)); hdr_in.sample_length[1] = buff;
     in_field.read((char*)&buff, sizeof(buff)); hdr_in.sample_length[2] = buff;
+
+    size_t matrix_length = hdr_in.fieldmap_size[0] * hdr_in.fieldmap_size[1] * hdr_in.fieldmap_size[2];
+    size_t header_size = 6 * sizeof(float); // this should be later corrected to match input_header
+    if (hdr_in.file_size - header_size == matrix_length * sizeof(float))
+    {
+        BOOST_LOG_TRIVIAL(error) << "Mask with labeled tissues is not provided in " << filename;
+        hdr_in.mask_exists = false;
+    }
+    if (hdr_in.file_size - header_size == matrix_length)
+    {
+        BOOST_LOG_TRIVIAL(warning) << "Off-resonance map is not provided in " << filename;
+        BOOST_LOG_TRIVIAL(warning) << "Simulation will be performed with a perfect homogeneous field.";
+        hdr_in.fieldmap_exists = false;
+    }
+
     return true;
 }
 
@@ -276,6 +293,13 @@ bool file_utils::read_fieldmap(std::string fieldmap_filename, std::vector<float>
     if(std::filesystem::exists(fieldmap_filename) == false)
     {
         BOOST_LOG_TRIVIAL(error) << "Fieldmap file does not exist: " << fieldmap_filename;
+        return false;
+    }
+
+    size_t file_size = std::filesystem::file_size(fieldmap_filename);
+    if (file_size != param.file_size)
+    {
+        BOOST_LOG_TRIVIAL(error) << "All field map files must be of same size: " << file_size << " vs " << param.file_size;
         return false;
     }
 
@@ -296,20 +320,20 @@ bool file_utils::read_fieldmap(std::string fieldmap_filename, std::vector<float>
 
     BOOST_LOG_TRIVIAL(info) << "Size = " << hdr_in.fieldmap_size[0] << " x " << hdr_in.fieldmap_size[1] << " x " << hdr_in.fieldmap_size[2] << std::endl;
     BOOST_LOG_TRIVIAL(info) << "Length = " << hdr_in.sample_length[0]*1e6 << " x " << hdr_in.sample_length[1]*1e6 << " x " << hdr_in.sample_length[2]*1e6 << " um^3" << std::endl;
-    
-    // std::copy(hdr_in.fieldmap_size, hdr_in.fieldmap_size + 3, param.fieldmap_size);
-    std::copy(hdr_in.sample_length, hdr_in.sample_length + 3, param.sample_length);
-    uint64_t new_matrix_length = hdr_in.fieldmap_size[0] * hdr_in.fieldmap_size[1] * hdr_in.fieldmap_size[2];
-    if (fieldmap.size() != new_matrix_length)
+
+    if (param.fieldmap_exist)
     {
-        BOOST_LOG_TRIVIAL(error) << "The allocated memory for fieldmap does not match the size of the fieldmap in the header: " << fieldmap.size() << " vs " << new_matrix_length;
-        BOOST_LOG_TRIVIAL(error) << "Note when simulating multiple fieldmaps in one config file, the size of the fieldmaps must be the same.";
-        return false;
+        BOOST_LOG_TRIVIAL(info) << "Reading...fieldmap...";
+        in_field.read((char*)fieldmap.data(), sizeof(fieldmap[0]) * param.matrix_length); 
     }
 
-    BOOST_LOG_TRIVIAL(info) << "Reading...fieldmap...";
-    in_field.read((char*)fieldmap.data(), sizeof(float) * param.matrix_length); BOOST_LOG_TRIVIAL(info) << "done...mask...";
-    in_field.read((char*)mask.data(), sizeof(uint8_t) * param.matrix_length); BOOST_LOG_TRIVIAL(info) << "done.";
+    if (param.mask_exist == false)
+    {
+        BOOST_LOG_TRIVIAL(error) << "Mask must exist in the fieldmap file: " << fieldmap_filename << ". Aborting...!";
+        return false;
+    }
+    BOOST_LOG_TRIVIAL(info) << "Reading...mask...";
+    in_field.read((char*)mask.data(), sizeof(mask[0]) * param.matrix_length);
     in_field.close();
 
     // int n_tissue = *std::max_element(mask.begin(), mask.end(),  [](const uint8_t &x,const uint8_t &y) {return x<y;}) + 1;
