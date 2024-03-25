@@ -17,9 +17,11 @@
 #include <thrust/random.h>
 #include <thrust/device_vector.h>
 #include <thrust/extrema.h>
+
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
+#define ABS(x) ((x) < 0 ? -(x) : (x))
 
 uint8_t find_max(const std::vector<uint8_t> &data)
 {
@@ -55,10 +57,10 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     uint32_t itr = 0;
     float field = 0., T1=0., T2=0., rf_phase = param->RF_PH[0], time_elapsed = 0.; 
     float m0[3], m1[3]; 
-    float xyz_new[3];
+    float xyz_old[3], xyz_new[3];
     for(uint32_t i=0, shift=3*spin_no; i<3; i++)
     {
-        xyz_new[i] = xyz1[i] = XYZ0[shift + i];
+        xyz_old[i] = xyz_new[i] = xyz1[i] = XYZ0[shift + i];
         m0[i]  = M0[shift + i];
     }
     // tissue type
@@ -94,18 +96,18 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             for (uint8_t i=0; i<3; i++)
             {
                 rnd_wlk = dist_random_walk_xyz(gen_r);
-                xyz_new[i] = xyz1[i] + rnd_wlk; // new spin position after random-walk
+                xyz_new[i] = xyz_old[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)
-                    xyz_new[i] += param->enCrossBoundry ? param->sample_length[i] : -2*rnd_wlk; // rnd_wlk is negative here
+                    xyz_new[i] += (param->enCrossFOV ? param->sample_length[i] : 2*ABS(rnd_wlk)); // rnd_wlk is negative here
                 else if (xyz_new[i] >= param->sample_length[i])
-                    xyz_new[i] -= param->enCrossBoundry ? param->sample_length[i] : 2*rnd_wlk;
+                    xyz_new[i] -= (param->enCrossFOV ? param->sample_length[i] : 2*ABS(rnd_wlk)); // rnd_wlk is positive here
             }
            
             // ------ subscripts to linear indices ------
             ind = sub2ind(xyz_new[0]*param->scale2grid[0], xyz_new[1]*param->scale2grid[1], xyz_new[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1]);
-            if(ind > param->matrix_length || ind < 0)
+            if(ind >= param->matrix_length || ind < 0)
             {
-                printf("Error:spin=%d, ind=%" PRId64 ", %d,  scale=(%f), xyz_new=(%f, %f, %f), (%f, %f, %f)\n",spin_no, ind, current_timepoint, param->scale2grid[0], xyz_new[0], xyz_new[1], xyz_new[2], param->scale2grid[0]*xyz_new[0], param->scale2grid[1]*xyz_new[1], param->scale2grid[2]*xyz_new[2]);
+                printf("Error:spin=%d, ind=%" PRId64 ", %d,\n\tscale=(%.10f, %.10f, %.10f)\n\txyz=(%.10f, %.10f, %.10f)\n\tscale*xyz(%.10f, %.10f, %.10f)\n\tFoV=(%.10f, %.10f, %.10f)\n\t(%d, %d, %d)\n",spin_no, ind, current_timepoint, param->scale2grid[0], param->scale2grid[1], param->scale2grid[2], xyz_new[0], xyz_new[1], xyz_new[2], param->scale2grid[0]*xyz_new[0], param->scale2grid[1]*xyz_new[1], param->scale2grid[2]*xyz_new[2], param->sample_length[0], param->sample_length[1], param->sample_length[2], xyz_new[0] >= param->sample_length[0], xyz_new[1] >= param->sample_length[1], xyz_new[2] >= param->sample_length[2]);
                 return;
             }
             // ------ accumulate phase ------
@@ -126,7 +128,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                     else
                         ts_old = ts;
                 itr = 0;       
-                field = pFieldMap[ind_old = ind];
+                field = pFieldMap != nullptr ? pFieldMap[ind_old = ind]:0.f;
                 ind = pMask[ind]; // the index of the tissue type
                 T1 = param->T1[ind];
                 T2 = param->T2[ind];
@@ -181,7 +183,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             if(param->enRecordTrajectory && (current_timepoint != 0 || dummy_scan != 0))
                 xyz1 += 3;      
             for (uint8_t i=0; i < 3; i++)
-                xyz1[i] = xyz_new[i];
+                xyz1[i] = xyz_old[i] = xyz_new[i];
             // increase timepoint
             current_timepoint++;            
         }
@@ -236,9 +238,18 @@ __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *p
     thrust::uniform_real_distribution<float> dist_initial_point(0.f, 1.f);
     gen.discard(param->seed + spin_no);
 
+    double res = 0;
     float *xyz = spin_position_xyz + 3*spin_no;
     for (uint8_t i = 0; i < 3; i++)
+    {
         xyz[i] = dist_initial_point(gen) * param->sample_length[i];
+
+        res = param->sample_length[i] / param->fieldmap_size[i];
+        if (xyz[i] < res)
+            xyz[i] = res;
+        else if (xyz[i] >= param->sample_length[i] - res)
+            xyz[i] = param->sample_length[i] - res;
+    }
 }
 
 //---------------------------------------------------------------------------------------------
