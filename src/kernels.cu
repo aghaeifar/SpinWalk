@@ -45,19 +45,18 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
         return;
 
     float *xyz1 = XYZ1 + 3*spin_no * (param->enRecordTrajectory ? (param->n_dummy_scan + 1)*(param->n_timepoints) : 1);
-
     thrust::minstd_rand gen_r(param->seed + spin_no);
     thrust::minstd_rand gen_u(param->seed + spin_no);
-    thrust::normal_distribution<float> dist_random_walk_xyz(0., sqrt(6. * param->diffusion_const * param->dt));
+    thrust::normal_distribution<float> dist_random_walk_xyz(0., param->std / param->std_scale);
     // thrust::uniform_real_distribution<float> dist_random_walk_xyz(-sqrt(6 * param->diffusion_const * param->dt), sqrt(6 * param->diffusion_const * param->dt));
-    thrust::uniform_real_distribution<float> dist_cross_tissue(0.0f, 1.0f);
+    thrust::uniform_real_distribution<float> dist_cross_tissue(0.f, 1.f);
     gen_r.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
     gen_u.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
 
     uint32_t itr = 0;
     float field = 0., T1=0., T2=0., rf_phase = param->RF_PH[0], time_elapsed = 0.; 
     float m0[3], m1[3]; 
-    float xyz_old[3], xyz_new[3];
+    double xyz_old[3], xyz_new[3];
     for(uint32_t i=0, shift=3*spin_no; i<3; i++)
     {
         xyz_old[i] = xyz_new[i] = xyz1[i] = XYZ0[shift + i];
@@ -92,10 +91,10 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
         while (current_timepoint < param->n_timepoints) // param->n_timepoints is the total number of timepoints (= TR/dwelltime)
         {
             // ------ generate random walks and wrap around the boundries ------
-            float rnd_wlk;
+            double rnd_wlk;
             for (uint8_t i=0; i<3; i++)
             {
-                rnd_wlk = dist_random_walk_xyz(gen_r);
+                rnd_wlk = dist_random_walk_xyz(gen_r) * param->std_scale;
                 xyz_new[i] = xyz_old[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)
                     xyz_new[i] += (param->enCrossFOV ? param->sample_length[i] : 2*ABS(rnd_wlk)); // rnd_wlk is negative here
@@ -273,9 +272,10 @@ void print_device_info()
         cudaSetDevice(i);
         cudaGetDeviceProperties(&device_properties, i);
         std::cout << "Device " << i+1 << ", " << device_properties.name << std::endl;
+        std::cout << "-Compute Capability: " << device_properties.major << "."<< device_properties.minor << std::endl;
         // cudaDeviceReset();
         cudaMemGetInfo(&free, &total);
-        std::cout << "Free GPU memory: " << free / mb << " MB (out of " << total / mb << " MB)" << std::endl;
+        std::cout << "-Free GPU Memory: " << free / mb << " MB (out of " << total / mb << " MB)" << std::endl;
     }
 }
 

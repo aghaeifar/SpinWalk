@@ -23,7 +23,7 @@
 
 #define SPINWALK_VERSION_MAJOR 1
 #define SPINWALK_VERSION_MINOR 8
-#define SPINWALK_VERSION_PATCH 0
+#define SPINWALK_VERSION_PATCH 1
 
 #define DEG2RAD 0.0174532925199433 // = M_PI/180 
 #define RAD2DEG 57.2957795130823
@@ -47,7 +47,7 @@ typedef struct simulation_parameters
     float gradient_xyz[3*MAX_GRADIENT]; // gradient in T/m
     float pXY[MAX_TISSUE_TYPE*MAX_TISSUE_TYPE];
     uint32_t RF_ST[MAX_RF], TE[MAX_TE], dephasing_T[MAX_DEPHASE], gradient_T[MAX_GRADIENT]; // refocusing time in dt, echo times in dt, dephasing time in dt
-    double sample_length[3], scale2grid[3], diffusion_const, TR, dt;
+    double sample_length[3], scale2grid[3], TR, dt;
     float phase_cycling;
     uint32_t n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient, n_T12;
     int32_t n_dummy_scan ;
@@ -56,6 +56,7 @@ typedef struct simulation_parameters
     int64_t matrix_length, file_size;
     bool enDebug, enCrossFOV, enRecordTrajectory;
     bool fieldmap_exist, mask_exist;
+    double std, std_scale, diffusion_const;
     simulation_parameters():
         TR(0.04),
         dt(5e-5),
@@ -75,7 +76,9 @@ typedef struct simulation_parameters
         enRecordTrajectory(false),
         fieldmap_exist(true),
         mask_exist(true),
-        file_size(0)
+        file_size(0),
+        std(sqrt(6. * 1e-9 * 50e-6)),
+        std_scale(1.)
     {
         memset(fieldmap_size, 0, 3*sizeof(fieldmap_size[0])); 
         memset(sample_length, 0, 3*sizeof(sample_length[0]));
@@ -87,8 +90,8 @@ typedef struct simulation_parameters
         memset(dephasing_T, 0, MAX_DEPHASE*sizeof(dephasing_T[0]));
         memset(gradient_xyz, 0, 3*MAX_GRADIENT*sizeof(gradient_xyz[0]));
         memset(gradient_T, 0, MAX_GRADIENT*sizeof(gradient_T[0]));
-        memset(pXY, 0, MAX_TISSUE_TYPE*MAX_TISSUE_TYPE*sizeof(pXY[0]));
 
+        std::fill(pXY, pXY + MAX_TISSUE_TYPE*MAX_TISSUE_TYPE, 1.f);
         std::fill(T1, T1 + MAX_T12, 2.2);
         std::fill(T2, T2 + MAX_T12, 0.04);
     }
@@ -114,6 +117,8 @@ typedef struct simulation_parameters
         ss<<"fieldmap size   = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
         ss<<"matrix length   = "<< matrix_length << '\n';
         ss<<"diffusion const = "<< diffusion_const<<'\n';
+        ss<<"std             = "<< std<<'\n';
+        ss<<"std scale       = "<< std_scale<<'\n';
         ss<<"dummy scans     = "<< n_dummy_scan<<'\n';
         ss<<"spins           = "<< n_spins<<'\n';
         ss<<"samples scales  = "<< n_sample_length_scales<<'\n';
@@ -125,8 +130,8 @@ typedef struct simulation_parameters
         ss<<"Phase cycling   = "<< phase_cycling<<'\n';
         ss<<"Seed            = "<< seed<<'\n';
         ss<<"file size       = "<< file_size<<" Bytes\n";
-        ss<<"mask exist      = "<< mask_exist<<'\n';
-        ss<<"off-resonance map exist= "<< fieldmap_exist<<'\n';
+        ss<<"mask exists     = "<< mask_exist<<'\n';
+        ss<<"off-resonance exists   = "<< fieldmap_exist<<'\n';
         ss<<"gradient (x,y,z) T/m   =\n"; for(int i=0; i<n_gradient; i++) ss<<gradient_xyz[3*i+0]<<' '<<gradient_xyz[3*i+1]<<' '<<gradient_xyz[3*i+2]<<'\n';
         ss<<"Cross Tissue Probability =\n"; for(int i=0; i<n_tissue_type; i++) {for(int j=0; j<n_tissue_type; j++) ss<<pXY[j+i*n_tissue_type]<<' '; ss<<'\n';};
         ss<<"Record Trajectory      = " << enRecordTrajectory << '\n';
@@ -172,6 +177,10 @@ typedef struct simulation_parameters
         s = sinf(RF_FA[0] * DEG2RAD); s2 = sinf(RF_FA[0] * DEG2RAD / 2.0f);
         matrix_length = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2];
         n_timepoints = TR / dt;
+
+        std = sqrt(6. * diffusion_const * dt);
+        while(std / std_scale < 1.0)
+            std_scale /= 2.0;
 
         if (n_dummy_scan < 0)
             n_dummy_scan = 5.0 * T1[0] / TR;
