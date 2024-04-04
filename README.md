@@ -68,26 +68,30 @@ cmake --build ./build --config Release
 
 ## Configuration files
 
-Configruation file is a text based [ini file](https://en.wikipedia.org/wiki/INI_file) used to provide simulation parameters for simulator. Simulator can accept more than one configuration to simulation several configurations. A configuration file can inherit from another configuration file to avoid writing repetitive simulation parmeters. All the possible parameters are provided in [config_default.ini](./config/config_default.ini).
+Configruation file is a text based [ini file](https://en.wikipedia.org/wiki/INI_file) used to provide simulation parameters for simulator. Simulator can accept more than one configuration to simulation several configurations. A configuration file can inherit from another configuration file to avoid writing repetitive simulation parmeters. All the possible parameters are provided in [config_default.ini](./config/config_default.ini). The units for magnetic field, time, angle, and length are defined as Tesla, seconds, degree, and meters, respectively.
 
-## Binary file format
+## Input/Output file format
+Spinwalk processes three distinct input files and produces three output files. All files are stored on disk in binary raw format. Input files can be specified within the [FILES] section of the configuration file, while output files are stored in the output folder defined under the same [FILES] section in the configuration file.
 
-### Fieldmap
+### Inputs
+#### Fieldmap
 
-The simulation requires at least one fieldmap and mask. The fieldmap unit is Tesla and must be normalized to the static magnetic field where is intended to be used for simulation (i.e., fieldmap must be calculated for 1T). The fieldmap file is stored in binary format and follows a specific structure:
+The simulation requires at least one fieldmap file. The fieldmap file comprises both an off-resonance map and a mask. The inclusion of the off-resonance map is optional. When the off-resonance map is not included, it is assumed to be zero. The off-resonance unit is Tesla and must be normalized to the static magnetic field where is intended to be used for simulation (i.e., fieldmap must be calculated for 1T). It will be internally scaled to the given B0 paramater in configuration file. The fieldmap file is stored in binary format and follows a specific structure:
 
 ![](./doc/img/fieldmap_memory_layout.png)
 
 1. Size = 3 unsigned int (3*4 bytes in total) representing 3D volume size (e.g., 1024 x 1024 x 1024).
 2. Length = 3 single precision float (3*4 bytes in total) representing length in meter for each dimension (e.g., 0.001 x 0.001 x 0.001).
 3. Fieldmap = n single precision float (n*4 bytes in total) where n = product of **size** array elements. Field map is stored in [column-major order](https://en.wikipedia.org/wiki/Row-_and_column-major_order).
-4. Mask = n unsigned char (n bytes in total) where n = product of **size** array elements. Mask is stored in column-major order.
+4. Mask = n unsigned char (n bytes in total) where n = product of **size** array elements. Mask is stored in column-major order. The values within the mask are utilized to distinguish between various tissue or object types. Each object type must have its own T1 and T2 values defined in the configuration files.
 
-The path to fieldmap is set in configuration file under section "FILES":
+Multiple fieldmap files can be defined in the configuration file. Spinwalk will simulate them sequentially.
 
-### Other inputs [optional]
+A MATLAB script is provided to write fieldmap file to disc. See [write_fieldmap.m](./MATLAB/write_fieldmap.m).
 
-M0 and XYZ0 are two additional inputs in configuration file which define starting magnization and initial spatial position of spins, respectively. These two are optional inputs, if not set or empty, spins will be positioned randomly with M0 = [0, 0, 1]. Please note that initial spatial positions must not intersect with mask.
+#### M0 and XYZ0 [optional]
+
+M0 and XYZ0 are two additional inputs in configuration file which define starting magnization and initial spatial position of spins, respectively. These two are optional inputs, if not set or empty, spins will be positioned randomly with M0 = [0, 0, 1].
 
 binary file containing M0 or XYZ0 is of size *3 * number of spins* single precision float which are stored in the file with following pattern:
 
@@ -99,7 +103,7 @@ unit for spatial position is meter.
 
 ### Outputs
 
-The simulator stores the magnetization at echo time(s) as M1 and the optional spatial positions as XYZ1. The paths for both M1 and XYZ1 can be specified in the configuration file. These data are saved in a binary file using the following layout:
+The simulator generates three outputs for each fieldmap input: 1) the magnetization of spins at echo time(s), 2) the tissue or object type where spins are located at the time of the echo, and 3) the spatial positions for either the entire random walk or just the final position. The paths to save outputs can be specified in the configuration file. These data are saved in a binary file using the following layout:
 
 ![](./doc/img/M1XYZ1_memory_layout.png)
 
@@ -108,7 +112,7 @@ The simulator stores the magnetization at echo time(s) as M1 and the optional sp
 3. additional info = header size - 16 bytes containing additional information. Here, e.g., different scales for vessel size
 4. M1 or XYZ1 = stored in column-major order
 
-A MATLAB script is provided to read output files. See [read_spinwalk.m](./matlab/read_spinwalk.m).
+A MATLAB script is provided to read output files. See [read_spinwalk.m](./MATLAB/read_spinwalk.m).
 
 ## Literature
 
