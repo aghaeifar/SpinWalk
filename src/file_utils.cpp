@@ -338,7 +338,7 @@ bool file_utils::read_fieldmap(std::string fieldmap_filename, std::vector<float>
 
     // int n_tissue = *std::max_element(mask.begin(), mask.end(),  [](const uint8_t &x,const uint8_t &y) {return x<y;}) + 1;
     int n_tissue = find_max(mask) + 1;
-    if (n_tissue != param.n_tissue_type)
+    if (n_tissue > param.n_tissue_type)
     {
         BOOST_LOG_TRIVIAL(error) << "The number of tissue types in the mask does not match the number of tissue types in the config file: " << n_tissue << " vs " << param.n_tissue_type;
         return false;
