@@ -12,7 +12,7 @@
 #define _KERNELS_H_
 
 #include <numeric>
-#include "miscellaneous.h"
+#include "simulation_parameters.h"
 
 
 #define GAMMA  267515315. // rad/s.T
@@ -32,10 +32,6 @@ __host__  __device__ __forceinline__ int64_t sub2ind(int32_t x, int32_t y, int32
 {
     return (int64_t(z)*int64_t(lenx*leny) + y*lenx + x); 
 }
-
-uint32_t getDeviceCount();
-void print_device_info();
-bool check_memory_size(size_t required_size_MB);
 
 
 #endif // _KERNELS_H_

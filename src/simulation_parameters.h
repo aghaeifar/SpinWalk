@@ -7,8 +7,8 @@
  * Descrip  : simulating BOLD in microvascular network
  * -------------------------------------------------------------------------- */
 
-#ifndef __MISCELLANEOUS_H__
-#define __MISCELLANEOUS_H__
+#ifndef __SIMULATION_PARAMETERS_H__
+#define __SIMULATION_PARAMETERS_H__
 
 
 #include <algorithm>
@@ -20,10 +20,6 @@
 #include <cstring>
 #include <cctype>
 #include <cmath>
-
-#define SPINWALK_VERSION_MAJOR 1
-#define SPINWALK_VERSION_MINOR 8
-#define SPINWALK_VERSION_PATCH 1
 
 #define DEG2RAD 0.0174532925199433 // = M_PI/180 
 #define RAD2DEG 57.2957795130823
@@ -188,17 +184,4 @@ typedef struct simulation_parameters
 } simulation_parameters;
 
 
-inline void print_logo()
-{ 
- std::cout << " \n"
-" ____            _          __        __          _   _        \n"
-"/ ___|   _ __   (_)  _ __   \\ \\      / /   __ _  | | | | __    \n"
-"\\___ \\  | '_ \\  | | | '_ \\   \\ \\ /\\ / /   / _` | | | | |/ /    \n"
-" ___) | | |_) | | | | | | |   \\ V  V /   | (_| | | | |   <     \n"
-"|____/  | .__/  |_| |_| |_|    \\_/\\_/     \\__,_| |_| |_|\\_\\    \n"
-"        |_|                                                    \n\n";
-
-std::cout << "SpinWalk ver. " << SPINWALK_VERSION_MAJOR << "." << SPINWALK_VERSION_MINOR << "." << SPINWALK_VERSION_PATCH << std::endl;
-}
-
-#endif // __MISCELLANEOUS_H__
+#endif // __SIMULATION_PARAMETERS_H__

@@ -16,10 +16,11 @@
 #include <filesystem>
 #include <cuda_runtime.h>
 #include "tqdm.h"
+#include "helper.cuh"
 #include "kernels.cuh"
 #include "file_utils.h"
 #include "helper_cuda.h"
-#include "miscellaneous.h"
+#include "simulation_parameters.h"
 #include <boost/program_options.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/file.hpp>
