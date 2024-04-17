@@ -25,7 +25,7 @@ jobs:
         
     - name: boost install
       id: boost-install
-      run: sudo apt-get update && sudo apt-get install -yq libboost-all-dev
+      run: sudo apt-get update && sudo apt-get install -yq libboost-all-dev libhdf5-dev
       
     - uses: actions/checkout@v3
     

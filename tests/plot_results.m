@@ -1,19 +1,12 @@
 clc
 clear
 
-file_m1{1}{1} = '../../outputs/gre_m1_fieldmap_0.dat';
-file_m1{1}{2} = '../../outputs/gre_m1_fieldmap_1.dat';
-file_m1{2}{1} = '../../outputs/se_m1_fieldmap_0.dat';
-file_m1{2}{2} = '../../outputs/se_m1_fieldmap_1.dat';
-file_m1{3}{1} = '../../outputs/ssfp_m1_fieldmap_0.dat';
-file_m1{3}{2} = '../../outputs/ssfp_m1_fieldmap_1.dat';
-
-file_T{1}{1} = '../../outputs/gre_T_fieldmap_0.dat';
-file_T{1}{2} = '../../outputs/gre_T_fieldmap_1.dat';
-file_T{2}{1} = '../../outputs/se_T_fieldmap_0.dat';
-file_T{2}{2} = '../../outputs/se_T_fieldmap_1.dat';
-file_T{3}{1} = '../../outputs/ssfp_T_fieldmap_0.dat';
-file_T{3}{2} = '../../outputs/ssfp_T_fieldmap_1.dat';
+fname{1}{1} = '../../outputs/gre_fieldmap_0.h5';
+fname{1}{2} = '../../outputs/gre_fieldmap_1.h5';
+fname{2}{1} = '../../outputs/se_fieldmap_0.h5';
+fname{2}{2} = '../../outputs/se_fieldmap_1.h5';
+fname{3}{1} = '../../outputs/ssfp_fieldmap_0.h5';
+fname{3}{2} = '../../outputs/ssfp_fieldmap_1.h5';
 
 dim_xyz  = 1;
 dim_echo = 2;
@@ -23,15 +16,13 @@ rad_ref_um = 53.367;
 
 tissue_type = 0; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
 
-signal_magnitude = cell(numel(file_m1), numel(file_m1{1}));
-for seq = 1:numel(file_m1)   
-    for i=1:numel(file_m1{seq})
-        [m1, dims, scales] = read_spinwalk(file_m1{seq}{i});
-        T = read_spinwalk(file_T{seq}{i});        
-        if dims(4) ~= numel(scales)
-            warning('Header info is confusing here?')
-        end
-        
+signal_magnitude = cell(numel(fname), numel(fname{1}));
+for seq = 1:numel(fname)   
+    for i=1:numel(fname{seq})
+        m1 = h5read(fname{seq}{i}, '/M1');
+        scales = h5read(fname{seq}{i}, '/sample_length_scales');
+        T = h5read(fname{seq}{i}, '/T');  
+
         m1_t = zeros(numel(scales), 1);
         for s=1:numel(scales)
             ind = ismember(T(1,end,:,s), tissue_type);
@@ -44,7 +35,7 @@ end
 
 clf
 vessel_radius  = rad_ref_um * scales;
-for seq = 1:numel(file_m1)
+for seq = 1:numel(fname)
     relative_signal  = 100 * (1 - signal_magnitude{seq, 1} ./ signal_magnitude{seq, 2});    
     h = semilogx(vessel_radius, relative_signal); xlabel('Vessel radius (um)'); ylabel('BOLD Signal %'); 
     hold on;
@@ -55,8 +46,8 @@ legend('GRE', 'SE', 'SSFP')
 
 %% grase sequence
 
-% file_m1{4}{1} = '../../outputs/grase_m1_0.dat';
-% file_m1{4}{2} = '../../outputs/grase_m1_1.dat';
+% fname{4}{1} = '../../outputs/grase_m1_0.dat';
+% fname{4}{2} = '../../outputs/grase_m1_1.dat';
 TR = 0.2;
 EcoSpc = 0.005;
 %         subplot(2,1,2)
@@ -82,8 +73,8 @@ EcoSpc = 0.005;
 %% stimulated echo
  clc
 % clear
-file_m1{1} = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/ste_m1_0.dat';
-file_m1{2} = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/ste_m1_1.dat';
+fname{1} = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/ste_fieldmap_0.h5';
+fname{2} = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/ste_fieldmap_1.h5';
 
 dim_echo = 2;
 dim_spin = 3;
@@ -92,8 +83,9 @@ rad_ref_um = 53.367;
 
 
 spins_xyz = [];
-for i=1:numel(file_m1)
-    [m_xyz, dims, scales] = read_spinwalk(file_m1{i});
+for i=1:numel(fname)
+    m_xyz   = h5read(fname{i}, '/M1');
+    scales  = h5read(fname{i}, '/sample_length_scales');
     spins_xyz = cat(ndims(m_xyz)+1, spins_xyz, m_xyz);
 end
 vessel_radius    = rad_ref_um * scales;
@@ -135,8 +127,8 @@ legend('STE Rest', 'STE Act', 'SE Rest', 'SE Act')
 %% random-walk trajectory
 clear
 clc;
-filename = '../../outputs/gre_trajectory_T_fieldmap_0.dat';
-[xyz_all, dims, hdr_extra] = read_spinwalk(filename);
+filename = '../../outputs/gre_trajectory_fieldmap_0.h5';
+xyz_all = h5read(filename, '/XYZ1');
 size(xyz_all)
 xyz_all = xyz_all * 1e6;
 n_spins = size(xyz_all, 3);
@@ -156,10 +148,10 @@ clc
 fieldmap = '../../field_maps/restricted_diffusion_model.dat';
 % [fieldmap, mask, fov] = read_fieldmap(fieldmap);
 
-file_m1{1} = '../../outputs/dwi_base_m1_restricted_diffusion_model.dat';
-file_m1{2} = '../../outputs/dwi_x_m1_restricted_diffusion_model.dat';
-file_m1{3} = '../../outputs/dwi_y_m1_restricted_diffusion_model.dat';
-file_m1{4} = '../../outputs/dwi_z_m1_restricted_diffusion_model.dat';
+fname{1} = '../../outputs/dwi_base_m1_restricted_diffusion_model.dat';
+fname{2} = '../../outputs/dwi_x_m1_restricted_diffusion_model.dat';
+fname{3} = '../../outputs/dwi_y_m1_restricted_diffusion_model.dat';
+fname{4} = '../../outputs/dwi_z_m1_restricted_diffusion_model.dat';
 
 file_T{1} = '../../outputs/dwi_base_T_restricted_diffusion_model.dat';
 file_T{2} = '../../outputs/dwi_x_T_restricted_diffusion_model.dat';
@@ -173,9 +165,9 @@ file_xyz1{4} = '../../outputs/dwi_z_xyz1_restricted_diffusion_model.dat';
 
 tissue_type = 0; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
 
-s = zeros(numel(file_m1), 1);
-for i=1:numel(file_m1)
-    m1 = read_spinwalk(file_m1{i});
+s = zeros(numel(fname), 1);
+for i=1:numel(fname)
+    m1 = read_spinwalk(fname{i});
     T = read_spinwalk(file_T{i}); 
     ind = ismember(T(1,end,:,1), tissue_type);
     mxyz_f = m1(:,end,ind(:),1);
@@ -202,13 +194,13 @@ hold off
 clear
 clc
 file_fieldmap = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/field_maps/restricted_diffusion_model.dat';
-file_m1 = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/dwi_base_m1_restricted_diffusion_model.dat';
+fname = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/dwi_base_m1_restricted_diffusion_model.dat';
 file_T = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/dwi_base_T_restricted_diffusion_model.dat';
 
 tissue_type = 1; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
 [~, mask, fov] = read_fieldmap(file_fieldmap);
 
-[m1, dims, scales] = read_spinwalk(file_m1);
+[m1, dims, scales] = read_spinwalk(fname);
 [T, ~, ~] = read_spinwalk(file_T); 
 % mxyz_f = filter_spinwalk(m1(:,end,:,1), xyz1(:,end,:,1), tissue_type, mask, fov);
 % mxyz_f = mxyz_f';

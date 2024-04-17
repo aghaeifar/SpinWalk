@@ -20,7 +20,6 @@
 #include "kernels.cuh"
 #include "file_utils.h"
 #include "helper_cuda.h"
-#include "simulation_parameters.h"
 #include <boost/program_options.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/file.hpp>
@@ -56,6 +55,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     std::vector<float> M1(len2, 0.f);       // memory layout(column-wise): [3 x n_TE x n_spins x n_sample_length_scales]
     std::vector<uint8_t> T(M1.size()/3, 0); // memory layout(column-wise): [1 x n_TE x n_spins x n_sample_length_scales]
     BOOST_LOG_TRIVIAL(info) << "Memory allocation (CPU) took " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - st).count() << " ms";
+    
     // ========== allocate memory on GPU ==========
     std::vector<float *> d_pFieldMap(device_count, nullptr);
     std::vector<float *> d_M0(device_count, nullptr), d_M1(device_count, nullptr);
@@ -93,19 +93,19 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     {
         bool hasXYZ0 = false;
         // ========== load files (field-maps, xyz0, m0) ==========
-        if(file_utils::read_fieldmap(filenames.at("FIELDMAP")[fieldmap_no], fieldmap, mask, param) == false)
+        if(file_utils::read_binary_fieldmap(filenames.at("FIELDMAP")[fieldmap_no], fieldmap, mask, param) == false)
             return false;
 
         if(fieldmap_no < filenames.at("XYZ0").size())
         {   
-            if(file_utils::read_file(filenames.at("XYZ0")[fieldmap_no], XYZ0) == false)
+            if(file_utils::read_binary_file(filenames.at("XYZ0")[fieldmap_no], XYZ0) == false)
                 return false;
             hasXYZ0 = true;
         }
 
         if(fieldmap_no < filenames.at("M0").size())
         {
-            if(file_utils::read_file(filenames.at("M0")[fieldmap_no], M0) == false)
+            if(file_utils::read_binary_file(filenames.at("M0")[fieldmap_no], M0) == false)
                 return false;
         }
         else
@@ -202,16 +202,15 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 
         // ========== save results ========== 
         std::cout << "Saving the results to disk" << '\n';
-        file_utils::output_header hdr(3, param.n_TE, param.n_spins * device_count, param.n_sample_length_scales);
-        file_utils::save_output((char*)M1.data(), M1.size()*sizeof(M1[0]),filenames.at("M1")[fieldmap_no], hdr, sample_length_scales);
-
-        hdr.dim2 = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
-        file_utils::save_output((char*)XYZ1.data(), XYZ1.size()*sizeof(XYZ1[0]), filenames.at("XYZ1")[fieldmap_no], hdr, sample_length_scales);
-
-        hdr.dim1 = 1;
-        hdr.dim2 = param.n_TE;
-        file_utils::save_output((char*)T.data(), T.size()*sizeof(T[0]), filenames.at("T")[fieldmap_no], hdr, sample_length_scales);
-
+        std::vector<size_t> dims = {3, param.n_TE, param.n_spins * device_count, param.n_sample_length_scales};
+        std::string f = filenames.at("output")[fieldmap_no];
+        file_utils::save_h5(f, M1.data(), dims, "M1", "float");
+        dims[1] = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
+        file_utils::save_h5(f, XYZ1.data(), dims, "XYZ1", "float");
+        dims[0] = 1; dims[1] = param.n_TE;
+        file_utils::save_h5(f, T.data(), dims, "T", "uint8_t");
+        dims[0] = sample_length_scales.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
+        file_utils::save_h5(f, sample_length_scales.data(), dims, "sample_length_scales", "double");
         std::cout << std::string(50, '=') << std::endl;
     }
 
@@ -241,19 +240,20 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 bool dump_settings(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<double> sample_length_scales)
 {
     std::stringstream ss;
-    ss  << "Dumping settings:" << '\n';
+    ss << "Dumping settings:" << '\n';
     for (std::map<std::string, std::vector<std::string>>::iterator it=filenames.begin(); it!=filenames.end(); ++it)
         for (int i = 0; i< it->second.size(); i++)
             ss << it->first << "[" << i << "] = " << it->second.at(i) << '\n';
     
-    ss<< "\nSample length scale = [";
+    ss << "\nSample length scale = [";
     for (int32_t i = 0; i < param.n_sample_length_scales; i++)
         ss << sample_length_scales[i] << ", ";
-    ss << "]\n";    
+    ss << "]\n";
     ss << param.dump();
     BOOST_LOG_TRIVIAL(info) << ss.str();
     return true;
 }
+
 
 int main(int argc, char * argv[])
 {
@@ -293,10 +293,9 @@ int main(int argc, char * argv[])
     {
         std::map<std::string, std::vector<std::string> > filenames = {{"FIELDMAP", 	std::vector<std::string>()},  // input:  map of off-resonance in Tesla
                                                                       {"XYZ0", 		std::vector<std::string>()},  // input:  spins starting spatial positions in meters
-                                                                      {"XYZ1", 		std::vector<std::string>()},  // output: spins last spatial positions in meters
                                                                       {"M0", 		std::vector<std::string>()},  // input:  spins initial magnetization
-                                                                      {"M1", 		std::vector<std::string>()},  // output: spins final magnetization
-                                                                      {"T", 		std::vector<std::string>()}}; // output: tissue index
+                                                                      {"output", 	std::vector<std::string>()},  // output: spins final magnetization + spatial positions in meters + tissue index
+                                                                     };
 
         std::vector<double> sample_length_scales;
         simulation_parameters param;

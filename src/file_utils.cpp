@@ -16,6 +16,8 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include "file_utils.h"
+#include <highfive/highfive.hpp>
+
 
 uint8_t find_max(const std::vector<uint8_t> &data);
 //---------------------------------------------------------------------------------------------
@@ -76,25 +78,19 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
     output_dir = std::filesystem::path(pt.get<std::string>("FILES.OUTPUT_DIR", output_dir.string()));
     if (output_dir.is_relative())
         output_dir = std::filesystem::absolute(config_filename).parent_path() / output_dir;
-    // generae names for m1
+    // generate names for output
     file_paths.clear();
     for (const auto& path : filenames["FIELDMAP"])
-        file_paths.push_back((output_dir / (seq_name + "_m1_" + std::filesystem::path(path).filename().string())).string());
-    filenames["M1"] = file_paths;
-    // generae names for xyz1  
-    file_paths.clear();
-    for (const auto& path : filenames["FIELDMAP"])
-        file_paths.push_back((output_dir / (seq_name + "_xyz1_" + std::filesystem::path(path).filename().string())).string());
-    filenames["XYZ1"] = file_paths;
-    // generae names for T  
-    file_paths.clear();
-    for (const auto& path : filenames["FIELDMAP"])
-        file_paths.push_back((output_dir / (seq_name + "_T_" + std::filesystem::path(path).filename().string())).string());
-    filenames["T"] = file_paths;
-    
+    {
+        auto f = output_dir / (seq_name + "_" + std::filesystem::path(path).filename().string());
+        f.replace_extension(".h5");
+        file_paths.push_back(f.string());
+    }
+    filenames["output"] = file_paths;
+     
     // check header of fieldmap matches
     file_utils::input_header hdr_in;
-    if(file_utils::read_header(filenames.at("FIELDMAP")[0], hdr_in) == false)
+    if(file_utils::read_binary_header(filenames.at("FIELDMAP")[0], hdr_in) == false)
     {
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "reading header of fieldmap " << filenames.at("FIELDMAP")[0] << " failed. Aborting...!";
         return false;
@@ -207,6 +203,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
     param.n_spins               = pt.get<float>("SIMULATION_PARAMETERS.NUMBER_OF_SPINS", param.n_spins); // template type must be float since input can be of form scientific notation
     param.enCrossFOV            = pt.get("SIMULATION_PARAMETERS.CROSS_FOV", param.enCrossFOV);
     param.enRecordTrajectory    = pt.get("SIMULATION_PARAMETERS.RECORD_TRAJECTORY", param.enRecordTrajectory);
+    param.enProfiling           = pt.get("SIMULATION_PARAMETERS.PROFILING", param.enProfiling);
     param.diffusion_const       = pt.get("SIMULATION_PARAMETERS.DIFFUSION_CONSTANT", param.diffusion_const);
     param.max_iterations        = pt.get<float>("SIMULATION_PARAMETERS.MAX_ITERATIONS", param.max_iterations);
 
@@ -248,7 +245,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters&
 }
 
 
-bool file_utils::read_header(std::string filename, input_header &hdr_in)
+bool file_utils::read_binary_header(std::string filename, input_header &hdr_in)
 {
     if(std::filesystem::exists(filename) == false)
     {
@@ -288,7 +285,7 @@ bool file_utils::read_header(std::string filename, input_header &hdr_in)
 }
 
 
-bool file_utils::read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<uint8_t> &mask, simulation_parameters& param)
+bool file_utils::read_binary_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<uint8_t> &mask, simulation_parameters& param)
 {
     if(std::filesystem::exists(fieldmap_filename) == false)
     {
@@ -347,7 +344,7 @@ bool file_utils::read_fieldmap(std::string fieldmap_filename, std::vector<float>
 }
 
 
-bool file_utils::read_file(std::string filename, std::vector<float> &storage)
+bool file_utils::read_binary_file(std::string filename, std::vector<float> &storage)
 {
     if(std::filesystem::exists(filename) == false)
     {
@@ -370,9 +367,9 @@ bool file_utils::read_file(std::string filename, std::vector<float> &storage)
 }
 
 
-bool file_utils::save_output(char *data, size_t bytes, std::string output_filename, output_header hdr, std::vector<double> &additional_hdr)
+bool file_utils::save_h5(std::string output_filename, void *data, std::vector<size_t> dims, std::string dataset_name, std::string data_type)
 {
-    BOOST_LOG_TRIVIAL(info) << "Saving output to: " << std::filesystem::absolute(output_filename);
+    BOOST_LOG_TRIVIAL(info) << "Saving " << dataset_name << " to: " << std::filesystem::absolute(output_filename);
     std::filesystem::path parent_path = std::filesystem::absolute(output_filename).parent_path();
     if (std::filesystem::is_directory(parent_path) == false)
     {
@@ -383,20 +380,45 @@ bool file_utils::save_output(char *data, size_t bytes, std::string output_filena
             return false;
         }
     }
-
-    std::ofstream file(output_filename, std::ios::out | std::ios::binary);
-    if (file.is_open() == false)
+    // if file exists, open it in read-write mode, otherwise (re-)create it
+    auto file_mode = std::filesystem::exists(output_filename) ? HighFive::File::ReadWrite : HighFive::File::Truncate;
+    HighFive::File file(output_filename, file_mode);
+    // if dataset exists, delete it
+    if (file.exist(dataset_name))
+        file.unlink(dataset_name);
+    // we have to reverse the dimensions since the data is stored in row-major order
+    std::reverse(dims.begin(), dims.end());
+    if (data_type == "float")
     {
-        BOOST_LOG_TRIVIAL(error) << "cannot open file " << std::filesystem::absolute(output_filename);
+        HighFive::DataSet dataset = file.createDataSet<float>(dataset_name, HighFive::DataSpace(dims));
+        dataset.write_raw((float*)data);
+    }
+    else if (data_type == "double")
+    {
+        HighFive::DataSet dataset = file.createDataSet<double>(dataset_name, HighFive::DataSpace(dims));
+        dataset.write_raw((double*)data);
+    }
+    else if (data_type == "int32_t")
+    {
+        HighFive::DataSet dataset = file.createDataSet<int32_t>(dataset_name, HighFive::DataSpace(dims));
+        dataset.write_raw((int32_t*)data);
+    }
+    else if (data_type == "uint8_t")
+    {
+        HighFive::DataSet dataset = file.createDataSet<uint8_t>(dataset_name, HighFive::DataSpace(dims));
+        dataset.write_raw((uint8_t*)data);
+    }
+    else if (data_type == "uint32_t")
+    {
+        HighFive::DataSet dataset = file.createDataSet<uint32_t>(dataset_name, HighFive::DataSpace(dims));
+        dataset.write_raw((uint32_t*)data);
+    }
+    else
+    {
+        BOOST_LOG_TRIVIAL(error) << "Data type " << data_type << " is not supported!";
         return false;
     }
 
-    int32_t add_hdr_size = additional_hdr.size() * sizeof(additional_hdr[0]);
-    int32_t header_size  = sizeof(output_header) + add_hdr_size;
-    file.write((char*)&header_size, sizeof(int32_t));
-    file.write((char*)&hdr, sizeof(output_header));
-    file.write((char*)additional_hdr.data(), add_hdr_size);
-    file.write(data, bytes);
-    file.close();
-    return true; 
+    return true;
 }
+

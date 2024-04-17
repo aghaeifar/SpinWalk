@@ -17,6 +17,8 @@ else()
   message("CUDA not found")
 endif()
 
+# Find HDF5
+find_package(HDF5 REQUIRED COMPONENTS CXX)
 # Find OpenMP
 find_package(OpenMP)
 # Boost
@@ -33,7 +35,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "-lboost_program_options")
 
 # Add Boost and CUDA include directories
-include_directories(${Boost_INCLUDE_DIRS} ./include)
+include_directories(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ./include)
 
 # Add CUDA and OpenMP flags
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${CUDA_ARCH} -Xcompiler=${OpenMP_CXX_FLAGS}")
@@ -44,7 +46,7 @@ set(Boost_USE_STATIC_LIBS OFF)
 add_executable(spinwalk ./src/spinwalk.cu ./src/kernels.cu ./src/file_utils.cpp)
 
 # Link CUDA and OpenMP libraries
-target_link_libraries(spinwalk ${CUDA_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(spinwalk ${CUDA_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES})
 
 if (UNIX)
     install(TARGETS spinwalk DESTINATION bin)    

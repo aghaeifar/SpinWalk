@@ -11,8 +11,7 @@
 #ifndef __FILE_UTILS_H__
 #define __FILE_UTILS_H__
 
-#include <map>
-#include <vector>
+
 #include "simulation_parameters.h"
 
 namespace file_utils
@@ -44,13 +43,25 @@ typedef struct input_header
 //---------------------------------------------------------------------------------------------
 bool read_config(std::string config_filename, simulation_parameters& param, std::vector<double>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames);
 
-bool read_header(std::string filename, input_header &hdr_in);
+//---------------------------------------------------------------------------------------------
+//  
+//---------------------------------------------------------------------------------------------
+bool read_binary_header(std::string filename, input_header &hdr_in);
 
-bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<uint8_t> &mask, simulation_parameters& param);
+//---------------------------------------------------------------------------------------------
+//  
+//---------------------------------------------------------------------------------------------
+bool read_binary_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<uint8_t> &mask, simulation_parameters& param);
 
-bool read_file(std::string filename, std::vector<float> &storage);
+//---------------------------------------------------------------------------------------------
+//  
+//---------------------------------------------------------------------------------------------
+bool read_binary_file(std::string filename, std::vector<float> &storage);
 
-bool save_output(char *data, size_t bytes, std::string output_filename, output_header hdr, std::vector<double> &additional_hdr);
+//---------------------------------------------------------------------------------------------
+//  
+//---------------------------------------------------------------------------------------------
+bool save_h5(std::string output_filename, void *data, std::vector<size_t> dims, std::string dataset_name, std::string data_type="float");
 
 }
 #endif  // __FILE_UTILS_H__

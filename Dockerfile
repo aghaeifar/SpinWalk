@@ -24,7 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
 	vim \
     git \
-    libboost-all-dev
+    libboost-all-dev \
+    libhdf5-dev
 
 # RUN apt-get install nvidia-cuda-toolkit
 

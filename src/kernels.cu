@@ -13,7 +13,6 @@
 #include "rotation.cuh"
 #include "helper_cuda.h"
 #include <cuda_runtime.h>
-#include <boost/log/trivial.hpp>
 #include <thrust/random.h>
 #include <thrust/device_vector.h>
 #include <thrust/extrema.h>
@@ -200,7 +199,6 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
-
 __global__ void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, uint64_t size)
 {
     uint64_t n = blockIdx.x * blockDim.x + threadIdx.x ;
@@ -226,7 +224,6 @@ __global__ void cu_scaleArray(float *array, float scale, uint64_t size)
 //---------------------------------------------------------------------------------------------
 // CUDA kernel to generate random initial position
 //---------------------------------------------------------------------------------------------
-
 __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *param, const uint8_t *pMask, uint32_t spin_no)
 {
     spin_no = blockIdx.x * blockDim.x + threadIdx.x ;

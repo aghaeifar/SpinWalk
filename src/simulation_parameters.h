@@ -20,6 +20,7 @@
 #include <cstring>
 #include <cctype>
 #include <cmath>
+#include <map>
 
 #define DEG2RAD 0.0174532925199433 // = M_PI/180 
 #define RAD2DEG 57.2957795130823
@@ -50,7 +51,7 @@ typedef struct simulation_parameters
     uint32_t n_tissue_type;
     uint32_t n_spins, fieldmap_size[3], seed, max_iterations;
     int64_t matrix_length, file_size;
-    bool enDebug, enCrossFOV, enRecordTrajectory;
+    bool enDebug, enCrossFOV, enRecordTrajectory, enProfiling;
     bool fieldmap_exist, mask_exist;
     double std, std_scale, diffusion_const;
     simulation_parameters():
@@ -72,6 +73,7 @@ typedef struct simulation_parameters
         enRecordTrajectory(false),
         fieldmap_exist(true),
         mask_exist(true),
+        enProfiling(false),
         file_size(0),
         std(sqrt(6. * 1e-9 * 50e-6)),
         std_scale(1.)
@@ -182,6 +184,7 @@ typedef struct simulation_parameters
             n_dummy_scan = 5.0 * T1[0] / TR;
     }
 } simulation_parameters;
+
 
 
 #endif // __SIMULATION_PARAMETERS_H__
