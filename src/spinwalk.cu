@@ -98,15 +98,26 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 
         if(fieldmap_no < filenames.at("XYZ0").size())
         {   
-            if(file_utils::read_binary_file(filenames.at("XYZ0")[fieldmap_no], XYZ0) == false)
+            if(file_utils::read_h5(filenames.at("XYZ0")[fieldmap_no], XYZ0, "/XYZ0") == false)
                 return false;
+            if(XYZ0.size() != param.n_spins*device_count)
+            {
+                BOOST_LOG_TRIVIAL(error) << "Number of spins in XYZ0 file does not match with the number of spins in the config file! " << XYZ0.size() << " vs " << param.n_spins*device_count ;
+                return false;
+            }
+
             hasXYZ0 = true;
         }
 
         if(fieldmap_no < filenames.at("M0").size())
         {
-            if(file_utils::read_binary_file(filenames.at("M0")[fieldmap_no], M0) == false)
+            if(file_utils::read_h5(filenames.at("M0")[fieldmap_no], M0, "/M0") == false)
                 return false;
+            if(M0.size() != param.n_spins*device_count)
+            {
+                BOOST_LOG_TRIVIAL(error) << "Number of spins in M0 file does not match with the number of spins in the config file! " << M0.size() << " vs " << param.n_spins*device_count ;
+                return false;
+            }
         }
         else
         {   // all spins are aligned with B0 (M0 = (0, 0, 1))

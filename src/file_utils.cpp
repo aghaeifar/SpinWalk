@@ -344,25 +344,29 @@ bool file_utils::read_binary_fieldmap(std::string fieldmap_filename, std::vector
 }
 
 
-bool file_utils::read_binary_file(std::string filename, std::vector<float> &storage)
+bool file_utils::read_h5(std::string input_filename, std::vector<float> &data, std::string dataset_name)
 {
-    if(std::filesystem::exists(filename) == false)
+    if(std::filesystem::exists(input_filename) == false)
     {
-        BOOST_LOG_TRIVIAL(error) << "file does not exist: " << filename;
+        BOOST_LOG_TRIVIAL(error) << "file does not exist: " << input_filename;
         return false;
     }
 
-    BOOST_LOG_TRIVIAL(info) << "Reading " << filename;
-    std::ifstream in_field(filename, std::ios::in | std::ios::binary);
-    if (!in_field.is_open()) 
+    HighFive::File file(input_filename, HighFive::File::ReadOnly);
+    if (file.exist(dataset_name) == false)
     {
-        BOOST_LOG_TRIVIAL(error) << "error opening file " << filename;
+        BOOST_LOG_TRIVIAL(error) << "dataset " << dataset_name << " does not exist in " << input_filename;
         return false;
     }
-    
-    in_field.read((char*)storage.data(), sizeof(storage[0]) * storage.size());
-    in_field.close();
 
+    HighFive::DataSet dataset = file.getDataSet(dataset_name);
+    auto dims = dataset.getDimensions();
+    size_t n_elements = 1;
+    for (const auto& e: dims)
+        n_elements *= e;
+    BOOST_LOG_TRIVIAL(info) << "Reading " << dataset_name << " with " << n_elements << " elements from "<< input_filename;
+    data.resize(n_elements);
+    dataset.read_raw<float>(data.data());
     return true;
 }
 
