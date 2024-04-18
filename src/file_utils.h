@@ -56,7 +56,7 @@ bool read_binary_fieldmap(std::string fieldmap_filename, std::vector<float> &fie
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
-bool read_binary_file(std::string filename, std::vector<float> &storage);
+bool read_h5(std::string input_filename, std::vector<float> &data, std::string dataset_name);
 
 //---------------------------------------------------------------------------------------------
 //  

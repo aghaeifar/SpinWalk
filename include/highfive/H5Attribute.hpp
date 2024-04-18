@@ -132,7 +132,7 @@ class Attribute: public Object, public PathTraits<Attribute> {
     /// \endcode
     /// \since 2.2.2
     template <typename T>
-    void read(T* array, const DataType& mem_datatype) const;
+    void read_raw(T* array, const DataType& mem_datatype) const;
 
     /// \brief Read the attribute into a buffer.
     /// Behaves like Attribute::read(T*, const DataType&) const but
@@ -154,7 +154,7 @@ class Attribute: public Object, public PathTraits<Attribute> {
     /// \endcode
     /// \since 2.2.2
     template <typename T>
-    void read(T* array) const;
+    void read_raw(T* array) const;
 
     /// \brief Write the value into the Attribute.
     ///

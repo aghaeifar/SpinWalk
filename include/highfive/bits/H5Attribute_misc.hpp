@@ -31,6 +31,10 @@ inline std::string Attribute::getName() const {
 }
 
 inline size_t Attribute::getStorageSize() const {
+    if (!this->isValid()) {
+        throw AttributeException("Invalid call to `DataSet::getFile` for invalid object");
+    }
+
     return static_cast<size_t>(detail::h5a_get_storage_size(_hid));
 }
 
@@ -64,7 +68,7 @@ inline void Attribute::read(T& array) const {
     const details::BufferInfo<T> buffer_info(
         file_datatype,
         [this]() -> std::string { return this->getName(); },
-        details::BufferInfo<T>::read);
+        details::BufferInfo<T>::Operation::read);
 
     if (!details::checkDimensions(mem_space, buffer_info.n_dimensions)) {
         std::ostringstream ss;
@@ -83,7 +87,7 @@ inline void Attribute::read(T& array) const {
     }
 
     auto r = details::data_converter::get_reader<T>(dims, array, file_datatype);
-    read(r.getPointer(), buffer_info.data_type);
+    read_raw(r.getPointer(), buffer_info.data_type);
     // re-arrange results
     r.unserialize(array);
 
@@ -102,7 +106,7 @@ inline void Attribute::read(T& array) const {
 }
 
 template <typename T>
-inline void Attribute::read(T* array, const DataType& mem_datatype) const {
+inline void Attribute::read_raw(T* array, const DataType& mem_datatype) const {
     static_assert(!std::is_const<T>::value,
                   "read() requires a non-const structure to read data into");
 
@@ -110,16 +114,17 @@ inline void Attribute::read(T* array, const DataType& mem_datatype) const {
 }
 
 template <typename T>
-inline void Attribute::read(T* array) const {
+inline void Attribute::read_raw(T* array) const {
     using element_type = typename details::inspector<T>::base_type;
     const DataType& mem_datatype = create_and_check_datatype<element_type>();
 
-    read(array, mem_datatype);
+    read_raw(array, mem_datatype);
 }
 
 template <typename T>
 inline void Attribute::write(const T& buffer) {
     const DataSpace& mem_space = getMemSpace();
+    auto dims = mem_space.getDimensions();
 
     if (mem_space.getElementCount() == 0) {
         return;
@@ -130,7 +135,7 @@ inline void Attribute::write(const T& buffer) {
     const details::BufferInfo<T> buffer_info(
         file_datatype,
         [this]() -> std::string { return this->getName(); },
-        details::BufferInfo<T>::write);
+        details::BufferInfo<T>::Operation::write);
 
     if (!details::checkDimensions(mem_space, buffer_info.n_dimensions)) {
         std::ostringstream ss;
@@ -138,7 +143,7 @@ inline void Attribute::write(const T& buffer) {
            << " into dataset of dimensions " << mem_space.getNumberDimensions();
         throw DataSpaceException(ss.str());
     }
-    auto w = details::data_converter::serialize<T>(buffer, file_datatype);
+    auto w = details::data_converter::serialize<T>(buffer, dims, file_datatype);
     write_raw(w.getPointer(), buffer_info.data_type);
 }
 

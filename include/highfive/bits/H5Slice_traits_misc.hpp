@@ -186,7 +186,7 @@ inline void SliceTraits<Derivate>::read(T& array, const DataTransferProps& xfer_
     auto dims = mem_space.getDimensions();
 
     auto r = details::data_converter::get_reader<T>(dims, array, file_datatype);
-    read(r.getPointer(), buffer_info.data_type, xfer_props);
+    read_raw(r.getPointer(), buffer_info.data_type, xfer_props);
     // re-arrange results
     r.unserialize(array);
 
@@ -210,9 +210,9 @@ inline void SliceTraits<Derivate>::read(T& array, const DataTransferProps& xfer_
 
 template <typename Derivate>
 template <typename T>
-inline void SliceTraits<Derivate>::read(T* array,
-                                        const DataType& mem_datatype,
-                                        const DataTransferProps& xfer_props) const {
+inline void SliceTraits<Derivate>::read_raw(T* array,
+                                            const DataType& mem_datatype,
+                                            const DataTransferProps& xfer_props) const {
     static_assert(!std::is_const<T>::value,
                   "read() requires a non-const structure to read data into");
 
@@ -226,13 +226,14 @@ inline void SliceTraits<Derivate>::read(T* array,
                      static_cast<void*>(array));
 }
 
+
 template <typename Derivate>
 template <typename T>
-inline void SliceTraits<Derivate>::read(T* array, const DataTransferProps& xfer_props) const {
+inline void SliceTraits<Derivate>::read_raw(T* array, const DataTransferProps& xfer_props) const {
     using element_type = typename details::inspector<T>::base_type;
     const DataType& mem_datatype = create_and_check_datatype<element_type>();
 
-    read(array, mem_datatype, xfer_props);
+    read_raw(array, mem_datatype, xfer_props);
 }
 
 
@@ -241,6 +242,7 @@ template <typename T>
 inline void SliceTraits<Derivate>::write(const T& buffer, const DataTransferProps& xfer_props) {
     const auto& slice = static_cast<const Derivate&>(*this);
     const DataSpace& mem_space = slice.getMemSpace();
+    auto dims = mem_space.getDimensions();
 
     auto file_datatype = slice.getDataType();
 
@@ -256,7 +258,7 @@ inline void SliceTraits<Derivate>::write(const T& buffer, const DataTransferProp
            << " into dataset with n = " << buffer_info.n_dimensions << " dimensions.";
         throw DataSpaceException(ss.str());
     }
-    auto w = details::data_converter::serialize<T>(buffer, file_datatype);
+    auto w = details::data_converter::serialize<T>(buffer, dims, file_datatype);
     write_raw(w.getPointer(), buffer_info.data_type, xfer_props);
 }
 
@@ -275,6 +277,7 @@ inline void SliceTraits<Derivate>::write_raw(const T* buffer,
                       xfer_props.getId(),
                       static_cast<const void*>(buffer));
 }
+
 
 template <typename Derivate>
 template <typename T>

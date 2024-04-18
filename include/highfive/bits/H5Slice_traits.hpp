@@ -292,6 +292,7 @@ class SliceTraits {
 
     ///
     /// Read the entire dataset into a buffer
+    ///
     /// An exception is raised is if the numbers of dimension of the buffer and
     /// of the dataset are different.
     ///
@@ -312,9 +313,9 @@ class SliceTraits {
     /// \param dtype: The type of the data, in case it cannot be automatically guessed
     /// \param xfer_props: Data Transfer properties
     template <typename T>
-    void read(T* array,
-              const DataType& dtype,
-              const DataTransferProps& xfer_props = DataTransferProps()) const;
+    void read_raw(T* array,
+                  const DataType& dtype,
+                  const DataTransferProps& xfer_props = DataTransferProps()) const;
 
     ///
     /// Read the entire dataset into a raw buffer
@@ -326,7 +327,8 @@ class SliceTraits {
     /// \param array: A buffer containing enough space for the data
     /// \param xfer_props: Data Transfer properties
     template <typename T>
-    void read(T* array, const DataTransferProps& xfer_props = DataTransferProps()) const;
+    void read_raw(T* array, const DataTransferProps& xfer_props = DataTransferProps()) const;
+
 
     ///
     /// Write the integrality N-dimension buffer to this dataset
