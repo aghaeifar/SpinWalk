@@ -19,8 +19,8 @@ tissue_type = 0; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
 signal_magnitude = cell(numel(fname), numel(fname{1}));
 for seq = 1:numel(fname)   
     for i=1:numel(fname{seq})
-        m1 = h5read(fname{seq}{i}, '/M1');
-        scales = h5read(fname{seq}{i}, '/sample_length_scales');
+        m1 = h5read(fname{seq}{i}, '/M');
+        scales = h5read(fname{seq}{i}, '/scales');
         T = h5read(fname{seq}{i}, '/T');  
 
         m1_t = zeros(numel(scales), 1);
@@ -84,8 +84,8 @@ rad_ref_um = 53.367;
 
 spins_xyz = [];
 for i=1:numel(fname)
-    m_xyz   = h5read(fname{i}, '/M1');
-    scales  = h5read(fname{i}, '/sample_length_scales');
+    m_xyz   = h5read(fname{i}, '/M');
+    scales  = h5read(fname{i}, '/scales');
     spins_xyz = cat(ndims(m_xyz)+1, spins_xyz, m_xyz);
 end
 vessel_radius    = rad_ref_um * scales;
@@ -128,7 +128,7 @@ legend('STE Rest', 'STE Act', 'SE Rest', 'SE Act')
 clear
 clc;
 filename = '../../outputs/gre_trajectory_fieldmap_0.h5';
-xyz_all = h5read(filename, '/XYZ1');
+xyz_all = h5read(filename, '/XYZ');
 size(xyz_all)
 xyz_all = xyz_all * 1e6;
 n_spins = size(xyz_all, 3);

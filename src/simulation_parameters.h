@@ -21,6 +21,7 @@
 #include <cctype>
 #include <cmath>
 #include <map>
+#include <boost/log/trivial.hpp> 
 
 #define DEG2RAD 0.0174532925199433 // = M_PI/180 
 #define RAD2DEG 57.2957795130823
@@ -50,7 +51,7 @@ typedef struct simulation_parameters
     int32_t n_dummy_scan ;
     uint32_t n_tissue_type;
     uint32_t n_spins, fieldmap_size[3], seed, max_iterations;
-    int64_t matrix_length, file_size;
+    int64_t matrix_length;
     bool enDebug, enCrossFOV, enRecordTrajectory, enProfiling;
     bool fieldmap_exist, mask_exist;
     double std, std_scale, diffusion_const;
@@ -74,7 +75,6 @@ typedef struct simulation_parameters
         fieldmap_exist(true),
         mask_exist(true),
         enProfiling(false),
-        file_size(0),
         std(sqrt(6. * 1e-9 * 50e-6)),
         std_scale(1.)
     {
@@ -127,7 +127,6 @@ typedef struct simulation_parameters
         ss<<"Pass FoV        = "<< enCrossFOV << '\n';
         ss<<"Phase cycling   = "<< phase_cycling<<'\n';
         ss<<"Seed            = "<< seed<<'\n';
-        ss<<"file size       = "<< file_size<<" Bytes\n";
         ss<<"mask exists     = "<< mask_exist<<'\n';
         ss<<"off-resonance exists   = "<< fieldmap_exist<<'\n';
         ss<<"gradient (x,y,z) T/m   =\n"; for(int i=0; i<n_gradient; i++) ss<<gradient_xyz[3*i+0]<<' '<<gradient_xyz[3*i+1]<<' '<<gradient_xyz[3*i+2]<<'\n';
@@ -169,7 +168,7 @@ typedef struct simulation_parameters
         return data_size_MB + variables_size_MB;
     }
 
-    void prepare()
+    bool prepare()
     {
         c = cosf(RF_FA[0] * DEG2RAD); c2 = cosf(RF_FA[0] * DEG2RAD / 2.0f); 
         s = sinf(RF_FA[0] * DEG2RAD); s2 = sinf(RF_FA[0] * DEG2RAD / 2.0f);
@@ -182,6 +181,18 @@ typedef struct simulation_parameters
 
         if (n_dummy_scan < 0)
             n_dummy_scan = 5.0 * T1[0] / TR;
+
+        if (mask_exist == false)
+        {
+            BOOST_LOG_TRIVIAL(error) << "Mask with labeled tissues is not provided";
+            return false;
+        }
+        if (fieldmap_exist == false)
+        {
+            BOOST_LOG_TRIVIAL(warning) << "Off-resonance map is not provided";
+            BOOST_LOG_TRIVIAL(warning) << "Simulation will be performed with a perfect homogeneous field.";
+        }
+        return true;
     }
 } simulation_parameters;
 

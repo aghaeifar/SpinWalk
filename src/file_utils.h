@@ -11,57 +11,50 @@
 #ifndef __FILE_UTILS_H__
 #define __FILE_UTILS_H__
 
+#include <map>
 
-#include "simulation_parameters.h"
+struct simulation_parameters;
+
+
+//---------------------------------------------------------------------------------------------
+//  
+//---------------------------------------------------------------------------------------------
+template <typename T>
+size_t product(const std::vector<T>& v)
+{
+    size_t n_elements = v.size()==0 ? 0 : 1;
+    for (const auto& e: v)
+        n_elements *= e;
+    return n_elements;
+}
+
 
 namespace file_utils
 {
-
 //---------------------------------------------------------------------------------------------
 //  
-//---------------------------------------------------------------------------------------------   
-typedef struct output_header
-{
-    int32_t dim1, dim2, dim3, dim4;
-    output_header(int32_t d1, int32_t d2=1, int32_t d3=1, int32_t d4=1): dim1(d1), dim2(d2), dim3(d3), dim4(d4){}
-} output_header;
-
-
-typedef struct input_header
-{
-    uint32_t fieldmap_size[3];
-    double sample_length[3];
-    bool fieldmap_exists=true, mask_exists=true;
-    size_t file_size=0;
-    input_header(uint32_t *a, double *b) {memcpy(fieldmap_size, a, 3*sizeof(uint32_t)); memcpy(sample_length, b, 3*sizeof(sample_length[0])); }
-    input_header(){};
-} input_header;
-
+//---------------------------------------------------------------------------------------------
+bool read_config(std::string config_filename, simulation_parameters *param, std::vector<double>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames);
 
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
-bool read_config(std::string config_filename, simulation_parameters& param, std::vector<double>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames);
+bool read_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<uint8_t> &mask, simulation_parameters *param);
 
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
-bool read_binary_header(std::string filename, input_header &hdr_in);
+std::vector<size_t> get_size_h5(std::string input_filename, std::string dataset_name);
 
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
-bool read_binary_fieldmap(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<uint8_t> &mask, simulation_parameters& param);
+bool read_h5(std::string input_filename, void *data, std::string dataset_name, std::string data_type);
 
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
-bool read_h5(std::string input_filename, std::vector<float> &data, std::string dataset_name);
-
-//---------------------------------------------------------------------------------------------
-//  
-//---------------------------------------------------------------------------------------------
-bool save_h5(std::string output_filename, void *data, std::vector<size_t> dims, std::string dataset_name, std::string data_type="float");
+bool save_h5(std::string output_filename, void *data, std::vector<size_t> dims, std::string dataset_name, std::string data_type);
 
 }
 #endif  // __FILE_UTILS_H__

@@ -28,6 +28,8 @@ inline void print_logo()
 std::cout << "SpinWalk ver. " << SPINWALK_VERSION_MAJOR << "." << SPINWALK_VERSION_MINOR << "." << SPINWALK_VERSION_PATCH << std::endl;
 }
 
+
+
 //---------------------------------------------------------------------------------------------
 //  check for CUDA and GPU device
 //---------------------------------------------------------------------------------------------

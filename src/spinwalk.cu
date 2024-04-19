@@ -93,31 +93,32 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     {
         bool hasXYZ0 = false;
         // ========== load files (field-maps, xyz0, m0) ==========
-        if(file_utils::read_binary_fieldmap(filenames.at("FIELDMAP")[fieldmap_no], fieldmap, mask, param) == false)
+        if(file_utils::read_fieldmap(filenames.at("FIELDMAP")[fieldmap_no], fieldmap, mask, &param) == false)
             return false;
 
         if(fieldmap_no < filenames.at("XYZ0").size())
         {   
-            if(file_utils::read_h5(filenames.at("XYZ0")[fieldmap_no], XYZ0, "/XYZ0") == false)
-                return false;
+            XYZ0.resize(product(file_utils::get_size_h5(filenames.at("XYZ0")[fieldmap_no], "/XYZ")));            
             if(XYZ0.size() != param.n_spins*device_count)
             {
                 BOOST_LOG_TRIVIAL(error) << "Number of spins in XYZ0 file does not match with the number of spins in the config file! " << XYZ0.size() << " vs " << param.n_spins*device_count ;
                 return false;
             }
-
+            if(file_utils::read_h5(filenames.at("XYZ0")[fieldmap_no], XYZ0.data(), "/XYZ", "float") == false)
+                return false;
             hasXYZ0 = true;
         }
 
         if(fieldmap_no < filenames.at("M0").size())
         {
-            if(file_utils::read_h5(filenames.at("M0")[fieldmap_no], M0, "/M0") == false)
-                return false;
+            M0.resize(product(file_utils::get_size_h5(filenames.at("M0")[fieldmap_no], "/M"))); 
             if(M0.size() != param.n_spins*device_count)
             {
                 BOOST_LOG_TRIVIAL(error) << "Number of spins in M0 file does not match with the number of spins in the config file! " << M0.size() << " vs " << param.n_spins*device_count ;
                 return false;
             }
+            if(file_utils::read_h5(filenames.at("M0")[fieldmap_no], M0.data(), "/M", "float") == false)
+                return false;
         }
         else
         {   // all spins are aligned with B0 (M0 = (0, 0, 1))
@@ -215,13 +216,13 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         std::cout << "Saving the results to disk" << '\n';
         std::vector<size_t> dims = {3, param.n_TE, param.n_spins * device_count, param.n_sample_length_scales};
         std::string f = filenames.at("output")[fieldmap_no];
-        file_utils::save_h5(f, M1.data(), dims, "M1", "float");
+        file_utils::save_h5(f, M1.data(), dims, "M", "float");
         dims[1] = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
-        file_utils::save_h5(f, XYZ1.data(), dims, "XYZ1", "float");
+        file_utils::save_h5(f, XYZ1.data(), dims, "XYZ", "float");
         dims[0] = 1; dims[1] = param.n_TE;
         file_utils::save_h5(f, T.data(), dims, "T", "uint8_t");
         dims[0] = sample_length_scales.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
-        file_utils::save_h5(f, sample_length_scales.data(), dims, "sample_length_scales", "double");
+        file_utils::save_h5(f, sample_length_scales.data(), dims, "scales", "double");
         std::cout << std::string(50, '=') << std::endl;
     }
 
@@ -312,7 +313,7 @@ int main(int argc, char * argv[])
         simulation_parameters param;
         
         // ========== read config file ==========
-        bStatus &= file_utils::read_config(cfile, param, sample_length_scales, filenames);
+        bStatus &= file_utils::read_config(cfile, &param, sample_length_scales, filenames);
         
         if (param.seed == 0)
             param.seed = std::random_device{}();

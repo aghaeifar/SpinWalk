@@ -44,6 +44,7 @@ Several config files can be simulated sequentially:
 - A C++ compiler supprting C++ 17
 - CUDA driver (*nvidia-smi* and *nvcc --version* must run in terminal)
 - Boost libraries ([+](https://www.boost.org/))
+- HDF5 Library ([+](https://www.hdfgroup.org/downloads/hdf5))
 
 ## How to build
 ### Docker
@@ -58,7 +59,7 @@ Execute the **spinwalk** command, and you'll encounter the help menu along with 
 If you prefer to install the program without using Docker, follow these steps (in Ubuntu):
 
 ```
-sudo apt-get update && apt-get install -y libboost-all-dev
+sudo apt-get update && apt-get install -y libboost-all-dev libhdf5-dev
 git clone https://github.com/aghaeifar/SpinWalk.git
 cd SpinWalk
 cmake -B ./build
@@ -71,49 +72,77 @@ cmake --build ./build --config Release
 Configruation file is a text based [ini file](https://en.wikipedia.org/wiki/INI_file) used to provide simulation parameters for simulator. Simulator can accept more than one configuration to simulation several configurations. A configuration file can inherit from another configuration file to avoid writing repetitive simulation parmeters. All the possible parameters are provided in [config_default.ini](./config/config_default.ini). The units for magnetic field, time, angle, and length are defined as Tesla, seconds, degree, and meters, respectively.
 
 ## Input/Output file format
-Spinwalk processes three distinct input files and produces three output files. All files are stored on disk in binary raw format. Input files can be specified within the [FILES] section of the configuration file, while output files are stored in the output folder defined under the same [FILES] section in the configuration file.
+Spinwalk processes three distinct input files and produces a single output file. All files are stored on disk in _Hierarchical Data Format version 5_ ([HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format)) format. Reading and writing HDF5 file is natively supported by [MATLAB](https://www.mathworks.com/help/matlab/hdf5-files.html). Pythonic interface to work with HDF5 files is also avaialbe through [H5py](https://pypi.org/project/h5py/) package. Input files can be specified within the [FILES] section of the configuration file, while output filename is automatically generated and is stored in the output folder defined under the same [FILES] section in the configuration file.
 
 ### Inputs
 #### Fieldmap
 
-The simulation requires at least one fieldmap file. The fieldmap file comprises both an off-resonance map and a mask. The inclusion of the off-resonance map is optional. When the off-resonance map is not included, it is assumed to be zero. The off-resonance unit is Tesla and must be normalized to the static magnetic field where is intended to be used for simulation (i.e., fieldmap must be calculated for 1T). It will be internally scaled to the given B0 paramater in configuration file. The fieldmap file is stored in binary format and follows a specific structure:
+The simulation requires at least one fieldmap file. The fieldmap file comprises both an off-resonance map and a mask. The inclusion of the off-resonance map is optional. When the off-resonance map is not included, it is assumed to be zero. The off-resonance unit is Tesla and must be normalized to the static magnetic field where is intended to be used for simulation (i.e., fieldmap must be calculated for 1T). It will be internally scaled to the given B0 paramater in configuration file. The fieldmap file is stored in HDF5 format and includes following datasets:
 
-![](./doc/img/fieldmap_memory_layout.png)
+- `fov` : 3x1 single-precision floating-point array containing length/fov of 3D sample. Unit is meter. 
+- `mask` : 3D 8-bit unsigned integer array indicating tissue types. The values within the mask are utilized to distinguish between various tissue or object types. Each object type must have its own T1 and T2 values defined in the configuration files.
+- `fieldmap` : (optional) 3D single-precision floating-point array indicating off-resonance map. Unit is Tesla.
+  
+Size of mask and fieldmap must match.
 
-1. Size = 3 unsigned int (3*4 bytes in total) representing 3D volume size (e.g., 1024 x 1024 x 1024).
-2. Length = 3 single precision float (3*4 bytes in total) representing length in meter for each dimension (e.g., 0.001 x 0.001 x 0.001).
-3. Fieldmap = n single precision float (n*4 bytes in total) where n = product of **size** array elements. Field map is stored in [column-major order](https://en.wikipedia.org/wiki/Row-_and_column-major_order).
-4. Mask = n unsigned char (n bytes in total) where n = product of **size** array elements. Mask is stored in column-major order. The values within the mask are utilized to distinguish between various tissue or object types. Each object type must have its own T1 and T2 values defined in the configuration files.
+Example MATLAB script to write a fieldmap file can be like:
+```matlab
+filename = 'fieldmap.h5';
+h5create(filename, "/fov", size(fov), 'Datatype','single');
+h5write(filename, "/fov", fov);
+
+h5create(filename, "/mask", size(mask), 'Datatype','uint8');
+h5write(filename, "/mask", mask);
+
+if(isempty(fieldmap) == false)
+    h5create(filename, "/fieldmap", size(fieldmap), 'Datatype','single');
+    h5write(filename, "/fieldmap", fieldmap);
+end
+```
+
 
 Multiple fieldmap files can be defined in the configuration file. Spinwalk will simulate them sequentially.
 
-A MATLAB script is provided to write fieldmap file to disc. See [write_fieldmap.m](./MATLAB/write_fieldmap.m).
 
 #### M0 and XYZ0 [optional]
 
 M0 and XYZ0 are two additional inputs in configuration file which define starting magnization and initial spatial position of spins, respectively. These two are optional inputs, if not set or empty, spins will be positioned randomly with M0 = [0, 0, 1].
 
-binary file containing M0 or XYZ0 is of size *3 * number of spins* single precision float which are stored in the file with following pattern:
+M0 and XYZ0 are of size *3 * number of spins* and stored as single-precision floating-point array in HDF5 file. Example MATLAB script to write M0 and XYZ0 file can be like:
+
+```matlab
+filename = 'XYZ0.h5';
+h5create(filename, "/XYZ", size(XYZ0), 'Datatype','single');
+h5write(filename, "/XYZ", XYZ0);
+filename = 'M0.h5';
+h5create(filename, "/M", size(M0), 'Datatype','single');
+h5write(filename, "/M", M0);
+```
 
 ```
 x0 y0 z0 x1 y1 z1 x2 y2 z2 .... xn yn zn
 ```
 
-unit for spatial position is meter.
+unit for spatial position  in XYZ0 is meter.
 
 ### Outputs
 
-The simulator generates three outputs for each fieldmap input: 1) the magnetization of spins at echo time(s), 2) the tissue or object type where spins are located at the time of the echo, and 3) the spatial positions for either the entire random walk or just the final position. The paths to save outputs can be specified in the configuration file. These data are saved in a binary file using the following layout:
+The simulator generates a single output for each fieldmap input. The output contains: 
+- `M` : 4D single-precision floating-point array indicating the magnetization of spins at echo time(s). The dimentions are [xyz (3), echos, spins, scales]
+- `T` : 4D 8-bit unsigned integer array indicating the tissue or object type where spins are located at the time of the echo. The dimentions are [1, echos, spins, scales]
+- `XYZ` : 4D single-precision floating-point array indicating thethe spatial positions for either the entire random walk or just the final position. The dimentions are [xyz (3), steps, spins, scales]
+- `scales` : 1D double-precision floating-point array indicating scales used to scale the length/FoV of sample.
+  
+The paths to save outputs can be specified in the configuration file. the filename pattern is _seqname_fieldmap.h5_, where seqname and fieldmap are both defined by user in the configuration file.
 
-![](./doc/img/M1XYZ1_memory_layout.png)
+Example MATLAB script to read output file:
 
-1. header size = 1 unsigned int32 (4 bytes in total) representing header size in byte
-2. size = 4 unsigned int (4*4 bytes in total) representing 4D volume size. It is usualy 3 x number of spins x number of echoes x Number of vessel sizes
-3. additional info = header size - 16 bytes containing additional information. Here, e.g., different scales for vessel size
-4. M1 or XYZ1 = stored in column-major order
-
-A MATLAB script is provided to read output files. See [read_spinwalk.m](./MATLAB/read_spinwalk.m).
-
+```matlab
+filename = 'output.h5';
+M1 = h5read(filename, '/M');
+scales = h5read(filename, '/scales');
+T = h5read(filename, '/T');  
+```
 ## Literature
 
 There are many nice papers published about simulation of BOLD signal in vessels network. A few are listed here for reference:
