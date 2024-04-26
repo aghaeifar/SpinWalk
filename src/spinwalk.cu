@@ -47,19 +47,19 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     size_t len1 = len0 * param.n_sample_length_scales * trj;
     size_t len2 = len0 * param.n_sample_length_scales * param.n_TE;
     BOOST_LOG_TRIVIAL(info) << "Memory size: XYZ0=" << len0 << ", XYZ1=" << len1 << ", M0=" << len0 << ", M1=" << len2 << "";
-    std::vector<float> fieldmap(param.fieldmap_exist?param.matrix_length:0, 0.f);
-    std::vector<uint8_t> mask(param.matrix_length, 0);
-    std::vector<float> XYZ0(len0, 0.f);     // memory layout(column-wise): [3 x n_spins]
-    std::vector<float> XYZ1(len1, 0.f);     // memory layout(column-wise): [3 x timepoints x n_spins x n_sample_length_scales] or [3 x 1 x n_spins x n_sample_length_scales]
-    std::vector<float> M0(len0, 0.f);       // memory layout(column-wise): [3 x n_spins]
-    std::vector<float> M1(len2, 0.f);       // memory layout(column-wise): [3 x n_TE x n_spins x n_sample_length_scales]
-    std::vector<uint8_t> T(M1.size()/3, 0); // memory layout(column-wise): [1 x n_TE x n_spins x n_sample_length_scales]
+    std::vector<float>      fieldmap(param.fieldmap_exist?param.matrix_length:0, 0.f);
+    std::vector<uint8_t>    mask(param.matrix_length, 0);
+    std::vector<float>      XYZ0(len0, 0.f);     // memory layout(column-wise): [3 x n_spins]
+    std::vector<float>      XYZ1(len1, 0.f);     // memory layout(column-wise): [3 x timepoints x n_spins x n_sample_length_scales] or [3 x 1 x n_spins x n_sample_length_scales]
+    std::vector<float>      M0(len0, 0.f);       // memory layout(column-wise): [3 x n_spins]
+    std::vector<float>      M1(len2, 0.f);       // memory layout(column-wise): [3 x n_TE x n_spins x n_sample_length_scales]
+    std::vector<uint8_t>    T(M1.size()/3, 0);   // memory layout(column-wise): [1 x n_TE x n_spins x n_sample_length_scales]
     BOOST_LOG_TRIVIAL(info) << "Memory allocation (CPU) took " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - st).count() << " ms";
     
     // ========== allocate memory on GPU ==========
-    std::vector<float *> d_pFieldMap(device_count, nullptr);
-    std::vector<float *> d_M0(device_count, nullptr), d_M1(device_count, nullptr);
-    std::vector<float *> d_XYZ1(device_count, nullptr), d_XYZ0(device_count, nullptr), d_XYZ0_scaled(device_count, nullptr);
+    std::vector<float *>    d_pFieldMap(device_count, nullptr);
+    std::vector<float *>    d_M0(device_count, nullptr), d_M1(device_count, nullptr);
+    std::vector<float *>    d_XYZ1(device_count, nullptr), d_XYZ0(device_count, nullptr), d_XYZ0_scaled(device_count, nullptr);
     std::vector<uint8_t *>  d_T(device_count, nullptr);
     std::vector<uint8_t *>  d_pMask(device_count, nullptr);
     std::vector<simulation_parameters *> d_param(device_count, nullptr);
@@ -77,7 +77,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         checkCudaErrors(cudaMalloc((void**)&d_XYZ1[d],          sizeof(XYZ1[0]) * XYZ1.size() / device_count / param.n_sample_length_scales));
         checkCudaErrors(cudaMalloc((void**)&d_M0[d],            sizeof(M0[0]) * M0.size() / device_count));
         checkCudaErrors(cudaMalloc((void**)&d_M1[d],            sizeof(M1[0]) * M1.size() / device_count / param.n_sample_length_scales));
-        checkCudaErrors(cudaMalloc((void**)&d_T[d],             sizeof(T[0]) * T.size() / device_count / param.n_sample_length_scales));
+        checkCudaErrors(cudaMalloc((void**)&d_T[d],             sizeof(T[0])  * T.size()  / device_count / param.n_sample_length_scales));
         checkCudaErrors(cudaMalloc((void**)&d_pMask[d],         sizeof(mask[0]) * mask.size())); 
         if(param.fieldmap_exist)
             checkCudaErrors(cudaMalloc((void**)&d_pFieldMap[d], sizeof(fieldmap[0]) * fieldmap.size())); 
@@ -214,15 +214,20 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
 
         // ========== save results ========== 
         std::cout << "Saving the results to disk" << '\n';
-        std::vector<size_t> dims = {3, param.n_TE, param.n_spins * device_count, param.n_sample_length_scales};
         std::string f = filenames.at("output")[fieldmap_no];
+        
+        std::vector<size_t> dims = {3, param.n_TE, param.n_spins * device_count, param.n_sample_length_scales};
         file_utils::save_h5(f, M1.data(), dims, "M", "float");
+
         dims[1] = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
         file_utils::save_h5(f, XYZ1.data(), dims, "XYZ", "float");
+
         dims[0] = 1; dims[1] = param.n_TE;
         file_utils::save_h5(f, T.data(), dims, "T", "uint8_t");
+
         dims[0] = sample_length_scales.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
         file_utils::save_h5(f, sample_length_scales.data(), dims, "scales", "double");
+
         std::cout << std::string(50, '=') << std::endl;
     }
 

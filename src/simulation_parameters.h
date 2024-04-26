@@ -54,7 +54,7 @@ typedef struct simulation_parameters
     int64_t matrix_length;
     bool enDebug, enCrossFOV, enRecordTrajectory, enProfiling;
     bool fieldmap_exist, mask_exist;
-    double std, std_scale, diffusion_const;
+    double rand_scale, diffusion_const;
     simulation_parameters():
         TR(0.04),
         dt(5e-5),
@@ -75,8 +75,7 @@ typedef struct simulation_parameters
         fieldmap_exist(true),
         mask_exist(true),
         enProfiling(false),
-        std(sqrt(6. * 1e-9 * 50e-6)),
-        std_scale(1.)
+        rand_scale(sqrt(6. * 1e-9 * 50e-6))
     {
         memset(fieldmap_size, 0, 3*sizeof(fieldmap_size[0])); 
         memset(sample_length, 0, 3*sizeof(sample_length[0]));
@@ -115,8 +114,7 @@ typedef struct simulation_parameters
         ss<<"fieldmap size   = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
         ss<<"matrix length   = "<< matrix_length << '\n';
         ss<<"diffusion const = "<< diffusion_const<<'\n';
-        ss<<"std             = "<< std<<'\n';
-        ss<<"std scale       = "<< std_scale<<'\n';
+        ss<<"rand_scale      = "<< rand_scale<<'\n';
         ss<<"dummy scans     = "<< n_dummy_scan<<'\n';
         ss<<"spins           = "<< n_spins<<'\n';
         ss<<"samples scales  = "<< n_sample_length_scales<<'\n';
@@ -175,10 +173,7 @@ typedef struct simulation_parameters
         matrix_length = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2];
         n_timepoints = TR / dt;
 
-        std = sqrt(6. * diffusion_const * dt);
-        while(std / std_scale < 1.0)
-            std_scale /= 2.0;
-
+        rand_scale = sqrt(2. * diffusion_const * dt);
         if (n_dummy_scan < 0)
             n_dummy_scan = 5.0 * T1[0] / TR;
 

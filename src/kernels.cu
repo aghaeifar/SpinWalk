@@ -46,7 +46,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     float *xyz1 = XYZ1 + 3*spin_no * (param->enRecordTrajectory ? (param->n_dummy_scan + 1)*(param->n_timepoints) : 1);
     thrust::minstd_rand gen_r(param->seed + spin_no);
     thrust::minstd_rand gen_u(param->seed + spin_no);
-    thrust::normal_distribution<float> dist_random_walk_xyz(0., param->std / param->std_scale);
+    thrust::normal_distribution<float> dist_random_walk_xyz(0.f, 1.0f);
     // thrust::uniform_real_distribution<float> dist_random_walk_xyz(-sqrt(6 * param->diffusion_const * param->dt), sqrt(6 * param->diffusion_const * param->dt));
     thrust::uniform_real_distribution<float> dist_cross_tissue(0.f, 1.f);
     gen_r.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
@@ -93,7 +93,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             double rnd_wlk;
             for (uint8_t i=0; i<3; i++)
             {
-                rnd_wlk = dist_random_walk_xyz(gen_r) * param->std_scale;
+                rnd_wlk = dist_random_walk_xyz(gen_r) * param->rand_scale;
                 xyz_new[i] = xyz_old[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)
                     xyz_new[i] += (param->enCrossFOV ? param->sample_length[i] : 2*ABS(rnd_wlk)); // rnd_wlk is negative here
