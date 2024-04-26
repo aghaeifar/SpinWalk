@@ -19,6 +19,7 @@ tissue_type = 0; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
 signal_magnitude = cell(numel(fname), numel(fname{1}));
 for seq = 1:numel(fname)   
     for i=1:numel(fname{seq})
+        fname{seq}{i}
         m1 = h5read(fname{seq}{i}, '/M');
         scales = h5read(fname{seq}{i}, '/scales');
         T = h5read(fname{seq}{i}, '/T');  
@@ -142,54 +143,50 @@ hold off
 % nonzeros(xyz_all)
 
 %% diffusion
-clear
 clc
+clear
 
-fieldmap = '../../field_maps/restricted_diffusion_model.dat';
-% [fieldmap, mask, fov] = read_fieldmap(fieldmap);
+folder = '../../outputs/dwi';
+base = 'dwi_base_restricted_diffusion_model_sphere.h5';
 
-fname{1} = '../../outputs/dwi_base_m1_restricted_diffusion_model.dat';
-fname{2} = '../../outputs/dwi_x_m1_restricted_diffusion_model.dat';
-fname{3} = '../../outputs/dwi_y_m1_restricted_diffusion_model.dat';
-fname{4} = '../../outputs/dwi_z_m1_restricted_diffusion_model.dat';
+b = 100:100:5000;
 
-file_T{1} = '../../outputs/dwi_base_T_restricted_diffusion_model.dat';
-file_T{2} = '../../outputs/dwi_x_T_restricted_diffusion_model.dat';
-file_T{3} = '../../outputs/dwi_y_T_restricted_diffusion_model.dat';
-file_T{4} = '../../outputs/dwi_z_T_restricted_diffusion_model.dat';
-
-file_xyz1{1} = '../../outputs/dwi_base_xyz1_restricted_diffusion_model.dat';
-file_xyz1{2} = '../../outputs/dwi_x_xyz1_restricted_diffusion_model.dat';
-file_xyz1{3} = '../../outputs/dwi_y_xyz1_restricted_diffusion_model.dat';
-file_xyz1{4} = '../../outputs/dwi_z_xyz1_restricted_diffusion_model.dat';
-
-tissue_type = 0; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
-
-s = zeros(numel(fname), 1);
-for i=1:numel(fname)
-    m1 = read_spinwalk(fname{i});
-    T = read_spinwalk(file_T{i}); 
-    ind = ismember(T(1,end,:,1), tissue_type);
-    mxyz_f = m1(:,end,ind(:),1);
-    s(i)  = abs(complex(sum(mxyz_f(1,:)), sum(mxyz_f(2,:))));
+m1 = h5read(fullfile(folder, base), '/M'); 
+s0 = abs(complex(sum(m1(1,:)), sum(m1(2,:))));
+s_dwi  = zeros(numel(b), 1);
+for i=1:numel(b) 
+    f = fullfile(folder, ['dwi_x_' num2str(b(i)) '_restricted_diffusion_model_sphere.h5' ]);
+    m1 = h5read(f, '/M'); 
+    s_dwi(i) = abs(complex(sum(m1(1,:)), sum(m1(2,:))));
 end
-s
+s = [s0; s_dwi];
+b = [0, b];
 
+[xData, yData] = prepareCurveData( double(b(:)), double(s(:)) );
 
-T = read_spinwalk(file_T{1}); 
-ind = ismember(T(1,end,:,1), tissue_type);
-xyz_all = read_spinwalk(file_xyz1{1});
-xyz_all = xyz_all(:,:,ind(:),1);
+% Set up fittype and options.
+ft = fittype( 'exp1' );
+opts = fitoptions( 'Method', 'NonlinearLeastSquares' );
+opts.Algorithm = 'Levenberg-Marquardt';
+opts.DiffMinChange = 1e-09;
+opts.Display = 'Off';
+opts.MaxFunEvals = 6000;
+opts.MaxIter = 4000;
+opts.StartPoint = [988912.916299669 -0.000461964926600495];
+opts.TolFun = 1e-09;
+opts.TolX = 1e-09;
 
-n_spins = size(xyz_all, 3);
-scale = 1e6;
-for sp=round(linspace(1, n_spins, 30))
-    xyz = xyz_all(:,:,sp,1) * scale;
-    plot3(xyz(1,:), xyz(2,:), xyz(3,:))
-    hold on;
-end
-hold off
+% Fit model to data.
+[fitresult, gof] = fit( xData, yData, ft, opts );
 
+% Plot fit with data.
+h = plot( fitresult, xData, yData );
+legend( h, 's vs. b', 'dwi', 'Location', 'NorthEast', 'Interpreter', 'none' );
+% Label axes
+xlabel( 'b', 'Interpreter', 'none' );
+ylabel( 's', 'Interpreter', 'none' );
+grid on
+disp(['Diff. Const = ' num2str(abs(fitresult.b) * 1e-6) ' m/s']);
 %%
 clear
 clc
