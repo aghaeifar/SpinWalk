@@ -11,7 +11,6 @@
 // compile(win) :  nvcc ./src/spinwalk.cu ./src/kernels.cu -I ./include/ -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler /openmp -std=c++17 -o spinwalk
 
 #include <chrono>
-#include <random>
 #include <iomanip>
 #include <filesystem>
 #include <cuda_runtime.h>
@@ -289,8 +288,9 @@ int main(int argc, char * argv[])
     std::vector<std::string> unreg = boost::program_options::collect_unrecognized(parsed.options, boost::program_options::include_positional);
     boost::program_options::notify(vm);
 
-    bl::add_file_log(bl::keywords::file_name=LOG_FILE, bl::keywords::target_file_name = LOG_FILE, bl::keywords::format = "[%TimeStamp%] [%Severity%]: %Message%", bl::keywords::auto_flush = true);
+    auto fileSink = bl::add_file_log(bl::keywords::file_name=LOG_FILE, bl::keywords::target_file_name = LOG_FILE, bl::keywords::format = "[%TimeStamp%] [%Severity%]: %Message%", bl::keywords::auto_flush = true);
     bl::add_common_attributes();
+    std::cout << "Log file location: " << std::filesystem::current_path() / LOG_FILE << '\n';
     
     // ========== print help ==========
     if (vm.count("help") || vm.count("configs") == 0 || argc == 1 || unreg.size() > 0)
@@ -304,7 +304,7 @@ int main(int argc, char * argv[])
     bool bNoSim = vm.count("sim_off") > 0;
 
     // ========== loop over configs and simulate ==========
-    std::cout << "Running simulation for " << config_files.size() << " config(s)..." << std::endl;
+    std::cout << "Running simulation for " << config_files.size() << " config(s)..." << '\n';
     auto start = std::chrono::steady_clock::now();
     for(const auto& cfile : config_files)
     {
@@ -319,12 +319,7 @@ int main(int argc, char * argv[])
         
         // ========== read config file ==========
         bStatus &= file_utils::read_config(cfile, &param, sample_length_scales, filenames);
-        
-        if (param.seed == 0)
-            param.seed = std::random_device{}();
-
-        param.n_timepoints = param.TR / param.dt; // includes start point
-        
+            
         // ========== dump settings ==========
         bStatus &= dump_settings(param, filenames, sample_length_scales);
 

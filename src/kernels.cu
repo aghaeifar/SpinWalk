@@ -82,11 +82,12 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
         for(uint8_t i=0; i<3; i++) // copy m1 to m0
             m0[i] = m1[i];
 
-        // ------ loop over timepoints ------
+        // define and reset all counters
         int64_t ind=0, ind_old=param->matrix_length+1;
         uint32_t current_timepoint = 0, old_timepoint = 0;
         uint16_t current_rf = 1, current_te = 0, counter_dephasing = 0, counter_gradient = 0;
         float accumulated_phase = 0.f;        
+        // ------ loop over timepoints ------
         while (current_timepoint < param->n_timepoints) // param->n_timepoints is the total number of timepoints (= TR/dwelltime)
         {
             // ------ generate random walks and wrap around the boundries ------
@@ -132,8 +133,8 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 T2 = param->T2[ind];
             }     
             accumulated_phase += field;
-         
-            // ------ apply dephasing if there is any ------
+
+            // ------ apply ideal dephasing if there is any ------
             if(counter_dephasing < param->n_dephasing && param->dephasing_T[counter_dephasing] == current_timepoint)
             {
                 accumulated_phase += (float)spin_no * param->dephasing[counter_dephasing] / (float)param->n_spins; // assign dephasing linearly to spins 
@@ -147,7 +148,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 accumulated_phase +=  (Gxyz[0]*xyz_new[0] + Gxyz[1]*xyz_new[1] + Gxyz[2]*xyz_new[2]) * param->dt*GAMMA*RAD2DEG; //  Gx * x + Gy * y + Gz * z
                 counter_gradient++;
             }
-                 
+                
             // ------ apply other RF pulse if there is any ------
             if(current_rf < param->n_RF && param->RF_ST[current_rf] == current_timepoint)
             {

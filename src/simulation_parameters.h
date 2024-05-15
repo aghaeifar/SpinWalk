@@ -10,7 +10,7 @@
 #ifndef __SIMULATION_PARAMETERS_H__
 #define __SIMULATION_PARAMETERS_H__
 
-
+#include <random>
 #include <algorithm>
 #include <stdint.h>
 #include <iostream>
@@ -33,12 +33,12 @@
 #define MAX_TE 256          // maximum number of echo times
 #define MAX_T12 256         // maximum number of relaxation times
 #define MAX_DEPHASE 256     // maximum number of dephasing
-#define MAX_GRADIENT 256    // maximum number of gradient
+#define MAX_GRADIENT 2048   // maximum number of gradient
 #define MAX_TISSUE_TYPE 8   // maximum number of tissue types
 
 typedef struct simulation_parameters
 {
-    float B0, c, s, c2, s2;
+    float B0, c, s;
     float T1[MAX_T12], T2[MAX_T12];
     float RF_FA[MAX_RF], RF_PH[MAX_RF]; // refocusing FA
     float dephasing[MAX_DEPHASE]; // dephasing in degree
@@ -146,7 +146,6 @@ typedef struct simulation_parameters
         data_size_MB += fieldmap_exist ? (matrix_length * sizeof(float) / B2MB) : 0;
         // mask
         data_size_MB += mask_exist ? (matrix_length * sizeof(uint8_t) / B2MB) : 0;
-        
         // variables (M0, XYZ0, XYZ0_scaled, XYZ1, M1)
         size_t variables_size_B = 0;
         // M0
@@ -168,10 +167,14 @@ typedef struct simulation_parameters
 
     bool prepare()
     {
-        c = cosf(RF_FA[0] * DEG2RAD); c2 = cosf(RF_FA[0] * DEG2RAD / 2.0f); 
-        s = sinf(RF_FA[0] * DEG2RAD); s2 = sinf(RF_FA[0] * DEG2RAD / 2.0f);
+        c = cosf(RF_FA[0] * DEG2RAD); 
+        s = sinf(RF_FA[0] * DEG2RAD); 
         matrix_length = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2];
         n_timepoints = TR / dt;
+        TE[n_TE++] = n_timepoints - 1; // add the last timepoint
+
+        if (seed == 0)
+            seed = std::random_device{}();
 
         rand_scale = sqrt(2. * diffusion_const * dt);
         if (n_dummy_scan < 0)
@@ -184,8 +187,7 @@ typedef struct simulation_parameters
         }
         if (fieldmap_exist == false)
         {
-            BOOST_LOG_TRIVIAL(warning) << "Off-resonance map is not provided";
-            BOOST_LOG_TRIVIAL(warning) << "Simulation will be performed with a perfect homogeneous field.";
+            BOOST_LOG_TRIVIAL(warning) << "Off-resonance map is not provided. Simulation will be performed with a perfect homogeneous field.";
         }
         return true;
     }

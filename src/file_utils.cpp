@@ -25,7 +25,7 @@ uint8_t find_max(const std::vector<uint8_t> &data);
 //---------------------------------------------------------------------------------------------
 std::filesystem::path output_dir("./output");
 
-bool file_utils::read_config(std::string config_filename, simulation_parameters *param, std::vector<double>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames)
+bool file_utils::read_config(std::string config_filename, simulation_parameters *param, std::vector<double>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames, bool isParentConfig)
 {
     std::stringstream ss;
     if (std::filesystem::exists(config_filename) == false)
@@ -49,8 +49,10 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
                 std::filesystem::path parent_path = std::filesystem::absolute(config_filename).parent_path();
                 parent_config = parent_path / parent_config;
             }
-            if (read_config(parent_config.string(), param, sample_length_scales, filenames) == false)
+            if (read_config(parent_config.string(), param, sample_length_scales, filenames, true) == false)
                 return false;
+
+        BOOST_LOG_TRIVIAL(info) << "Back to reading config: " << config_filename;
         }
     }
 
@@ -111,9 +113,10 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     // ---------------- Echo times ----------------       
     for(i=0; i<MAX_TE && pt.get("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", -1.f) != -1.f; i++)        
         param->TE[i] = pt.get<double>("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", 0.) / param->dt;
-    param->n_TE = i==0?param->n_TE:i;
+      
+    param->n_TE = (i==0?param->n_TE:i);
     // check TE conditions
-    if (std::is_sorted(param->TE, param->TE + i) == false || std::adjacent_find(param->TE, param->TE + i) != param->TE + i || param->TE[0] < 0 || param->n_TE == 0)
+    if (std::is_sorted(param->TE, param->TE + param->n_TE) == false || std::adjacent_find(param->TE, param->TE + param->n_TE) != param->TE + param->n_TE || param->TE[0] < 0 || param->n_TE == 0)
     {
         ss.str(""); std::copy(param->TE, param->TE + param->n_TE, std::ostream_iterator<int>(ss, " "));
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "TE must be in ascending order and must not have duplicates or negative values: " << ss.str();
@@ -241,7 +244,10 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
             ss >> param->pXY[j+i*param->n_tissue_type];
     
     // ============== prep ==============
-    return param->prepare(); 
+    if(isParentConfig == false)
+        return param->prepare(); 
+    else
+        return true;
 }
 
 
@@ -306,7 +312,7 @@ std::vector<size_t> file_utils::get_size_h5(std::string input_filename, std::str
     HighFive::File file(input_filename, HighFive::File::ReadOnly);
     if (file.exist(dataset_name) == false)
     {
-        BOOST_LOG_TRIVIAL(error) << "dataset \"" << dataset_name << "\" does not exist in " << input_filename;
+        BOOST_LOG_TRIVIAL(warning) << "dataset \"" << dataset_name << "\" does not exist in " << input_filename;
         return dims;
     }
     

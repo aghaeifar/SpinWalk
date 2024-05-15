@@ -34,7 +34,7 @@ namespace file_utils
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
-bool read_config(std::string config_filename, simulation_parameters *param, std::vector<double>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames);
+bool read_config(std::string config_filename, simulation_parameters *param, std::vector<double>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames, bool isParentConfig = false);
 
 //---------------------------------------------------------------------------------------------
 //  
