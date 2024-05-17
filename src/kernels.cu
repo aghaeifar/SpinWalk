@@ -56,6 +56,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     float field = 0., T1=0., T2=0., rf_phase = param->RF_PH[0], time_elapsed = 0.; 
     float m0[3], m1[3]; 
     double xyz_old[3], xyz_new[3];
+    
     for(uint32_t i=0, shift=3*spin_no; i<3; i++)
     {
         xyz_old[i] = xyz_new[i] = xyz1[i] = XYZ0[shift + i];
@@ -65,6 +66,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     uint8_t ts, ts_old;
     auto indx = sub2ind(xyz1[0]*param->scale2grid[0], xyz1[1]*param->scale2grid[1], xyz1[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1]);
     ts_old = pMask[indx];
+    double diffusivity_scale = param->diffusivity[ts_old];
 
     bool is_lastscan = false;
     for (uint32_t dummy_scan = 0; dummy_scan < param->n_dummy_scan + 1; dummy_scan++)
@@ -94,7 +96,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             double rnd_wlk;
             for (uint8_t i=0; i<3; i++)
             {
-                rnd_wlk = dist_random_walk_xyz(gen_r) * param->rand_scale;
+                rnd_wlk = dist_random_walk_xyz(gen_r) * diffusivity_scale;
                 xyz_new[i] = xyz_old[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)
                     xyz_new[i] += (param->enCrossFOV ? param->sample_length[i] : 2*ABS(rnd_wlk)); // rnd_wlk is negative here
@@ -131,6 +133,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 ind = pMask[ind]; // the index of the tissue type
                 T1 = param->T1[ind];
                 T2 = param->T2[ind];
+                diffusivity_scale = param->diffusivity[ind];
             }     
             accumulated_phase += field;
 

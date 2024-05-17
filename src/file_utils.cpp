@@ -209,7 +209,6 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     param->enCrossFOV            = pt.get("SIMULATION_PARAMETERS.CROSS_FOV", param->enCrossFOV);
     param->enRecordTrajectory    = pt.get("SIMULATION_PARAMETERS.RECORD_TRAJECTORY", param->enRecordTrajectory);
     param->enProfiling           = pt.get("SIMULATION_PARAMETERS.PROFILING", param->enProfiling);
-    param->diffusion_const       = pt.get("SIMULATION_PARAMETERS.DIFFUSION_CONSTANT", param->diffusion_const);
     param->max_iterations        = pt.get<float>("SIMULATION_PARAMETERS.MAX_ITERATIONS", param->max_iterations);
 
     std::vector<double> sls;
@@ -221,16 +220,24 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     param->n_sample_length_scales = sample_length_scales.size();
 
     // ============== reading section TISSUE_PARAMETERS ==============
+    // Diffusivity
+    for(i=0; i<MAX_TISSUE_TYPE && pt.get_child_optional("TISSUE_PARAMETERS.DIFFUSIVITY[" + std::to_string(i) + "]"); i++)  
+        param->diffusivity[i] = pt.get<double>("TISSUE_PARAMETERS.DIFFUSIVITY[" + std::to_string(i) + "]", param->diffusivity[i]);
+    param->n_tissue_type = i==0?param->n_tissue_type:i;
     // T1 & T2
-    for(i=0; i<MAX_T12 && pt.get_child_optional("TISSUE_PARAMETERS.T1[" + std::to_string(i) + "]"); i++)  
+    for(i=0; i<param->n_tissue_type && pt.get_child_optional("TISSUE_PARAMETERS.T1[" + std::to_string(i) + "]"); i++)  
         param->T1[i] = pt.get("TISSUE_PARAMETERS.T1[" + std::to_string(i) + "]", 10000.f);
-    param->n_T12 = i==0?param->n_T12:i;
-    for(j=0; j<i && pt.get_child_optional("TISSUE_PARAMETERS.T2[" + std::to_string(j) + "]"); j++)  
-        param->T2[j] = pt.get("TISSUE_PARAMETERS.T2[" + std::to_string(j) + "]", 10000.f);
-
-    if(j != i && j!=param->n_T12)
+    if (i != 0 && i != param->n_tissue_type)
     {
-        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "T1 and T2 must have the same number of elements (" << j << " vs " << param->n_T12 << ")";
+        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "T1 and diffusivity must have the same number of elements (" << i << " vs " << param->n_tissue_type << ")";
+        return false;
+    }
+
+    for(i=0; i<param->n_tissue_type && pt.get_child_optional("TISSUE_PARAMETERS.T2[" + std::to_string(i) + "]"); i++)  
+        param->T2[i] = pt.get("TISSUE_PARAMETERS.T2[" + std::to_string(i) + "]", 10000.f);
+    if (i != 0 && i != param->n_tissue_type)
+    {
+        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "T2 and diffusivity must have the same number of elements (" << i << " vs " << param->n_tissue_type << ")";
         return false;
     }
 
@@ -238,7 +245,11 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     ss.str("");
     for(i=0; i<MAX_TISSUE_TYPE && pt.get<std::string>("TISSUE_PARAMETERS.P_XY[" + std::to_string(i) + "]", std::string("?")) != "?"; i++)
         ss << pt.get<std::string>("TISSUE_PARAMETERS.P_XY[" + std::to_string(i) + "]") << " ";
-    param->n_tissue_type = i==0?param->n_tissue_type:i;
+    if (i != 0 && i != param->n_tissue_type)
+    {
+        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "P_XY must have " << param->n_tissue_type << " rows (and columns) but has " << i << " rows";
+        return false;
+    }
     for(i=0; i<param->n_tissue_type; i++)
         for(j=0; j<param->n_tissue_type; j++)
             ss >> param->pXY[j+i*param->n_tissue_type];

@@ -31,7 +31,6 @@
 #define ROUND(x) ((long)((x)+0.5))
 #define MAX_RF 256          // maximum number of RF
 #define MAX_TE 256          // maximum number of echo times
-#define MAX_T12 256         // maximum number of relaxation times
 #define MAX_DEPHASE 256     // maximum number of dephasing
 #define MAX_GRADIENT 2048   // maximum number of gradient
 #define MAX_TISSUE_TYPE 8   // maximum number of tissue types
@@ -39,7 +38,7 @@
 typedef struct simulation_parameters
 {
     float B0, c, s;
-    float T1[MAX_T12], T2[MAX_T12];
+    float T1[MAX_TISSUE_TYPE], T2[MAX_TISSUE_TYPE];
     float RF_FA[MAX_RF], RF_PH[MAX_RF]; // refocusing FA
     float dephasing[MAX_DEPHASE]; // dephasing in degree
     float gradient_xyz[3*MAX_GRADIENT]; // gradient in T/m
@@ -47,35 +46,32 @@ typedef struct simulation_parameters
     uint32_t RF_ST[MAX_RF], TE[MAX_TE], dephasing_T[MAX_DEPHASE], gradient_T[MAX_GRADIENT]; // refocusing time in dt, echo times in dt, dephasing time in dt
     double sample_length[3], scale2grid[3], TR, dt;
     float phase_cycling;
-    uint32_t n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient, n_T12;
+    uint32_t n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient;
     int32_t n_dummy_scan ;
     uint32_t n_tissue_type;
     uint32_t n_spins, fieldmap_size[3], seed, max_iterations;
     int64_t matrix_length;
     bool enDebug, enCrossFOV, enRecordTrajectory, enProfiling;
     bool fieldmap_exist, mask_exist;
-    double rand_scale, diffusion_const;
+    double diffusivity[MAX_TISSUE_TYPE];
     simulation_parameters():
         TR(0.04),
         dt(5e-5),
         B0(9.4),
         n_TE(0),
         n_RF(0),
-        n_T12(0),
         n_dephasing(0),
         n_gradient(0),
         n_dummy_scan(0),
         n_tissue_type(0),
         max_iterations(9999),
-        diffusion_const(1.2e-9),
         phase_cycling(0.),
         enDebug(false),
         enCrossFOV(true),
         enRecordTrajectory(false),
         fieldmap_exist(true),
         mask_exist(true),
-        enProfiling(false),
-        rand_scale(sqrt(6. * 1e-9 * 50e-6))
+        enProfiling(false)
     {
         memset(fieldmap_size, 0, 3*sizeof(fieldmap_size[0])); 
         memset(sample_length, 0, 3*sizeof(sample_length[0]));
@@ -89,8 +85,9 @@ typedef struct simulation_parameters
         memset(gradient_T, 0, MAX_GRADIENT*sizeof(gradient_T[0]));
 
         std::fill(pXY, pXY + MAX_TISSUE_TYPE*MAX_TISSUE_TYPE, 1.f);
-        std::fill(T1, T1 + MAX_T12, 2.2);
-        std::fill(T2, T2 + MAX_T12, 0.04);
+        std::fill(diffusivity, diffusivity + MAX_TISSUE_TYPE, 1.0e-9);
+        std::fill(T1, T1 + MAX_TISSUE_TYPE, 2.2);
+        std::fill(T2, T2 + MAX_TISSUE_TYPE, 0.04);
     }
 
     std::string dump()
@@ -99,9 +96,11 @@ typedef struct simulation_parameters
         ss<<"B0 = "<<B0<<" T\n";
         ss<<"dt = "<<dt<<" sec.\n";
         ss<<"TR = "<<TR<<" sec.\n";
-        ss<<"T1 = "; for(int i=0; i<n_T12; i++) ss<<T1[i]<<' '; ss<<"sec.\n";
-        ss<<"T2 = "; for(int i=0; i<n_T12; i++) ss<<T2[i]<<' '; ss<<"sec.\n";
         ss<<"TE = "; for(int i=0; i<n_TE; i++) ss<<TE[i]*dt<<' '; ss<<"sec.\n";
+        ss<<"T2 = "; for(int i=0; i<n_tissue_type; i++) ss<<T2[i]<<' '; ss<<"sec.\n";
+        ss<<"T1 = "; for(int i=0; i<n_tissue_type; i++) ss<<T1[i]<<' '; ss<<"sec.\n";
+        ss<<"diffusivity = "; for(int i=0; i<n_tissue_type; i++) ss<<diffusivity[i]<<' '; ss<<"\n";
+        ss<<"Cross Tissue Probability =\n"; for(int i=0; i<n_tissue_type; i++) {for(int j=0; j<n_tissue_type; j++) ss<<pXY[j+i*n_tissue_type]<<' '; ss<<'\n';};
 
         ss<<"RF flip-angle   = "; for(int i=0; i<n_RF; i++) ss<<RF_FA[i]<<' '; ss<<'\n';
         ss<<"RF phase        = "; for(int i=0; i<n_RF; i++) ss<<RF_PH[i]<<' '; ss<<'\n';
@@ -113,8 +112,6 @@ typedef struct simulation_parameters
         ss<<"scale2grid      = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
         ss<<"fieldmap size   = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
         ss<<"matrix length   = "<< matrix_length << '\n';
-        ss<<"diffusion const = "<< diffusion_const<<'\n';
-        ss<<"rand_scale      = "<< rand_scale<<'\n';
         ss<<"dummy scans     = "<< n_dummy_scan<<'\n';
         ss<<"spins           = "<< n_spins<<'\n';
         ss<<"samples scales  = "<< n_sample_length_scales<<'\n';
@@ -128,8 +125,7 @@ typedef struct simulation_parameters
         ss<<"mask exists     = "<< mask_exist<<'\n';
         ss<<"off-resonance exists   = "<< fieldmap_exist<<'\n';
         ss<<"gradient (x,y,z) T/m   =\n"; for(int i=0; i<n_gradient; i++) ss<<gradient_xyz[3*i+0]<<' '<<gradient_xyz[3*i+1]<<' '<<gradient_xyz[3*i+2]<<'\n';
-        ss<<"Cross Tissue Probability =\n"; for(int i=0; i<n_tissue_type; i++) {for(int j=0; j<n_tissue_type; j++) ss<<pXY[j+i*n_tissue_type]<<' '; ss<<'\n';};
-        ss<<"Record Trajectory      = " << enRecordTrajectory << '\n';
+        ss<<"Record Trajectory      = "<< enRecordTrajectory << '\n';
         ss<<"Required CPU memory    = "<<get_required_memory(1, "cpu")<<" MB\n";
         ss<<"Required GPU memory    = "<<get_required_memory(1, "gpu")<<" MB\n";
 
@@ -176,7 +172,9 @@ typedef struct simulation_parameters
         if (seed == 0)
             seed = std::random_device{}();
 
-        rand_scale = sqrt(2. * diffusion_const * dt);
+        for (int i = 0; i < n_tissue_type; i++)
+            diffusivity[i] = sqrt(2. * diffusivity[i] * dt); 
+
         if (n_dummy_scan < 0)
             n_dummy_scan = 5.0 * T1[0] / TR;
 
