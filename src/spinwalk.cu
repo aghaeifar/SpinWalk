@@ -18,7 +18,8 @@
 #include "helper.cuh"
 #include "kernels.cuh"
 #include "file_utils.h"
-#include "cylinder.cuh"
+#include "shapes/cylinder.cuh"
+#include "shapes/sphere.cuh"
 #include "helper_cuda.h"
 #include <boost/program_options.hpp>
 #include <boost/log/trivial.hpp>
@@ -330,8 +331,8 @@ int main(int argc, char * argv[])
     }
     if (vm.count("sphere"))
     {
-        cylinder cyl(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_num_shape, phantom_orientation, phantom_output);
-        cyl.run();
+        sphere sph(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_num_shape, phantom_output);
+        sph.run();
     }
 
     // ========== loop over configs and simulate ==========
