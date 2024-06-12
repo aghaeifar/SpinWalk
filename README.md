@@ -69,7 +69,7 @@ cmake --build ./build --config Release
 
 ## Configuration files
 
-Configruation file is a text based [ini file](https://en.wikipedia.org/wiki/INI_file) used to provide simulation parameters for simulator. Simulator can accept more than one configuration to simulation several configurations. A configuration file can inherit from another configuration file to avoid writing repetitive simulation parmeters. All the possible parameters are provided in [config_default.ini](./config/config_default.ini). The units for magnetic field, time, angle, and length are defined as Tesla, seconds, degree, and meters, respectively.
+Configruation file is a text based [ini file](https://en.wikipedia.org/wiki/INI_file) used to provide simulation parameters for simulator. Simulator can accept more than one configuration to simulation several configurations. A configuration file can inherit from another configuration file to avoid writing repetitive simulation parmeters. All the possible parameters are provided in [config_default.ini](./config/config_default.ini) with definition and expected unit.
 
 ## Input/Output file format
 Spinwalk processes three distinct input files and produces a single output file. All files are stored on disk in _Hierarchical Data Format version 5_ ([HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format)) format. Reading and writing HDF5 file is natively supported by [MATLAB](https://www.mathworks.com/help/matlab/hdf5-files.html). Pythonic interface to work with HDF5 files is also avaialbe through [H5py](https://pypi.org/project/h5py/) package. Input files can be specified within the [FILES] section of the configuration file, while output filename is automatically generated and is stored in the output folder defined under the same [FILES] section in the configuration file.
@@ -77,7 +77,7 @@ Spinwalk processes three distinct input files and produces a single output file.
 ### Inputs
 #### Fieldmap
 
-The simulation requires at least one fieldmap file. The fieldmap file comprises both an off-resonance map and a mask. The inclusion of the off-resonance map is optional. When the off-resonance map is not included, it is assumed to be zero. The off-resonance unit is Tesla and must be normalized to the static magnetic field where is intended to be used for simulation (i.e., fieldmap must be calculated for 1T). It will be internally scaled to the given B0 paramater in configuration file. The fieldmap file is stored in HDF5 format and includes following datasets:
+The simulation requires at least one fieldmap file. The fieldmap file comprises both an off-resonance map and a mask. The inclusion of the off-resonance map is optional. When the off-resonance map is not included, it is assumed to be zero. The off-resonance must be normalized to the static magnetic field where is intended to be used for simulation (i.e., fieldmap must be calculated for 1T). It will be internally scaled to the given B0 paramater in configuration file. The fieldmap file is stored in HDF5 format and includes following datasets:
 
 - `fov` : 3x1 single-precision floating-point array containing length/fov of 3D sample. Unit is meter. 
 - `mask` : 3D 8-bit unsigned integer array indicating tissue types. The values within the mask are utilized to distinguish between various tissue or object types. Each object type must have its own T1 and T2 values defined in the configuration files.

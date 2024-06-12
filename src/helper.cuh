@@ -9,7 +9,7 @@
 
 
 #define SPINWALK_VERSION_MAJOR 1
-#define SPINWALK_VERSION_MINOR 9
+#define SPINWALK_VERSION_MINOR 10
 #define SPINWALK_VERSION_PATCH 0
 
 //---------------------------------------------------------------------------------------------

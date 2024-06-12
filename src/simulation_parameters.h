@@ -37,26 +37,26 @@
 
 typedef struct simulation_parameters
 {
+    double sample_length[3], scale2grid[3];
+    double diffusivity[MAX_TISSUE_TYPE];
     float B0, c, s;
-    float T1[MAX_TISSUE_TYPE], T2[MAX_TISSUE_TYPE];
-    float RF_FA[MAX_RF], RF_PH[MAX_RF]; // refocusing FA
-    float dephasing[MAX_DEPHASE]; // dephasing in degree
-    float gradient_xyz[3*MAX_GRADIENT]; // gradient in T/m
+    float RF_FA_deg[MAX_RF], RF_PH_deg[MAX_RF];
+    float dephasing_deg[MAX_DEPHASE];          
+    float gradient_mTm[3*MAX_GRADIENT];     
     float pXY[MAX_TISSUE_TYPE*MAX_TISSUE_TYPE];
-    uint32_t RF_ST[MAX_RF], TE[MAX_TE], dephasing_T[MAX_DEPHASE], gradient_T[MAX_GRADIENT]; // refocusing time in dt, echo times in dt, dephasing time in dt
-    double sample_length[3], scale2grid[3], TR, dt;
     float phase_cycling;
-    uint32_t n_timepoints, n_sample_length_scales, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient;
-    int32_t n_dummy_scan ;
-    uint32_t n_tissue_type;
-    uint32_t n_spins, fieldmap_size[3], seed, max_iterations;
+    int32_t T1_ms[MAX_TISSUE_TYPE], T2_ms[MAX_TISSUE_TYPE];
+    int32_t timestep_us, TR_us, TE_us[MAX_TE], RF_us[MAX_RF], dephasing_us[MAX_DEPHASE], gradient_us[MAX_GRADIENT];
+    int32_t n_dummy_scan;
+    uint32_t n_spins, n_timepoints, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient, n_sample_length_scales, n_tissue_type;
+    uint32_t fieldmap_size[3], seed, max_iterations;
     int64_t matrix_length;
     bool enDebug, enCrossFOV, enRecordTrajectory, enProfiling;
     bool fieldmap_exist, mask_exist;
-    double diffusivity[MAX_TISSUE_TYPE];
+    
     simulation_parameters():
-        TR(0.04),
-        dt(5e-5),
+        TR_us(40e3),
+        timestep_us(20),
         B0(9.4),
         n_TE(0),
         n_RF(0),
@@ -73,41 +73,42 @@ typedef struct simulation_parameters
         mask_exist(true),
         enProfiling(false)
     {
-        memset(fieldmap_size, 0, 3*sizeof(fieldmap_size[0])); 
-        memset(sample_length, 0, 3*sizeof(sample_length[0]));
-        memset(TE, 0, MAX_TE*sizeof(TE[0]));        
-        memset(RF_FA, 0, MAX_RF*sizeof(RF_FA[0]));
-        memset(RF_ST, 0, MAX_RF*sizeof(RF_ST[0]));
-        memset(RF_PH, 0, MAX_RF*sizeof(RF_PH[0]));
-        memset(dephasing, 0, MAX_DEPHASE*sizeof(dephasing[0]));
-        memset(dephasing_T, 0, MAX_DEPHASE*sizeof(dephasing_T[0]));
-        memset(gradient_xyz, 0, 3*MAX_GRADIENT*sizeof(gradient_xyz[0]));
-        memset(gradient_T, 0, MAX_GRADIENT*sizeof(gradient_T[0]));
+        memset(fieldmap_size,   0, 3*sizeof(fieldmap_size[0])); 
+        memset(scale2grid,      0, 3*sizeof(scale2grid[0])); 
+        memset(sample_length,   0, 3*sizeof(sample_length[0]));
+        memset(TE_us,           0, MAX_TE*sizeof(TE_us[0]));        
+        memset(RF_FA_deg,       0, MAX_RF*sizeof(RF_FA_deg[0]));
+        memset(RF_us,           0, MAX_RF*sizeof(RF_us[0]));
+        memset(RF_PH_deg,       0, MAX_RF*sizeof(RF_PH_deg[0]));
+        memset(dephasing_deg,   0, MAX_DEPHASE*sizeof(dephasing_deg[0]));
+        memset(dephasing_us,    0, MAX_DEPHASE*sizeof(dephasing_us[0]));
+        memset(gradient_mTm,    0, 3*MAX_GRADIENT*sizeof(gradient_mTm[0]));
+        memset(gradient_us,     0, MAX_GRADIENT*sizeof(gradient_us[0]));
 
         std::fill(pXY, pXY + MAX_TISSUE_TYPE*MAX_TISSUE_TYPE, 1.f);
-        std::fill(diffusivity, diffusivity + MAX_TISSUE_TYPE, 1.0e-9);
-        std::fill(T1, T1 + MAX_TISSUE_TYPE, 2.2);
-        std::fill(T2, T2 + MAX_TISSUE_TYPE, 0.04);
+        std::fill(diffusivity, diffusivity + MAX_TISSUE_TYPE, 1.0);
+        std::fill(T1_ms, T1_ms + MAX_TISSUE_TYPE, 2000);
+        std::fill(T2_ms, T2_ms + MAX_TISSUE_TYPE, 45);
     }
 
     std::string dump()
     {
         std::stringstream ss;
         ss<<"B0 = "<<B0<<" T\n";
-        ss<<"dt = "<<dt<<" sec.\n";
-        ss<<"TR = "<<TR<<" sec.\n";
-        ss<<"TE = "; for(int i=0; i<n_TE; i++) ss<<TE[i]*dt<<' '; ss<<"sec.\n";
-        ss<<"T2 = "; for(int i=0; i<n_tissue_type; i++) ss<<T2[i]<<' '; ss<<"sec.\n";
-        ss<<"T1 = "; for(int i=0; i<n_tissue_type; i++) ss<<T1[i]<<' '; ss<<"sec.\n";
-        ss<<"diffusivity = "; for(int i=0; i<n_tissue_type; i++) ss<<diffusivity[i]<<' '; ss<<"\n";
+        ss<<"timestep = "<<timestep_us<<" us.\n";
+        ss<<"TR = "<<TR_us/1000.<<" ms.\n";
+        ss<<"TE = "; for(int i=0; i<n_TE; i++) ss<<TE_us[i]*timestep_us<<' '; ss<<"us.\n";
+        ss<<"T2 = "; for(int i=0; i<n_tissue_type; i++) ss<<T2_ms[i]<<' '; ss<<"ms.\n";
+        ss<<"T1 = "; for(int i=0; i<n_tissue_type; i++) ss<<T1_ms[i]<<' '; ss<<"ms.\n";
+        ss<<"Step size = "; for(int i=0; i<n_tissue_type; i++) ss<<diffusivity[i]<<' '; ss<<"\n";
         ss<<"Cross Tissue Probability =\n"; for(int i=0; i<n_tissue_type; i++) {for(int j=0; j<n_tissue_type; j++) ss<<pXY[j+i*n_tissue_type]<<' '; ss<<'\n';};
 
-        ss<<"RF flip-angle   = "; for(int i=0; i<n_RF; i++) ss<<RF_FA[i]<<' '; ss<<'\n';
-        ss<<"RF phase        = "; for(int i=0; i<n_RF; i++) ss<<RF_PH[i]<<' '; ss<<'\n';
-        ss<<"RF time         = "; for(int i=0; i<n_RF; i++) ss<<RF_ST[i]*dt<<' '; ss<<'\n';
-        ss<<"dephasing       = "; for(int i=0; i<n_dephasing; i++) ss<<dephasing[i]<<' '; ss<<"deg.\n";
-        ss<<"dephasing time  = "; for(int i=0; i<n_dephasing; i++) ss<<dephasing_T[i]*dt<<' '; ss<<"sec.\n";
-        ss<<"gradient time   = "; for(int i=0; i<n_gradient; i++) ss<<gradient_T[i]*dt<<' '; ss<<"sec.\n";
+        ss<<"RF flip-angle   = "; for(int i=0; i<n_RF; i++) ss<<RF_FA_deg[i]<<' '; ss<<"deg.\n";
+        ss<<"RF phase        = "; for(int i=0; i<n_RF; i++) ss<<RF_PH_deg[i]<<' '; ss<<"deg.\n";
+        ss<<"RF time         = "; for(int i=0; i<n_RF; i++) ss<<RF_us[i]*timestep_us<<' '; ss<<"ms.\n";
+        ss<<"dephasing       = "; for(int i=0; i<n_dephasing; i++) ss<<dephasing_deg[i]<<' '; ss<<"deg.\n";
+        ss<<"dephasing time  = "; for(int i=0; i<n_dephasing; i++) ss<<dephasing_us[i]*timestep_us<<' '; ss<<"us.\n";
+        ss<<"gradient time   = "; for(int i=0; i<n_gradient; i++) ss<<gradient_us[i]*timestep_us<<' '; ss<<"us.\n";
         ss<<"sample length   = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
         ss<<"scale2grid      = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
         ss<<"fieldmap size   = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
@@ -124,7 +125,7 @@ typedef struct simulation_parameters
         ss<<"Seed            = "<< seed<<'\n';
         ss<<"mask exists     = "<< mask_exist<<'\n';
         ss<<"off-resonance exists   = "<< fieldmap_exist<<'\n';
-        ss<<"gradient (x,y,z) T/m   =\n"; for(int i=0; i<n_gradient; i++) ss<<gradient_xyz[3*i+0]<<' '<<gradient_xyz[3*i+1]<<' '<<gradient_xyz[3*i+2]<<'\n';
+        ss<<"gradient (x,y,z) mT/m  =\n"; for(int i=0; i<n_gradient; i++) ss<<gradient_mTm[3*i+0]<<' '<<gradient_mTm[3*i+1]<<' '<<gradient_mTm[3*i+2]<<'\n';
         ss<<"Record Trajectory      = "<< enRecordTrajectory << '\n';
         ss<<"Required CPU memory    = "<<get_required_memory(1, "cpu")<<" MB\n";
         ss<<"Required GPU memory    = "<<get_required_memory(1, "gpu")<<" MB\n";
@@ -163,20 +164,20 @@ typedef struct simulation_parameters
 
     bool prepare()
     {
-        c = cosf(RF_FA[0] * DEG2RAD); 
-        s = sinf(RF_FA[0] * DEG2RAD); 
+        c = cosf(RF_FA_deg[0] * DEG2RAD); 
+        s = sinf(RF_FA_deg[0] * DEG2RAD); 
         matrix_length = fieldmap_size[0] * fieldmap_size[1] * fieldmap_size[2];
-        n_timepoints = TR / dt;
-        TE[n_TE++] = n_timepoints - 1; // add the last timepoint
+        n_timepoints = TR_us / timestep_us;
+        TE_us[n_TE++] = n_timepoints - 1; // add the last timepoint
 
         if (seed == 0)
             seed = std::random_device{}();
 
         for (int i = 0; i < n_tissue_type; i++)
-            diffusivity[i] = sqrt(2. * diffusivity[i] * dt); 
+            diffusivity[i] = 1e-3 * sqrt(2. * diffusivity[i] * timestep_us); // 1e-3 is the conversion factor from us to seconds for timestep_us
 
         if (n_dummy_scan < 0)
-            n_dummy_scan = 5.0 * T1[0] / TR;
+            n_dummy_scan = 5.0 * T1_ms[0] / TR_us * 1e3;
 
         if (mask_exist == false)
         {

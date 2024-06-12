@@ -10,7 +10,7 @@
 #include <cinttypes>
 #include <algorithm>
 #include "kernels.cuh"
-#include "rotation.cuh"
+#include "basic_functions.cuh"
 #include "helper_cuda.h"
 #include <cuda_runtime.h>
 #include <thrust/random.h>
@@ -18,7 +18,7 @@
 #include <thrust/extrema.h>
 
 //---------------------------------------------------------------------------------------------
-//  
+//
 //---------------------------------------------------------------------------------------------
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
@@ -53,7 +53,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     gen_u.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
 
     uint32_t itr = 0;
-    float field = 0., T1=0., T2=0., rf_phase = param->RF_PH[0], time_elapsed = 0.; 
+    float field = 0., T1=0., T2=0., rf_phase = param->RF_PH_deg[0], time_elapsed = 0.; 
     float m0[3], m1[3]; 
     double xyz_old[3], xyz_new[3];
     
@@ -131,45 +131,45 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 itr = 0;       
                 field = pFieldMap != nullptr ? pFieldMap[ind_old = ind]:0.f;
                 ind = pMask[ind]; // the index of the tissue type
-                T1 = param->T1[ind];
-                T2 = param->T2[ind];
+                T1 = param->T1_ms[ind] * 1e-3;
+                T2 = param->T2_ms[ind] * 1e-3;
                 diffusivity_scale = param->diffusivity[ind];
             }     
             accumulated_phase += field;
 
             // ------ apply ideal dephasing if there is any ------
-            if(counter_dephasing < param->n_dephasing && param->dephasing_T[counter_dephasing] == current_timepoint)
+            if(counter_dephasing < param->n_dephasing && param->dephasing_us[counter_dephasing] == current_timepoint)
             {
-                accumulated_phase += (float)spin_no * param->dephasing[counter_dephasing] / (float)param->n_spins; // assign dephasing linearly to spins 
+                accumulated_phase += (float)spin_no * param->dephasing_deg[counter_dephasing] / (float)param->n_spins; // assign dephasing linearly to spins 
                 counter_dephasing++;
             }
 
             // ------ apply gradient if there is any ------
-            if(counter_gradient < param->n_gradient && param->gradient_T[counter_gradient] == current_timepoint)
+            if(counter_gradient < param->n_gradient && param->gradient_us[counter_gradient] == current_timepoint)
             {
-                const float *Gxyz = param->gradient_xyz + 3*counter_gradient;
-                accumulated_phase +=  (Gxyz[0]*xyz_new[0] + Gxyz[1]*xyz_new[1] + Gxyz[2]*xyz_new[2]) * param->dt*GAMMA*RAD2DEG; //  Gx * x + Gy * y + Gz * z
+                const float *Gxyz = param->gradient_mTm + 3*counter_gradient;
+                accumulated_phase += (Gxyz[0]*xyz_new[0] + Gxyz[1]*xyz_new[1] + Gxyz[2]*xyz_new[2]) * 1e-3 * param->timestep_us * 1e-6 * GAMMA * RAD2DEG; //  Gx * x + Gy * y + Gz * z
                 counter_gradient++;
             }
                 
             // ------ apply other RF pulse if there is any ------
-            if(current_rf < param->n_RF && param->RF_ST[current_rf] == current_timepoint)
+            if(current_rf < param->n_RF && param->RF_us[current_rf] == current_timepoint)
             {
                 // dephase and relax    
-                time_elapsed = (current_timepoint - old_timepoint) * param->dt;
+                time_elapsed = (current_timepoint - old_timepoint) * param->timestep_us * 1e-6;
                 dephase_relax(m0, m1, accumulated_phase, T1, T2, time_elapsed);
                 // apply RF pulse
-                xrot_withphase (param->RF_FA[current_rf], param->RF_PH[current_rf], m1, m0); // Note m0 and m1 are swapped here, so that we can use m0 for the next iteration
+                xrot_withphase (param->RF_FA_deg[current_rf], param->RF_PH_deg[current_rf], m1, m0); // Note m0 and m1 are swapped here, so that we can use m0 for the next iteration
                 accumulated_phase = 0; // reset phase since we have it now applied
                 old_timepoint = current_timepoint;
                 current_rf++;
             }
 
             // ------ echoes are only recorded in the last scan ------
-            if (is_lastscan && current_te < param->n_TE && param->TE[current_te] == current_timepoint)
+            if (is_lastscan && current_te < param->n_TE && param->TE_us[current_te] == current_timepoint)
             {
                 // dephase and relax                
-                time_elapsed = (current_timepoint - old_timepoint) * param->dt;
+                time_elapsed = (current_timepoint - old_timepoint) * param->timestep_us * 1e-6;
                 dephase_relax(m0, m1, accumulated_phase, T1, T2, time_elapsed);
                 // save echo and copy m1 to m0 for the next iteration
                 for (uint32_t i=0, shift=3*param->n_TE*spin_no + 3*current_te; i<3; i++)
@@ -190,7 +190,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             current_timepoint++;            
         }
         // dephase and relax    
-        time_elapsed = (current_timepoint - old_timepoint) * param->dt;
+        time_elapsed = (current_timepoint - old_timepoint) * param->timestep_us * 1e-6;
         dephase_relax(m0, m1, accumulated_phase, T1, T2, time_elapsed);
 
         // copy m1 to m0 for the next iteration
@@ -218,7 +218,7 @@ __global__ void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, 
 //---------------------------------------------------------------------------------------------
 // CUDA kernel to perform array multiplication with a constant
 //---------------------------------------------------------------------------------------------
-__global__ void cu_scaleArray(float *array, float scale, uint64_t size)
+__global__ void cu_scaleArray(float *array, double scale, uint64_t size)
 {
     auto n = blockIdx.x * blockDim.x + threadIdx.x ;
     if(n < size)

@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     python-is-python3 \
 	htop \
+    tmux \
 	net-tools \
     iputils-ping \
 	vim \

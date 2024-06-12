@@ -106,69 +106,74 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     param->mask_exist     = file_utils::get_size_h5(filenames.at("FIELDMAP")[0], "mask").size() == 3;
 
     // ============== reading section SCAN_PARAMETERS ==============
-    param->TR = pt.get("SCAN_PARAMETERS.TR", param->TR);
-    param->dt = pt.get("SCAN_PARAMETERS.DWELL_TIME", param->dt);
+    param->TR_us = pt.get("SCAN_PARAMETERS.TR", param->TR_us);
+    param->timestep_us = pt.get("SCAN_PARAMETERS.TIME_STEP", param->timestep_us);
 
     uint16_t i=0, j=0;
     // ---------------- Echo times ----------------       
-    for(i=0; i<MAX_TE && pt.get("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", -1.f) != -1.f; i++)        
-        param->TE[i] = pt.get<double>("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", 0.) / param->dt;
+    for(i=0; i<MAX_TE && pt.get<int32_t>("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", -1) != -1; i++)        
+        param->TE_us[i] = pt.get<int32_t>("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", 0) / param->timestep_us;
       
     param->n_TE = (i==0?param->n_TE:i);
     // check TE conditions
-    if (std::is_sorted(param->TE, param->TE + param->n_TE) == false || std::adjacent_find(param->TE, param->TE + param->n_TE) != param->TE + param->n_TE || param->TE[0] < 0 || param->n_TE == 0)
+    if (std::is_sorted(param->TE_us, param->TE_us + param->n_TE) == false || 
+        std::adjacent_find(param->TE_us, param->TE_us + param->n_TE) != param->TE_us + param->n_TE || 
+        param->TE_us[0] < 0 || param->n_TE == 0)
     {
-        ss.str(""); std::copy(param->TE, param->TE + param->n_TE, std::ostream_iterator<int>(ss, " "));
+        ss.str(""); std::copy(param->TE_us, param->TE_us + param->n_TE, std::ostream_iterator<int>(ss, " "));
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "TE must be in ascending order and must not have duplicates or negative values: " << ss.str();
         return false;
     }     
 
     // ---------------- RF pulses (start times, Flip angles, phases and ) ----------------
     // RF start times
-    for(i=0; i<MAX_RF && pt.get("SCAN_PARAMETERS.RF_ST[" + std::to_string(i) + "]", -1.f) != -1.f; i++)           
-        param->RF_ST[i] = pt.get<double>("SCAN_PARAMETERS.RF_ST[" + std::to_string(i) + "]", 0.) / param->dt;
+    for(i=0; i<MAX_RF && pt.get<int32_t>("SCAN_PARAMETERS.RF_T[" + std::to_string(i) + "]", -1) != -1; i++)           
+        param->RF_us[i] = pt.get<int32_t>("SCAN_PARAMETERS.RF_T[" + std::to_string(i) + "]", 0.) / param->timestep_us;
     param->n_RF = i==0?param->n_RF:i;
     // RF flip angles    
     for(j=0; j<param->n_RF && pt.get("SCAN_PARAMETERS.RF_FA[" + std::to_string(j) + "]", -1.f) != -1.f; j++)
-        param->RF_FA[j] = pt.get<double>("SCAN_PARAMETERS.RF_FA[" + std::to_string(j) + "]", 0.) ; 
+        param->RF_FA_deg[j] = pt.get<double>("SCAN_PARAMETERS.RF_FA[" + std::to_string(j) + "]", 0.) ; 
     if(j !=i && j != param->n_RF)
     {
-        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "RF_FA and RF_ST must have the same number of elements " << j << " vs " << param->n_RF;
+        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "RF_FA and RF_us must have the same number of elements " << j << " vs " << param->n_RF;
         return false;
     }
     // RF phases
     for(j=0; j<param->n_RF && pt.get("SCAN_PARAMETERS.RF_PH[" + std::to_string(j) + "]", -1.f) != -1.f; j++)
-        param->RF_PH[j] = pt.get<double>("SCAN_PARAMETERS.RF_PH[" + std::to_string(j) + "]", 0.) ;
+        param->RF_PH_deg[j] = pt.get<double>("SCAN_PARAMETERS.RF_PH[" + std::to_string(j) + "]", 0.) ;
     if(j !=i && j != param->n_RF)
     {
-        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "RF_PH and RF_ST must have the same number of elements " << j << " vs " << param->n_RF; 
+        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "RF_PH and RF_us must have the same number of elements " << j << " vs " << param->n_RF; 
         return false;
     }
     // check RF start time conditions
-    if (std::is_sorted(param->RF_ST, param->RF_ST + i) == false || std::adjacent_find(param->RF_ST, param->RF_ST + i) != param->RF_ST + i || param->RF_ST[0] != 0 || param->n_RF == 0)
+    if (std::is_sorted(param->RF_us, param->RF_us + i) == false || 
+        std::adjacent_find(param->RF_us, param->RF_us + i) != param->RF_us + i || 
+        param->RF_us[0] != 0 || param->n_RF == 0)
     {
-        ss.str(""); std::copy(param->RF_ST, param->RF_ST + param->n_RF, std::ostream_iterator<int>(ss, " "));
+        ss.str(""); std::copy(param->RF_us, param->RF_us + param->n_RF, std::ostream_iterator<int>(ss, " "));
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "RF Times must be in ascending order, starts with 0 and must not have duplicates values: " << ss.str();
         return false;
     }
  
     // ---------------- dephasing (start times, Flip angles ) ----------------
     // Dephase start times
-    for(i=0; i<MAX_RF && pt.get("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", -1.f) != -1.f; i++)  
-        param->dephasing_T[i] = pt.get<double>("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", 0.) / param->dt;
+    for(i=0; i<MAX_RF && pt.get<int32_t>("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", -1) != -1; i++)  
+        param->dephasing_us[i] = pt.get<int32_t>("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", 0.) / param->timestep_us;
     param->n_dephasing = i==0?param->n_dephasing:i;
     // Dephase flip angles
     for(j=0; j<param->n_dephasing && pt.get_child_optional("SCAN_PARAMETERS.DEPHASING[" + std::to_string(j) + "]"); j++)
-        param->dephasing[j] = pt.get<double>("SCAN_PARAMETERS.DEPHASING[" + std::to_string(j) + "]", 0.) ;
+        param->dephasing_deg[j] = pt.get<double>("SCAN_PARAMETERS.DEPHASING[" + std::to_string(j) + "]", 0.) ;
     if(j !=i && j != param->n_dephasing)
     {
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "DEPHASING and DEPHASING_T must have the same number of elements " << j << " vs " << param->n_dephasing;
         return false;
     }
     // check Dephase start time conditions
-    if (std::is_sorted(param->dephasing_T, param->dephasing_T + i) == false || std::adjacent_find(param->dephasing_T, param->dephasing_T + i) != param->dephasing_T + i)
+    if (std::is_sorted(param->dephasing_us, param->dephasing_us + i) == false || 
+        std::adjacent_find(param->dephasing_us, param->dephasing_us + i) != param->dephasing_us + i)
     {
-        ss.str(""); std::copy(param->dephasing_T, param->dephasing_T + param->n_dephasing, std::ostream_iterator<int>(ss, " ")); 
+        ss.str(""); std::copy(param->dephasing_us, param->dephasing_us + param->n_dephasing, std::ostream_iterator<int>(ss, " ")); 
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "dephasing Times must be in ascending order and must not have duplicates values: " << ss.str();
         return false;
     }
@@ -176,14 +181,14 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     // ---------------- Gradients (start times, strength (T/m) ) ----------------
     // Gradient start times
     for(i=0; i<MAX_GRADIENT && pt.get("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", -1.f) != -1.f; i++)  
-        param->gradient_T[i] = pt.get<double>("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", 0.) / param->dt;
+        param->gradient_us[i] = pt.get<double>("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", 0.) / param->timestep_us;
     param->n_gradient = i==0?param->n_gradient:i;
     // Gradient strength
     for(j=0; j<param->n_gradient && pt.get_child_optional("SCAN_PARAMETERS.GRADIENT_XYZ[" + std::to_string(j) + "]"); j++)
     {
         std::istringstream iss(pt.get<std::string>("SCAN_PARAMETERS.GRADIENT_XYZ[" + std::to_string(j) + "]", "0.0 0.0 0.0"));
         int ind = j*3;
-        while (iss >> *(param->gradient_xyz+ind++) && ind < (j+1)*3);
+        while (iss >> *(param->gradient_mTm+ind++) && ind < (j+1)*3);
     }
     if(j !=i && j != param->n_gradient)
     {
@@ -191,16 +196,17 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
         return false;
     }
     // check Gradient start time conditions
-    if (std::is_sorted(param->gradient_T, param->gradient_T + i) == false || std::adjacent_find(param->gradient_T, param->gradient_T + i) != param->gradient_T + i )
+    if (std::is_sorted(param->gradient_us, param->gradient_us + i) == false ||
+        std::adjacent_find(param->gradient_us, param->gradient_us + i) != param->gradient_us + i )
     {
-        ss.str(""); std::copy(param->gradient_T, param->gradient_T + param->n_gradient, std::ostream_iterator<int>(ss, " ")); 
+        ss.str(""); std::copy(param->gradient_us, param->gradient_us + param->n_gradient, std::ostream_iterator<int>(ss, " ")); 
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "Gradient Times must be in ascending order and must not have duplicates values: " << ss.str();
         return false;
     }
 
     // ============== reading section SCAN_PARAMETERS ==============
-    param->n_dummy_scan = pt.get<int32_t>("STEADY_STATE.DUMMY_SCAN", param->n_dummy_scan);
-    param->phase_cycling = pt.get("STEADY_STATE.PHASE_CYCLING", param->phase_cycling); 
+    param->n_dummy_scan = pt.get<int32_t>("SCAN_PARAMETERS.DUMMY_SCAN", param->n_dummy_scan);
+    param->phase_cycling = pt.get("SCAN_PARAMETERS.PHASE_CYCLING", param->phase_cycling); 
 
     // ============== reading section SIMULATION_PARAMETERS ==============
     param->B0                    = pt.get("SIMULATION_PARAMETERS.B0", param->B0);
@@ -226,7 +232,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     param->n_tissue_type = i==0?param->n_tissue_type:i;
     // T1 & T2
     for(i=0; i<param->n_tissue_type && pt.get_child_optional("TISSUE_PARAMETERS.T1[" + std::to_string(i) + "]"); i++)  
-        param->T1[i] = pt.get("TISSUE_PARAMETERS.T1[" + std::to_string(i) + "]", 10000.f);
+        param->T1_ms[i] = pt.get<int32_t>("TISSUE_PARAMETERS.T1[" + std::to_string(i) + "]", 10000);
     if (i != 0 && i != param->n_tissue_type)
     {
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "T1 and diffusivity must have the same number of elements (" << i << " vs " << param->n_tissue_type << ")";
@@ -234,7 +240,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     }
 
     for(i=0; i<param->n_tissue_type && pt.get_child_optional("TISSUE_PARAMETERS.T2[" + std::to_string(i) + "]"); i++)  
-        param->T2[i] = pt.get("TISSUE_PARAMETERS.T2[" + std::to_string(i) + "]", 10000.f);
+        param->T2_ms[i] = pt.get<int32_t>("TISSUE_PARAMETERS.T2[" + std::to_string(i) + "]", 10000);
     if (i != 0 && i != param->n_tissue_type)
     {
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "T2 and diffusivity must have the same number of elements (" << i << " vs " << param->n_tissue_type << ")";

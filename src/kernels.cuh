@@ -23,7 +23,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
 __global__ void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, uint64_t size);
 
 // CUDA kernel to perform array multiplication with a constant
-__global__ void cu_scaleArray(float *array, float scale, uint64_t size);
+__global__ void cu_scaleArray(float *array, double scale, uint64_t size);
 
 // generate random initial position
 __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *param, const uint8_t *pMask, uint32_t spin_no = 0);

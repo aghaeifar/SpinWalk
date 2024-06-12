@@ -25,11 +25,9 @@ find_package(OpenMP)
 find_package(Boost COMPONENTS program_options log log_setup REQUIRED)
 # Set CUDA architecture (change according to your GPU)
 # set(CUDA_ARCH "-arch=sm_75" CACHE STRING "CUDA architecture")
-set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES native)
+# set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES native)
+set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES 70 75 80 86 90)
 
-
-# Set compiler flags for OpenMP
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_CXX_FLAGS "-lboost_program_options")
@@ -39,11 +37,14 @@ include_directories(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ./include)
 
 # Add CUDA and OpenMP flags
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${CUDA_ARCH} -Xcompiler=${OpenMP_CXX_FLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 
 set(Boost_USE_STATIC_LIBS OFF)
 
 # Add the executable
-add_executable(spinwalk ./src/spinwalk.cu ./src/kernels.cu ./src/file_utils.cpp)
+add_executable(spinwalk ./src/spinwalk.cu ./src/kernels.cu ./src/file_utils.cpp ./src/cylinder.cu)
 
 # Link CUDA and OpenMP libraries
 target_link_libraries(spinwalk ${CUDA_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES})

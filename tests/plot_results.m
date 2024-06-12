@@ -19,7 +19,6 @@ tissue_type = 0; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
 signal_magnitude = cell(numel(fname), numel(fname{1}));
 for seq = 1:numel(fname)   
     for i=1:numel(fname{seq})
-        fname{seq}{i}
         m1 = h5read(fname{seq}{i}, '/M');
         scales = h5read(fname{seq}{i}, '/scales');
         T = h5read(fname{seq}{i}, '/T');  
@@ -27,7 +26,7 @@ for seq = 1:numel(fname)
         m1_t = zeros(numel(scales), 1);
         for s=1:numel(scales)
             ind = ismember(T(1,end,:,s), tissue_type);
-            m1_f = m1(:,:,ind(:),s);
+            m1_f = m1(:,end-1,ind(:),s);
             m1_t(s) = abs(complex(sum(m1_f(1,:)), sum(m1_f(2,:))));
         end
         signal_magnitude{seq, i} = m1_t;
@@ -152,17 +151,35 @@ base = 'dwi_base_restricted_diffusion_model_sphere.h5';
 b = 100:100:5000;
 
 m1 = h5read(fullfile(folder, base), '/M'); 
-s0 = abs(complex(sum(m1(1,:)), sum(m1(2,:))));
+s0 = abs(complex(sum(m1(1,end-1,:)), sum(m1(2,end-1,:))));
 s_dwi  = zeros(numel(b), 1);
 for i=1:numel(b) 
     f = fullfile(folder, ['dwi_x_' num2str(b(i)) '_restricted_diffusion_model_sphere.h5' ]);
     m1 = h5read(f, '/M'); 
-    s_dwi(i) = abs(complex(sum(m1(1,:)), sum(m1(2,:))));
+    s_dwi(i) = abs(complex(sum(m1(1,end-1,:)), sum(m1(2,end-1,:))));
 end
 s = [s0; s_dwi];
 b = [0, b];
 
 [xData, yData] = prepareCurveData( double(b(:)), double(s(:)) );
+
+% Virtual b-value
+b = 100:100:5000;
+f = fullfile(folder, ['dwi_x_' num2str(b(1)) '_restricted_diffusion_model_sphere.h5' ]);
+m1 = h5read(f, '/M'); 
+xyz = h5read(f, '/XYZ'); 
+[theta, rho] = cart2pol(m1(1,end-1,:), m1(2,end-1,:));
+G_scale = sqrt(b / b(1));
+for i=1:numel(b)     
+    % sig = squeeze(rho) .* exp(1j*(squeeze(theta) * G_scale(i)));
+    % s_dwi(i) = abs(sum(sig));
+    [x, y] = pol2cart(squeeze(theta) * G_scale(i), squeeze(rho));
+    s_dwi(i) = abs(complex(sum(x), sum(y)));
+end
+s2 = [s0; s_dwi];
+b2 = [0, b];5
+
+[xData_v, yData_v] = prepareCurveData( double(b2(:)), double(s2(:)) );
 
 % Set up fittype and options.
 ft = fittype( 'exp1' );
@@ -178,31 +195,21 @@ opts.TolX = 1e-09;
 
 % Fit model to data.
 [fitresult, gof] = fit( xData, yData, ft, opts );
+[fitresult_v, gof_v] = fit( xData_v, yData_v, ft, opts );
 
 % Plot fit with data.
-h = plot( fitresult, xData, yData );
-legend( h, 's vs. b', 'dwi', 'Location', 'NorthEast', 'Interpreter', 'none' );
+plot( fitresult, xData, yData); hold on;
+plot(fitresult_v, xData_v, yData_v); hold off;
+legend('S vs. b', 'dwi', 'S_v vs. b', 'dwi_v','Location', 'NorthEast', 'Interpreter', 'none' );
 % Label axes
 xlabel( 'b', 'Interpreter', 'none' );
-ylabel( 's', 'Interpreter', 'none' );
+ylabel( 'S', 'Interpreter', 'none' );
 grid on
 disp(['Diff. Const = ' num2str(abs(fitresult.b) * 1e-6) ' m/s']);
+disp(['Diff. Const v = ' num2str(abs(fitresult_v.b) * 1e-6) ' m/s']);
+
+
 %%
-clear
-clc
-file_fieldmap = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/field_maps/restricted_diffusion_model.dat';
-fname = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/dwi_base_m1_restricted_diffusion_model.dat';
-file_T = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/dwi_base_T_restricted_diffusion_model.dat';
-
-tissue_type = 1; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
-[~, mask, fov] = read_fieldmap(file_fieldmap);
-
-[m1, dims, scales] = read_spinwalk(fname);
-[T, ~, ~] = read_spinwalk(file_T); 
-% mxyz_f = filter_spinwalk(m1(:,end,:,1), xyz1(:,end,:,1), tissue_type, mask, fov);
-% mxyz_f = mxyz_f';
-
-
 
 
 

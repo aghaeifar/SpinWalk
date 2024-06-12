@@ -18,6 +18,7 @@
 #include "helper.cuh"
 #include "kernels.cuh"
 #include "file_utils.h"
+#include "cylinder.cuh"
 #include "helper_cuda.h"
 #include <boost/program_options.hpp>
 #include <boost/log/trivial.hpp>
@@ -152,12 +153,12 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             if(param.fieldmap_exist)   
             {      
                 checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(),    fieldmap.size()*sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
-                // convert fieldmap from Tesla to degree per dwell time
-                cu_scaleArray<<<uint64_t(fieldmap.size()/THREADS_PER_BLOCK)+1, THREADS_PER_BLOCK, 0, streams[d]>>>(d_pFieldMap[d], param.B0*GAMMA*param.dt*RAD2DEG, fieldmap.size());
+                // convert fieldmap from uT to degree per timestep
+                cu_scaleArray<<<uint64_t(fieldmap.size()/THREADS_PER_BLOCK)+1, THREADS_PER_BLOCK, 0, streams[d]>>>(d_pFieldMap[d], param.B0 * param.timestep_us * 1e-6 * GAMMA * RAD2DEG, fieldmap.size());
             }
             if(hasXYZ0 == false)
             {   // generate initial spatial position for spins, based on sample_length_ref
-                BOOST_LOG_TRIVIAL(info) << "GPU " << d << ") Generating random initial position for spins... (seed = " << param_local.seed << " grid = " << numBlocks << " x " << THREADS_PER_BLOCK << ")";
+                BOOST_LOG_TRIVIAL(info) << "GPU " << d << ") Generating random initial position for spins... (seed = " << param_local.seed << ", GPU grid = " << numBlocks << " x " << THREADS_PER_BLOCK << ")";
                 cu_randPosGen<<<numBlocks, THREADS_PER_BLOCK, 0, streams[d]>>>(d_XYZ0[d], d_param[d], d_pMask[d]);
                 gpuCheckKernelExecutionError( __FILE__, __LINE__);
                 BOOST_LOG_TRIVIAL(info) << "GPU " << d << ") Done!";
@@ -274,36 +275,69 @@ bool dump_settings(simulation_parameters param, std::map<std::string, std::vecto
 int main(int argc, char * argv[])
 {
     bool bStatus = true;
+    std::string phantom_output;
+    float phantom_radius, phantom_fov, phantom_dchi, phantom_oxy_level, phantom_orientation;
+    int32_t phantom_resolution, phantom_num_shape;
+    std::vector<std::string>  config_files;
     print_logo();
     // ========== parse command line arguments ==========
-    boost::program_options::options_description desc("Options");
+    namespace po = boost::program_options;
+    po::options_description desc("Options");
     desc.add_options()
         ("help,h", "help message (this menu)")
-        ("sim_off,s", "no simulation, only read config files")
-        ("configs,c", boost::program_options::value<std::vector<std::string>>()->multitoken(), "config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini");
+        ("configs,c", po::value<std::vector<std::string>>(&config_files)->multitoken(), "config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini")
+        ("cylinder,l", "generate phantom filled with cylinders")
+        ("sphere,s", "generate phantom filled with spheres")
+        ("orientation,t", po::value<float>(&phantom_orientation)->default_value(-1.0), "orientation of the cylinders in degree with respect to B0 (negative value = random orientation)")
+        ("radius,r", po::value<float>(&phantom_radius)->default_value(50), "radius of the cylinders/spheres in um (negative value = random radius)")
+        ("num_shape,n", po::value<int32_t>(&phantom_num_shape)->default_value(1), "number of cylinders/spheres")
+        ("fov,f", po::value<float>(&phantom_fov)->default_value(1000.0), "voxel field of view in um (isotropic)")
+        ("resolution,z", po::value<int32_t>(&phantom_resolution)->default_value(500), "base resolution")
+        ("dchi,d", po::value<float>(&phantom_dchi)->default_value(0.11e-6), "susceptibility difference between fully deoxygenated blood (inside cylinders/spheres) and tissue (outside cylinders/spheres) (default: 0.11e-6 in cgs units)")
+        ("oxy_level,Y", po::value<float>(&phantom_oxy_level)->default_value(0.75), "blood oxygenetation level <0.0 1.0>")
+        ("output,o", po::value<std::string>(&phantom_output)->default_value("./phantom.h5"), "path to save phantom (h5 format)");
 
-    boost::program_options::variables_map vm;
-    boost::program_options::parsed_options parsed = boost::program_options::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
-    boost::program_options::store(parsed, vm);    
-    std::vector<std::string> unreg = boost::program_options::collect_unrecognized(parsed.options, boost::program_options::include_positional);
-    boost::program_options::notify(vm);
-
+    po::variables_map vm;
+    std::vector<std::string> unreg;
+    try{ 
+        po::parsed_options parsed = po::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
+        po::store(parsed, vm);   
+        po::notify(vm); // sets default values
+        unreg = po::collect_unrecognized(parsed.options, po::include_positional);
+    }catch (std::exception& e) {
+        std::cerr << "Error: " << e.what() << "\n";
+        return 1;
+    } 
+    
     auto fileSink = bl::add_file_log(bl::keywords::file_name=LOG_FILE, bl::keywords::target_file_name = LOG_FILE, bl::keywords::format = "[%TimeStamp%] [%Severity%]: %Message%", bl::keywords::auto_flush = true);
     bl::add_common_attributes();
-    std::cout << "Log file location: " << std::filesystem::current_path() / LOG_FILE << '\n';
     
     // ========== print help ==========
-    if (vm.count("help") || vm.count("configs") == 0 || argc == 1 || unreg.size() > 0)
+    if (vm.count("help") || argc == 1 || unreg.size() > 0)
     {
         std::cout << desc;
         print_device_info();
-        return 1;
+        return 0;
     }
 
-    std::vector<std::string> config_files = vm["configs"].as<std::vector<std::string>>();  
-    bool bNoSim = vm.count("sim_off") > 0;
+    std::cout << "Log file location: " << std::filesystem::current_path() / LOG_FILE << '\n';
+
+    // ========== generate phantom ==========
+    if (vm.count("cylinder"))
+    {
+        cylinder cyl(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_num_shape, phantom_orientation, phantom_output);
+        cyl.run();
+    }
+    if (vm.count("sphere"))
+    {
+        cylinder cyl(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_num_shape, phantom_orientation, phantom_output);
+        cyl.run();
+    }
 
     // ========== loop over configs and simulate ==========
+    if (config_files.size() == 0)
+        return 0;
+    
     std::cout << "Running simulation for " << config_files.size() << " config(s)..." << '\n';
     auto start = std::chrono::steady_clock::now();
     for(const auto& cfile : config_files)
@@ -332,8 +366,6 @@ int main(int argc, char * argv[])
             return 1;
         }
         
-        if (bNoSim)
-            continue;
         std::cout << "Simulation starts..." << std::endl;
         if(simulate(param, filenames, sample_length_scales) == false)
         {
