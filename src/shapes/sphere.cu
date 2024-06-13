@@ -49,7 +49,7 @@ void sphere::set_sphere_parameters(float radius, size_t num_spheres)
 
 void sphere::generate_shapes()
 {
-    std::cout << "Generating spheres...\n";
+    std::cout << "Generating coordinates...\n";
     std::cout << std::fixed << std::setprecision(5);
     if (m_pSphere_points != nullptr)
         delete[] m_pSphere_points;
@@ -97,26 +97,20 @@ void sphere::generate_shapes()
     }
     bar.finish();
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "spheres generated successfully! Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s" << std::endl;
+    std::cout << "Coordinates generated successfully! Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s" << std::endl;
 }
 
 void sphere::generate_mask_fieldmap()
 {
-    std::cout << "Generating fieldmap..." << std::endl;
-    if (m_pFieldmap != nullptr)
-        delete[] m_pFieldmap;
-    if (m_pMask != nullptr)
-        delete[] m_pMask;
-    
+    std::cout << "Generating spheres..." << std::endl;
+
     size_t res1 = m_resolution;
     size_t res2 = res1 * res1;
     size_t res3 = res1 * res2;
 
     std::cout<<"Alocating memory..."<<std::endl;
-    m_pFieldmap = new float[res3];
-    m_pMask = new uint8_t[res3];
-    std::fill(m_pFieldmap, m_pFieldmap + res3, 0.f);
-    std::fill(m_pMask, m_pMask + res3, 0);
+    m_fieldmap.resize(m_calc_fieldmap ? res3:0, 0.f);
+    m_mask.resize(res3, 0);
 
     tqdm bar;
     auto start = std::chrono::high_resolution_clock::now();
@@ -127,23 +121,25 @@ void sphere::generate_mask_fieldmap()
         #pragma omp parallel for
         for(size_t p=0; p<res3; p++)
         {
-            float *grid = m_pGrid + 3*p;
+            float *grid = (float *)m_grid.data() + 3*p;
             float  p2p1[3], distance, phi_c ;
             // distance between the points and vessel axis and vector from the projection point to the point
             subtract(grid, sph_center, p2p1);  // vector from the spatial points to the sphere center
-            distance = norm(p2p1);             // distance between the points and vessel axis
-            phi_c = dot_product(p2p1, B0) / distance; // cos(phi)
-            // calculate the fieldmap from the vessel 
-            distance = sph_rad / distance; 
-            m_pFieldmap[p] += distance<=1 ? 4*M_PI*(1-m_Y)*m_dChi*distance*distance*distance*(phi_c*phi_c - 1./3.) : 0.f;
-            m_pMask[p] = distance<=1.f ? m_pMask[p] : 1;
+            distance = norm(p2p1);   // distance between the points and vessel axis
+            if (distance <=sph_rad)
+                m_mask[p] = 1;
+            if (m_calc_fieldmap) 
+            {   // calculate the fieldmap from the vessel 
+                phi_c = dot_product(p2p1, B0) / distance; // cos(phi)            
+                m_fieldmap[p] += distance<=1 ? 4*M_PI*(1-m_Y)*m_dChi * sph_rad*sph_rad*sph_rad/distance/distance/distance * (phi_c*phi_c - 1./3.) : 0.f;
+            }
         }        
         bar.progress(c, m_num_spheres);
     } 
     bar.finish();
-    m_BVF = std::accumulate(m_pMask, m_pMask+res3, 0) * 100.0 / res3;
+    m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / res3;
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Fieldmaps generated successfully! BVF: " << m_BVF << "% Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
+    std::cout << "Spheres generated successfully! BVF: " << m_BVF << "% Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
 
 }
 

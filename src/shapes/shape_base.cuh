@@ -30,14 +30,15 @@ class shape
         virtual void print_info();
 
     protected:
-        float *m_pGrid;
-        float *m_pFieldmap;
-        uint8_t *m_pMask;
+        std::vector<float> m_grid;
+        std::vector<float> m_fieldmap;
+        std::vector<int8_t> m_mask;
         size_t m_resolution;
         float m_fov, m_dChi, m_Y;
         float m_BVF; // blood volume fraction
         std::string m_filename;
         float B0[3] = {0.f, 0.f, 1.f};
+        bool m_calc_fieldmap;
 
     private: 
 };

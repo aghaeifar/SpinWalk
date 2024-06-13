@@ -54,7 +54,7 @@ void cylinder::set_cylinder_parameters(float radius, size_t num_cylinders, float
 
 void cylinder::generate_shapes()
 {
-    std::cout << "Generating cylinders...\n";
+    std::cout << "Generating coordinates...\n";
     std::cout << std::fixed << std::setprecision(5);
     if (m_pCylinder_directions != nullptr)
         delete[] m_pCylinder_directions;
@@ -128,26 +128,20 @@ void cylinder::generate_shapes()
     }
     bar.finish();
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Cylinders generated successfully! Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s" << std::endl;
+    std::cout << "Coordinates generated successfully! Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s" << std::endl;
 }
 
 void cylinder::generate_mask_fieldmap()
 {   
-    std::cout << "Generating fieldmap..." << std::endl;
-    if (m_pFieldmap != nullptr)
-        delete[] m_pFieldmap;
-    if (m_pMask != nullptr)
-        delete[] m_pMask;
-    
+    std::cout << "Generating cylinders..." << std::endl;    
     size_t res1 = m_resolution;
     size_t res2 = res1 * res1;
     size_t res3 = res1 * res2;
 
     std::cout<<"Alocating memory..."<<std::endl;
-    m_pFieldmap = new float[res3];
-    m_pMask = new uint8_t[res3];
-    std::fill(m_pFieldmap, m_pFieldmap + res3, 0.f);
-    std::fill(m_pMask, m_pMask + res3, 0);
+    m_fieldmap.resize(m_calc_fieldmap ? res3:0, 0.f);
+    m_mask.resize(res3, 0);
+
     float theta_c, theta_s2;
     // project B0 from the projection point to the point to the plane perpendicular to the vessel axis
     float B0_prj[3];    
@@ -168,29 +162,41 @@ void cylinder::generate_mask_fieldmap()
         #pragma omp parallel for
         for(size_t p=0; p<res3; p++)
         {
-            float *grid = m_pGrid + 3*p;
-            float temp[3], perpendicular[3], distance, phi_c, phi_2c2_1 ;
+            float *grid = &m_grid[3*p];
+            float p2p1[3], temp[3], perpendicular[3], distance, phi_c, phi_2c2_1 ;
             // distance between the points and vessel axis and vector from the projection point to the point
-            subtract(grid, cyl_pnt, temp);  // vector from the spatial points to the cylinder point
-            multiply(dot_product(cyl_dir, temp), cyl_dir, temp); // project vector temp onto the cylinder direction vector
-            add(temp, cyl_pnt, temp);               // projection point
-            subtract(grid, temp, perpendicular);    // vector from the spatial points to the cylinder axis
-            distance = norm(perpendicular);         // distance between the points and vessel axis   
-            normalize(perpendicular, distance);     // normalize the perpendicular vector
-            // angle between the projected B0 and the vector from the projection point to the point
-            phi_c = dot_product(perpendicular, B0_prj); // cos(phi)
-            phi_2c2_1 = 2 * phi_c * phi_c - 1;      // cos(2*phi)
-            // calculate the fieldmap from the vessel 
-            distance = cyl_rad / distance;
-            m_pFieldmap[p] += distance<=1 ? 2*M_PI * (1-m_Y)*m_dChi * (distance * distance) * phi_2c2_1 * theta_s2 : 2*M_PI * (1-m_Y)*m_dChi * (theta_c*theta_c - 1/3);
-            m_pMask[p] = distance<=1.f ? m_pMask[p] : 1;
+            subtract(grid, cyl_pnt, p2p1);  // vector from the spatial points to the cylinder point
+            if (m_calc_fieldmap)
+            {
+                multiply(dot_product(cyl_dir, p2p1), cyl_dir, temp); // project vector temp onto the cylinder direction vector
+                add(temp, cyl_pnt, temp);               // projection point
+                subtract(grid, temp, perpendicular);    // vector from the spatial points to the cylinder axis
+                distance = norm(perpendicular);         // distance between the points and vessel axis   
+                normalize(perpendicular, distance);     // normalize the perpendicular vector
+                // angle between the projected B0 and the vector from the projection point to the point
+                phi_c = dot_product(perpendicular, B0_prj); // cos(phi)
+                phi_2c2_1 = 2 * phi_c * phi_c - 1;      // cos(2*phi)
+                // calculate the fieldmap from the vessel 
+                if (distance > cyl_rad)  // outside the cylinder              
+                    m_fieldmap[p] += 2*M_PI * (1-m_Y)*m_dChi * (cyl_rad * cyl_rad / distance / distance) * phi_2c2_1 * theta_s2;   
+                else // inside the cylinder
+                {
+                    m_fieldmap[p] += 2*M_PI * (1-m_Y)*m_dChi * (theta_c*theta_c - 1/3);
+                    m_mask[p] = 1;
+                }
+            }
+            else
+            {
+                cross_product(cyl_dir, p2p1, temp);
+                m_mask[p] = norm(temp)>cyl_rad ? m_mask[p] : 1; // distance = norm(temp) / norm(cyl_dir) = norm(temp) / 1.0
+            }            
         }        
         bar.progress(c, m_num_cylinders);
     } 
     bar.finish();
-    m_BVF = std::accumulate(m_pMask, m_pMask+res3, 0) * 100.0 / res3;
+    m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / res3;
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Fieldmaps generated successfully! BVF: " << m_BVF << "% Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
+    std::cout << "Cylinders generated successfully! BVF: " << m_BVF << "% Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
 }
 
 void cylinder::print_info()

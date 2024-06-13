@@ -295,7 +295,7 @@ int main(int argc, char * argv[])
         ("fov,f", po::value<float>(&phantom_fov)->default_value(1000.0), "voxel field of view in um (isotropic)")
         ("resolution,z", po::value<int32_t>(&phantom_resolution)->default_value(500), "base resolution")
         ("dchi,d", po::value<float>(&phantom_dchi)->default_value(0.11e-6), "susceptibility difference between fully deoxygenated blood (inside cylinders/spheres) and tissue (outside cylinders/spheres) (default: 0.11e-6 in cgs units)")
-        ("oxy_level,Y", po::value<float>(&phantom_oxy_level)->default_value(0.75), "blood oxygenetation level <0.0 1.0>")
+        ("oxy_level,Y", po::value<float>(&phantom_oxy_level)->default_value(0.75), "blood oxygenetation level <0.0 1.0> (negative value = exclude off-resonance effect)")
         ("output,o", po::value<std::string>(&phantom_output)->default_value("./phantom.h5"), "path to save phantom (h5 format)");
 
     po::variables_map vm;

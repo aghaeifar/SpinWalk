@@ -45,7 +45,7 @@ typedef struct simulation_parameters
     float gradient_mTm[3*MAX_GRADIENT];     
     float pXY[MAX_TISSUE_TYPE*MAX_TISSUE_TYPE];
     float phase_cycling;
-    int32_t T1_ms[MAX_TISSUE_TYPE], T2_ms[MAX_TISSUE_TYPE];
+    float T1_ms[MAX_TISSUE_TYPE], T2_ms[MAX_TISSUE_TYPE];
     int32_t timestep_us, TR_us, TE_us[MAX_TE], RF_us[MAX_RF], dephasing_us[MAX_DEPHASE], gradient_us[MAX_GRADIENT];
     int32_t n_dummy_scan;
     uint32_t n_spins, n_timepoints, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient, n_sample_length_scales, n_tissue_type;

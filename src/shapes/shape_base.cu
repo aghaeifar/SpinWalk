@@ -15,9 +15,6 @@
 
 shape::shape()
 {
-    m_pGrid = nullptr;
-    m_pFieldmap = nullptr;
-    m_pMask = nullptr;
     m_fov = 0;
     m_resolution = 0;
     set_blood_parameters(0.273e-6 * 0.4, 0);
@@ -34,12 +31,6 @@ shape::shape(float fov_um, size_t resolution, float dChi, float Y, std::string f
 
 shape::~shape()
 {
-    if (m_pGrid != nullptr)
-        delete[] m_pGrid;
-    if (m_pFieldmap != nullptr)
-        delete[] m_pFieldmap;
-    if (m_pMask != nullptr)
-        delete[] m_pMask;
 }
 
 void shape::set_space(float fov_um, size_t resolution)
@@ -52,6 +43,7 @@ void shape::set_blood_parameters(float dChi, float Y)
 {
     this->m_dChi = dChi;
     this->m_Y = Y;
+    m_calc_fieldmap = Y >= 0;
 }
 
 void shape::set_filename(std::string filename)
@@ -76,10 +68,13 @@ bool shape::save()
     HighFive::File file(m_filename, HighFive::File::Truncate);    
     // save fieldmap and mask
     std::vector<size_t> dims(3, m_resolution);
-    HighFive::DataSet dataset_fieldmap = file.createDataSet<float>("fieldmap", HighFive::DataSpace(dims));
-    dataset_fieldmap.write_raw(m_pFieldmap);
+    if (m_Y >= 0)
+    {
+        HighFive::DataSet dataset_fieldmap = file.createDataSet<float>("fieldmap", HighFive::DataSpace(dims));
+        dataset_fieldmap.write_raw((float *)m_fieldmap.data());
+    }
     HighFive::DataSet dataset_mask = file.createDataSet<uint8_t>("mask", HighFive::DataSpace(dims));
-    dataset_mask.write_raw(m_pMask);
+    dataset_mask.write_raw((int8_t *)m_mask.data());
     // save fov
     float fov[3] = {m_fov, m_fov, m_fov};
     std::vector<size_t> dims_fov(1, 3);
@@ -91,8 +86,6 @@ bool shape::save()
 bool shape::create_grid()
 {
     std::cout << "Creating grid..." << std::endl;
-    if (m_pGrid != nullptr)
-        delete[] m_pGrid;
     if (m_fov == 0 || m_resolution == 0)
     {
         std::cerr << "Error: FOV or resolution is not set!" << std::endl;
@@ -102,7 +95,7 @@ bool shape::create_grid()
     size_t res2 = res1 * res1;
     size_t res3 = res1 * res2;
     float s = m_fov/2 - m_fov/res1/2.0;
-    m_pGrid = new float[res3 * 3];
+    m_grid.resize(res3 * 3);
     // create a base grid
     std::vector<float> grid_base(res1, 0.f);
     double start = m_fov/res1/2.0;
@@ -111,7 +104,7 @@ bool shape::create_grid()
     for (int i = 0; i < res1; ++i) 
         grid_base[i] = start + i * step;
 
-    float *grid = m_pGrid;
+    float *grid = (float *)m_grid.data();
     for (const auto& x : grid_base) 
         for (const auto& y : grid_base) 
             for (const auto& z : grid_base) 

@@ -111,8 +111,8 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
 
     uint16_t i=0, j=0;
     // ---------------- Echo times ----------------       
-    for(i=0; i<MAX_TE && pt.get<int32_t>("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", -1) != -1; i++)        
-        param->TE_us[i] = pt.get<int32_t>("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", 0) / param->timestep_us;
+    for(i=0; i<MAX_TE && pt.get<float>("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", -1) >= 0 ; i++)        
+        param->TE_us[i] = (int32_t)pt.get<float>("SCAN_PARAMETERS.TE[" + std::to_string(i) + "]", 0) / param->timestep_us;
       
     param->n_TE = (i==0?param->n_TE:i);
     // check TE conditions
@@ -127,8 +127,8 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
 
     // ---------------- RF pulses (start times, Flip angles, phases and ) ----------------
     // RF start times
-    for(i=0; i<MAX_RF && pt.get<int32_t>("SCAN_PARAMETERS.RF_T[" + std::to_string(i) + "]", -1) != -1; i++)           
-        param->RF_us[i] = pt.get<int32_t>("SCAN_PARAMETERS.RF_T[" + std::to_string(i) + "]", 0.) / param->timestep_us;
+    for(i=0; i<MAX_RF && pt.get<float>("SCAN_PARAMETERS.RF_T[" + std::to_string(i) + "]", -1) >= 0; i++)           
+        param->RF_us[i] = (int32_t)pt.get<float>("SCAN_PARAMETERS.RF_T[" + std::to_string(i) + "]", 0.) / param->timestep_us;
     param->n_RF = i==0?param->n_RF:i;
     // RF flip angles    
     for(j=0; j<param->n_RF && pt.get("SCAN_PARAMETERS.RF_FA[" + std::to_string(j) + "]", -1.f) != -1.f; j++)
@@ -158,8 +158,8 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
  
     // ---------------- dephasing (start times, Flip angles ) ----------------
     // Dephase start times
-    for(i=0; i<MAX_RF && pt.get<int32_t>("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", -1) != -1; i++)  
-        param->dephasing_us[i] = pt.get<int32_t>("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", 0.) / param->timestep_us;
+    for(i=0; i<MAX_RF && pt.get<float>("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", -1) > 0; i++)  
+        param->dephasing_us[i] = (int32_t)pt.get<float>("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", 0.) / param->timestep_us;
     param->n_dephasing = i==0?param->n_dephasing:i;
     // Dephase flip angles
     for(j=0; j<param->n_dephasing && pt.get_child_optional("SCAN_PARAMETERS.DEPHASING[" + std::to_string(j) + "]"); j++)
@@ -180,8 +180,8 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
 
     // ---------------- Gradients (start times, strength (T/m) ) ----------------
     // Gradient start times
-    for(i=0; i<MAX_GRADIENT && pt.get("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", -1.f) != -1.f; i++)  
-        param->gradient_us[i] = pt.get<double>("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", 0.) / param->timestep_us;
+    for(i=0; i<MAX_GRADIENT && pt.get<float>("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", -1.f) > 0; i++)  
+        param->gradient_us[i] = (int32_t)pt.get<float>("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", 0.) / param->timestep_us;
     param->n_gradient = i==0?param->n_gradient:i;
     // Gradient strength
     for(j=0; j<param->n_gradient && pt.get_child_optional("SCAN_PARAMETERS.GRADIENT_XYZ[" + std::to_string(j) + "]"); j++)
@@ -205,7 +205,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     }
 
     // ============== reading section SCAN_PARAMETERS ==============
-    param->n_dummy_scan = pt.get<int32_t>("SCAN_PARAMETERS.DUMMY_SCAN", param->n_dummy_scan);
+    param->n_dummy_scan = (int32_t)pt.get<float>("SCAN_PARAMETERS.DUMMY_SCAN", param->n_dummy_scan);
     param->phase_cycling = pt.get("SCAN_PARAMETERS.PHASE_CYCLING", param->phase_cycling); 
 
     // ============== reading section SIMULATION_PARAMETERS ==============
@@ -232,7 +232,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     param->n_tissue_type = i==0?param->n_tissue_type:i;
     // T1 & T2
     for(i=0; i<param->n_tissue_type && pt.get_child_optional("TISSUE_PARAMETERS.T1[" + std::to_string(i) + "]"); i++)  
-        param->T1_ms[i] = pt.get<int32_t>("TISSUE_PARAMETERS.T1[" + std::to_string(i) + "]", 10000);
+        param->T1_ms[i] = pt.get<float>("TISSUE_PARAMETERS.T1[" + std::to_string(i) + "]", 10000);
     if (i != 0 && i != param->n_tissue_type)
     {
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "T1 and diffusivity must have the same number of elements (" << i << " vs " << param->n_tissue_type << ")";
@@ -240,7 +240,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     }
 
     for(i=0; i<param->n_tissue_type && pt.get_child_optional("TISSUE_PARAMETERS.T2[" + std::to_string(i) + "]"); i++)  
-        param->T2_ms[i] = pt.get<int32_t>("TISSUE_PARAMETERS.T2[" + std::to_string(i) + "]", 10000);
+        param->T2_ms[i] = pt.get<float>("TISSUE_PARAMETERS.T2[" + std::to_string(i) + "]", 10000);
     if (i != 0 && i != param->n_tissue_type)
     {
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "T2 and diffusivity must have the same number of elements (" << i << " vs " << param->n_tissue_type << ")";

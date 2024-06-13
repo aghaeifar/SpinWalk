@@ -131,8 +131,8 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
                 itr = 0;       
                 field = pFieldMap != nullptr ? pFieldMap[ind_old = ind]:0.f;
                 ind = pMask[ind]; // the index of the tissue type
-                T1 = param->T1_ms[ind] * 1e-3;
-                T2 = param->T2_ms[ind] * 1e-3;
+                T1 = param->T1_ms[ind] * 1e-3; // ms -> s
+                T2 = param->T2_ms[ind] * 1e-3; // ms -> s
                 diffusivity_scale = param->diffusivity[ind];
             }     
             accumulated_phase += field;
