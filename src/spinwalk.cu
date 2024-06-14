@@ -100,9 +100,9 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         if(fieldmap_no < filenames.at("XYZ0").size())
         {   
             XYZ0.resize(product(file_utils::get_size_h5(filenames.at("XYZ0")[fieldmap_no], "/XYZ")));            
-            if(XYZ0.size() != param.n_spins*device_count)
+            if(XYZ0.size()/3 != param.n_spins*device_count)
             {
-                BOOST_LOG_TRIVIAL(error) << "Number of spins in XYZ0 file does not match with the number of spins in the config file! " << XYZ0.size() << " vs " << param.n_spins*device_count ;
+                BOOST_LOG_TRIVIAL(error) << "Number of spins in XYZ0 file does not match with the number of spins in the config file! " << XYZ0.size()/3 << " vs " << param.n_spins*device_count ;
                 return false;
             }
             if(file_utils::read_h5(filenames.at("XYZ0")[fieldmap_no], XYZ0.data(), "/XYZ", "float") == false)
@@ -277,7 +277,7 @@ int main(int argc, char * argv[])
 {
     bool bStatus = true;
     std::string phantom_output;
-    float phantom_radius, phantom_fov, phantom_dchi, phantom_oxy_level, phantom_orientation;
+    float phantom_radius, phantom_fov, phantom_dchi, phantom_oxy_level, phantom_orientation, phantom_BVF;
     int32_t phantom_resolution, phantom_num_shape;
     std::vector<std::string>  config_files;
     print_logo();
@@ -291,7 +291,8 @@ int main(int argc, char * argv[])
         ("sphere,s", "generate phantom filled with spheres")
         ("orientation,t", po::value<float>(&phantom_orientation)->default_value(-1.0), "orientation of the cylinders in degree with respect to B0 (negative value = random orientation)")
         ("radius,r", po::value<float>(&phantom_radius)->default_value(50), "radius of the cylinders/spheres in um (negative value = random radius)")
-        ("num_shape,n", po::value<int32_t>(&phantom_num_shape)->default_value(1), "number of cylinders/spheres")
+        ("num_shape,n", po::value<int32_t>(&phantom_num_shape)->default_value(1), "number of cylinders in the phantom")
+        ("blood_volume,b", po::value<float>(&phantom_BVF)->default_value(10.0), "fraction of shapes to entire volume, only for sphere phantom <0.0 100.0> ")
         ("fov,f", po::value<float>(&phantom_fov)->default_value(1000.0), "voxel field of view in um (isotropic)")
         ("resolution,z", po::value<int32_t>(&phantom_resolution)->default_value(500), "base resolution")
         ("dchi,d", po::value<float>(&phantom_dchi)->default_value(0.11e-6), "susceptibility difference between fully deoxygenated blood (inside cylinders/spheres) and tissue (outside cylinders/spheres) (default: 0.11e-6 in cgs units)")
@@ -331,7 +332,7 @@ int main(int argc, char * argv[])
     }
     if (vm.count("sphere"))
     {
-        sphere sph(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_num_shape, phantom_output);
+        sphere sph(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_BVF, phantom_output);
         sph.run();
     }
 

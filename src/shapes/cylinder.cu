@@ -138,7 +138,7 @@ void cylinder::generate_mask_fieldmap()
     size_t res2 = res1 * res1;
     size_t res3 = res1 * res2;
 
-    std::cout<<"Alocating memory..."<<std::endl;
+    std::cout<<"Allocating memory..."<<std::endl;
     m_fieldmap.resize(m_calc_fieldmap ? res3:0, 0.f);
     m_mask.resize(res3, 0);
 

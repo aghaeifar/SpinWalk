@@ -17,22 +17,21 @@ class sphere : public shape
 {
     public:
     sphere();
-    sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um = 50, size_t num_spheres = 5, std::string filename = "shape.h5");
+    sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um = 50, float BVF = 10.0, std::string filename = "shape.h5");
     ~sphere();
 
     virtual bool run();
-    virtual void set_sphere_parameters(float radius_um = 50, size_t num_spheres = 5);    
+    virtual void set_sphere_parameters(float radius_um = 50, float BVF = 10.0);    
     virtual void generate_shapes();
     virtual void generate_mask_fieldmap();
     virtual void print_info();
 
-    protected:
+    protected: 
 
     private: 
-        float *m_pSphere_points;
-        float *m_pSphere_radius;
-        float m_radius;
-        size_t m_num_spheres;
+        std::vector<float> m_sphere_points;
+        std::vector<float> m_sphere_radii;
+        float m_radius, m_BVF;
 };
 
 #endif // SPHERE_H

@@ -133,6 +133,11 @@ __host__  __device__ __forceinline__  float norm(const float *a)
     return sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
 }
 
+__host__  __device__ __forceinline__  float norm_p2(const float *a)
+{
+    return a[0]*a[0] + a[1]*a[1] + a[2]*a[2]; // avoid sqrt
+}
+
 __host__  __device__ __forceinline__  void cross_product(const float *a, const float *b, float *c)
 {
     c[0] = a[1]*b[2] - a[2]*b[1];

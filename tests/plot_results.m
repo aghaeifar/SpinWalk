@@ -124,6 +124,34 @@ plot(squeeze(signal_magnitude(:,1,:,:,2)))
 hold off
 legend('STE Rest', 'STE Act', 'SE Rest', 'SE Act')
 
+%% linear gradient calculations
+clc
+fov = [0.0e-3, 0.0e-3, 0.0e-3
+       0.9e-3, 0.9e-3, 0.9e-3];
+phase_range = 2*pi; % gradient will create this phase range in FoV
+l = diff(fov);
+time_step = 50e-6;
+gamma = 267515315; % rad/s.T
+if range(l) ~= 0
+    error('fov must be isotropic');
+end
+
+G = phase_range / (gamma * l(1) * time_step); % T/m
+disp(['Gradient strength = ' num2str(G * 1000) ' mT/m'])
+% generate initial XYZ0 positions and save to h5
+x = write_xyz0(fov, 101*101*101, '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/field_maps/xyz0_allzero.h5');
+
+%% linear gradient plot
+fname = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/gradient_fieldmap_allzero.h5';
+m_xyz   = h5read(fname, '/M');
+m_xy    = squeeze(complex(m_xyz(1,1,:), m_xyz(2,1,:)));
+m_xy    = double(m_xy);
+sz      = nthroot(numel(m_xy), 3);
+m_xy    = reshape(m_xy, [sz, sz, sz])  ;
+phase   = angle(m_xy * exp(-i*pi)); % shift the range to [-pi pi]
+close all
+vin(phase) % 3D plot
+
 %% random-walk trajectory
 clear
 clc;
