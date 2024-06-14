@@ -20,23 +20,21 @@
 sphere::sphere()
 {
     m_radius = 0;
-    m_BVF = 10.0;
 }
 
 sphere::sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um, float BVF, std::string filename)
-: shape(fov_um, resolution, dChi, Y, filename)
+: shape(fov_um, resolution, dChi, Y, BVF, filename)
 {
-    set_sphere_parameters(radius_um, BVF);
+    set_sphere_parameters(radius_um);
 }
 
 sphere::~sphere()
 {
 }
 
-void sphere::set_sphere_parameters(float radius, float BVF)
+void sphere::set_sphere_parameters(float radius)
 {
     m_radius = radius;
-    m_BVF = BVF;
 }
 
 void sphere::generate_shapes()
@@ -46,7 +44,7 @@ void sphere::generate_shapes()
     float max_radius    = m_radius>0 ? m_radius:-m_radius;
     m_sphere_points.clear();
     m_sphere_radii.clear();
-    float cyl_pnt[3], radius ;
+    float sph_pnt[3], radius ;
 
     // srandom engine
     std::random_device rd; // Seed
@@ -61,26 +59,30 @@ void sphere::generate_shapes()
     {
         radius = is_random_radius ? dist(gen) * max_radius : max_radius;
         for (size_t i = 0; i < 3; i++) // generate a random point for a sphere which fit in the FOV
-            cyl_pnt[i] = dist(gen) * m_fov;        
+            sph_pnt[i] = dist(gen) * m_fov;        
         // check if sphere coordinate is ok
         size_t c;
         for (c=0; c<m_sphere_radii.size(); c++)
         {   
             float p2p1[3];
-            subtract(cyl_pnt, &m_sphere_points[3*c], p2p1);
+            subtract(sph_pnt, &m_sphere_points[3*c], p2p1);
             distance = norm(p2p1);
             // if the sphere is inside another sphere, generate a new sphere
             if(distance <= m_sphere_radii[c] ||  distance <= radius)
                 break;
             // adjust the radius of the sphere to avoid overlap
             if (distance < m_sphere_radii[c] + radius)
+            {
+                if (!is_random_radius)
+                    break;            
                 radius = distance - m_sphere_radii[c];
+            }
         }
         if (c < m_sphere_radii.size())
             continue;
 
         vol_sph += 4*M_PI/3 * radius*radius*radius;
-        m_sphere_points.insert(m_sphere_points.end(), cyl_pnt, cyl_pnt+3);
+        m_sphere_points.insert(m_sphere_points.end(), sph_pnt, sph_pnt+3);
         m_sphere_radii.push_back(radius);  
         progress = 0.95 * 100*(100.*vol_sph/vol_tol/m_BVF); // 0.95 is a factor to compensate for spheres in the boundary   
         if (progress >= prg_l)
@@ -98,7 +100,6 @@ void sphere::generate_shapes()
 void sphere::generate_mask_fieldmap()
 {
     std::cout << "Generating spheres..." << std::endl;
-
     size_t res1 = m_resolution;
     size_t res2 = res1 * res1;
     size_t res3 = res1 * res2;

@@ -21,7 +21,7 @@ class sphere : public shape
     ~sphere();
 
     virtual bool run();
-    virtual void set_sphere_parameters(float radius_um = 50, float BVF = 10.0);    
+    virtual void set_sphere_parameters(float radius_um = 50);    
     virtual void generate_shapes();
     virtual void generate_mask_fieldmap();
     virtual void print_info();
@@ -31,7 +31,7 @@ class sphere : public shape
     private: 
     std::vector<float> m_sphere_points;
     std::vector<float> m_sphere_radii;
-    float m_radius, m_BVF;
+    float m_radius;
 };
 
 #endif // SPHERE_H

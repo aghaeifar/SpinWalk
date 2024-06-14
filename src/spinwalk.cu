@@ -278,7 +278,7 @@ int main(int argc, char * argv[])
     bool bStatus = true;
     std::string phantom_output;
     float phantom_radius, phantom_fov, phantom_dchi, phantom_oxy_level, phantom_orientation, phantom_BVF;
-    int32_t phantom_resolution, phantom_num_shape;
+    int32_t phantom_resolution;
     std::vector<std::string>  config_files;
     print_logo();
     // ========== parse command line arguments ==========
@@ -289,15 +289,14 @@ int main(int argc, char * argv[])
         ("configs,c", po::value<std::vector<std::string>>(&config_files)->multitoken(), "config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini")
         ("cylinder,l", "generate phantom filled with cylinders")
         ("sphere,s", "generate phantom filled with spheres")
-        ("orientation,t", po::value<float>(&phantom_orientation)->default_value(-1.0), "orientation of the cylinders in degree with respect to B0 (negative value = random orientation)")
+        ("orientation,o", po::value<float>(&phantom_orientation)->default_value(-1.0), "orientation of the cylinders in degree with respect to B0 (negative value = random orientation)")
         ("radius,r", po::value<float>(&phantom_radius)->default_value(50), "radius of the cylinders/spheres in um (negative value = random radius)")
-        ("num_shape,n", po::value<int32_t>(&phantom_num_shape)->default_value(1), "number of cylinders in the phantom")
-        ("blood_volume,b", po::value<float>(&phantom_BVF)->default_value(10.0), "fraction of shapes to entire volume, only for sphere phantom <0.0 100.0> ")
+        ("blood_volume,b", po::value<float>(&phantom_BVF)->default_value(10.0), "fraction of shapes to entire volume <0.0 100.0> ")
         ("fov,f", po::value<float>(&phantom_fov)->default_value(1000.0), "voxel field of view in um (isotropic)")
         ("resolution,z", po::value<int32_t>(&phantom_resolution)->default_value(500), "base resolution")
         ("dchi,d", po::value<float>(&phantom_dchi)->default_value(0.11e-6), "susceptibility difference between fully deoxygenated blood (inside cylinders/spheres) and tissue (outside cylinders/spheres) (default: 0.11e-6 in cgs units)")
         ("oxy_level,Y", po::value<float>(&phantom_oxy_level)->default_value(0.75), "blood oxygenetation level <0.0 1.0> (negative value = exclude off-resonance effect)")
-        ("output,o", po::value<std::string>(&phantom_output)->default_value("./phantom.h5"), "path to save phantom (h5 format)");
+        ("output_file,f", po::value<std::string>(&phantom_output)->default_value("./phantom.h5"), "path to save phantom (h5 format)");
 
     po::variables_map vm;
     std::vector<std::string> unreg;
@@ -327,7 +326,7 @@ int main(int argc, char * argv[])
     // ========== generate phantom ==========
     if (vm.count("cylinder"))
     {
-        cylinder cyl(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_num_shape, phantom_orientation, phantom_output);
+        cylinder cyl(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_BVF, phantom_orientation, phantom_output);
         cyl.run();
     }
     if (vm.count("sphere"))

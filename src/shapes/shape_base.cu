@@ -17,15 +17,15 @@ shape::shape()
 {
     m_fov = 0;
     m_resolution = 0;
-    set_blood_parameters(0.273e-6 * 0.4, 0);
+    set_blood_parameters(0.273e-6 * 0.4, 0, 10.0);
     set_filename();
 }
 
-shape::shape(float fov_um, size_t resolution, float dChi, float Y, std::string filename)
+shape::shape(float fov_um, size_t resolution, float dChi, float Y, float BVF, std::string filename)
 :shape()
 {
     set_space(fov_um, resolution);
-    set_blood_parameters(dChi, Y);
+    set_blood_parameters(dChi, Y, BVF);
     set_filename(filename);
 }
 
@@ -39,10 +39,11 @@ void shape::set_space(float fov_um, size_t resolution)
     this->m_resolution = resolution;
 }
 
-void shape::set_blood_parameters(float dChi, float Y)
+void shape::set_blood_parameters(float dChi, float Y, float BVF)
 {
     this->m_dChi = dChi;
     this->m_Y = Y;
+    this->m_BVF = BVF;
     m_calc_fieldmap = Y >= 0;
 }
 

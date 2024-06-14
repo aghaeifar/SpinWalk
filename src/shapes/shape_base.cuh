@@ -17,10 +17,10 @@ class shape
 {
     public:
         shape();
-        shape(float fov_um, size_t resolution, float dChi, float Y, std::string filename);
+        shape(float fov_um, size_t resolution, float dChi, float Y, float BVF, std::string filename);
         ~shape();
         void set_space(float fov_um, size_t resolution);
-        void set_blood_parameters(float dChi, float Y); 
+        void set_blood_parameters(float dChi, float Y, float BVF = 10.0); 
         void set_filename(std::string filename = "shape.h5");      
         virtual bool run(){return true;}; 
         virtual bool save();
