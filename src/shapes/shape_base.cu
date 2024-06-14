@@ -104,11 +104,11 @@ bool shape::create_grid()
     double step  = (end - start) / (res1 - 1.0);
     for (int i = 0; i < res1; ++i) 
         grid_base[i] = start + i * step;
-
+    // data is stored in row-major order in h5!!! 
     float *grid = (float *)m_grid.data();
-    for (const auto& x : grid_base) 
+    for (const auto& z : grid_base) 
         for (const auto& y : grid_base) 
-            for (const auto& z : grid_base) 
+            for (const auto& x : grid_base) 
             {
                 grid[0] = x;
                 grid[1] = y;

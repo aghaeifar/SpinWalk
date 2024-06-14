@@ -148,7 +148,7 @@ void sphere::generate_mask_fieldmap()
         for(int32_t py=y_min; py<y_max; py++)
         for(int32_t pz=z_min; pz<z_max; pz++)
         {
-            int p = px*res2 + py*res1 + pz;
+            int p = px + py*res1 + pz*res2;
             float *grid = (float *)m_grid.data() + 3*p;
             float  p2p1[3], distance2, phi_c2, dp ;
             // distance between the points and vessel axis and vector from the projection point to the point
