@@ -29,9 +29,9 @@ class sphere : public shape
     protected: 
 
     private: 
-        std::vector<float> m_sphere_points;
-        std::vector<float> m_sphere_radii;
-        float m_radius, m_BVF;
+    std::vector<float> m_sphere_points;
+    std::vector<float> m_sphere_radii;
+    float m_radius, m_BVF;
 };
 
 #endif // SPHERE_H

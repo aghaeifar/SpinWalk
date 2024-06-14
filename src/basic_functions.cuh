@@ -130,7 +130,7 @@ __host__  __device__ __forceinline__  float dot_product(const float *a, const fl
 
 __host__  __device__ __forceinline__  float norm(const float *a)
 {
-    return sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
+    return sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
 }
 
 __host__  __device__ __forceinline__  float norm_p2(const float *a)
