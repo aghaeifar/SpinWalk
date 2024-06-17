@@ -144,9 +144,9 @@ void cylinder::generate_mask_fieldmap()
         if (m_calc_fieldmap)
         {
             x_min = std::max(0, cyl_pnt_vox[0] - cyl_rad_vox*8);
-            x_max = std::min((int32_t)m_resolution, cyl_pnt_vox[0] + cyl_rad_vox*8);
+            x_max = std::min((int32_t)m_resolution, cyl_pnt_vox[0] + cyl_rad_vox*10);
             y_min = std::max(0, cyl_pnt_vox[1] - cyl_rad_vox*8);
-            y_max = std::min((int32_t)m_resolution, cyl_pnt_vox[1] + cyl_rad_vox*8);
+            y_max = std::min((int32_t)m_resolution, cyl_pnt_vox[1] + cyl_rad_vox*10);
         } else 
         {
             x_min = std::max(0, cyl_pnt_vox[0] - cyl_rad_vox);
@@ -156,9 +156,9 @@ void cylinder::generate_mask_fieldmap()
         }
 
         #pragma omp parallel for
-        for(int32_t px=x_min; px<x_max; px++)
-        for(int32_t py=y_min; py<y_max; py++)
         for(int32_t pz=z_min; pz<z_max; pz++)
+        for(int32_t py=y_min; py<y_max; py++)
+        for(int32_t px=x_min; px<x_max; px++)
         {
             int p = px + py*res1 + pz*res2;
             float *grid = &m_grid[3*p];

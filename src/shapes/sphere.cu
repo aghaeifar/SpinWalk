@@ -144,9 +144,9 @@ void sphere::generate_mask_fieldmap()
         }
 
         #pragma omp parallel for
-        for(int32_t px=x_min; px<x_max; px++)
-        for(int32_t py=y_min; py<y_max; py++)
         for(int32_t pz=z_min; pz<z_max; pz++)
+        for(int32_t py=y_min; py<y_max; py++)
+        for(int32_t px=x_min; px<x_max; px++)
         {
             int p = px + py*res1 + pz*res2;
             float *grid = (float *)m_grid.data() + 3*p;
