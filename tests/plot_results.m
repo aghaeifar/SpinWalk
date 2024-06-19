@@ -1,17 +1,17 @@
 clc
 clear
 
-fname{1}{1} = '../../outputs/gre_fieldmap_0.h5';
-fname{1}{2} = '../../outputs/gre_fieldmap_1.h5';
-fname{2}{1} = '../../outputs/se_fieldmap_0.h5';
-fname{2}{2} = '../../outputs/se_fieldmap_1.h5';
-fname{3}{1} = '../../outputs/ssfp_fieldmap_0.h5';
-fname{3}{2} = '../../outputs/ssfp_fieldmap_1.h5';
+fname{1}{1} = '../../outputs/gre_phantom_0.h5';
+fname{1}{2} = '../../outputs/gre_phantom_1.h5';
+fname{2}{1} = '../../outputs/se_phantom_0.h5';
+fname{2}{2} = '../../outputs/se_phantom_1.h5';
+fname{3}{1} = '../../outputs/ssfp_phantom_0.h5';
+fname{3}{2} = '../../outputs/ssfp_phantom_1.h5';
 
-dim_xyz  = 1;
-dim_echo = 2;
-dim_spin = 3;
-dim_vessel_size = 4;
+dim_vessel_size = 1;
+dim_spin = 2;
+dim_echo = 3;
+dim_xyz  = 4;
 rad_ref_um = 53.367;
 
 tissue_type = 0; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
@@ -19,15 +19,16 @@ tissue_type = 0; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
 signal_magnitude = cell(numel(fname), numel(fname{1}));
 for seq = 1:numel(fname)   
     for i=1:numel(fname{seq})
-        m1 = h5read(fname{seq}{i}, '/M');
-        scales = h5read(fname{seq}{i}, '/scales');
-        T = h5read(fname{seq}{i}, '/T');  
+        m1 = permute(h5read(fname{seq}{i}, '/M'), 4:-1:1);
+        scales = permute(h5read(fname{seq}{i}, '/scales'), 4:-1:1);
+        T = permute(h5read(fname{seq}{i}, '/T'), 4:-1:1);  
 
         m1_t = zeros(numel(scales), 1);
         for s=1:numel(scales)
-            ind = ismember(T(1,end,:,s), tissue_type);
-            m1_f = m1(:,end-1,ind(:),s);
-            m1_t(s) = abs(complex(sum(m1_f(1,:)), sum(m1_f(2,:))));
+            ind = ismember(T(s,:,end), tissue_type);
+            m1_f = m1(s, ind(:), end-1, :);
+            m1_f = squeeze(m1_f);
+            m1_t(s) = abs(complex(sum(m1_f(:,1)), sum(m1_f(:,2))));
         end
         signal_magnitude{seq, i} = m1_t;
     end
@@ -71,57 +72,67 @@ EcoSpc = 0.005;
 %         colorbar
 
 %% stimulated echo
- clc
-% clear
-fname{1} = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/ste_fieldmap_0.h5';
-fname{2} = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/ste_fieldmap_1.h5';
+clc
+clear
+close all
+fname{1} = '../../outputs/ste_phantom_0.h5';
+fname{2} = '../../outputs/ste_phantom_1.h5';
 
-dim_echo = 2;
-dim_spin = 3;
-dim_vessel_size = 4;
+dim_vessel_size = 1;
+dim_spin = 2;
+dim_echo = 3;
+dim_xyz  = 4;
 rad_ref_um = 53.367;
 
+tissue_type = 0; % 0 = extra-vascular, 1 = intra-vascular, [0,1] = combined
 
 spins_xyz = [];
+signal_magnitude = cell(numel(fname), 1);
 for i=1:numel(fname)
-    m_xyz   = h5read(fname{i}, '/M');
-    scales  = h5read(fname{i}, '/scales');
-    spins_xyz = cat(ndims(m_xyz)+1, spins_xyz, m_xyz);
+    m1 = permute(h5read(fname{i}, '/M'), 4:-1:1);
+    scales = permute(h5read(fname{i}, '/scales'), 4:-1:1);
+    T = permute(h5read(fname{i}, '/T'), 4:-1:1);  
+    m1_t = zeros(numel(scales), size(m1, dim_echo)-1);
+    for s=1:numel(scales)
+        ind = ismember(T(s,:,end), tissue_type);
+        m1_f = m1(s, ind(:), 1:end-1, :);
+        m1_f = squeeze(m1_f);
+        m1_t(s, :) = abs(complex(sum(m1_f(:,:,1)), sum(m1_f(:,:,2))));
+    end
+    signal_magnitude{i} = m1_t;
 end
 vessel_radius    = rad_ref_um * scales;
 
-spins_xy = complex(sum(spins_xyz(1,:,:,:,:), dim_spin), sum(spins_xyz(2,:,:,:,:), dim_spin) );
-signal_magnitude = abs(spins_xy);
-
-relative_signal  = 100 * (1 - signal_magnitude(:,:,:,:,1) ./ signal_magnitude(:,:,:,:,2));
-difference_signal  = signal_magnitude(:,:,:,:,2) - signal_magnitude(:,:,:,:,1);
+relative_signal  = 100 * (1 - signal_magnitude{1} ./ signal_magnitude{2});
+difference_signal  = signal_magnitude{2} - signal_magnitude{1};
 
 figure(1)
 subplot(1,2,1)
 cla
-semilogx(vessel_radius, squeeze(relative_signal(1,1,1,:)));
+semilogx(vessel_radius, squeeze(relative_signal(:,1)));
 hold on
-semilogx(vessel_radius, squeeze(relative_signal(1,2,1,:))); xlabel('Vessel radius (um)'); ylabel('100 * (1 - S_r_e_s_t / S_a_c_t )'); 
+semilogx(vessel_radius, squeeze(relative_signal(:,2))); xlabel('Vessel radius (um)'); ylabel('100 * (1 - S_r_e_s_t / S_a_c_t )'); 
 hold off
 legend('SE', 'STE')
 
 subplot(1,2,2)
 cla
-semilogx(vessel_radius, squeeze(difference_signal(1,1,1,:)));
+semilogx(vessel_radius, squeeze(difference_signal(:,1)));
 hold on
-semilogx(vessel_radius, squeeze(difference_signal(1,2,1,:))); xlabel('Vessel radius (um)'); ylabel('S_a_c_t - S_r_e_s_t'); 
+semilogx(vessel_radius, squeeze(difference_signal(:,2))); xlabel('Vessel radius (um)'); ylabel('S_a_c_t - S_r_e_s_t'); 
 hold off
 legend('SE', 'STE')
 
 figure(2)
 cla
-plot(squeeze(signal_magnitude(:,2,:,:,1)))
+plot(squeeze(signal_magnitude{1}(:,2)))
 hold on
-plot(squeeze(signal_magnitude(:,2,:,:,2)))
+plot(squeeze(signal_magnitude{2}(:,2)))
 
-plot(squeeze(signal_magnitude(:,1,:,:,1)))
-plot(squeeze(signal_magnitude(:,1,:,:,2)))
+plot(squeeze(signal_magnitude{1}(:,1)))
+plot(squeeze(signal_magnitude{2}(:,1)))
 hold off
+xlabel('Vessel radius (um)'); ylabel('Magnitude'); 
 legend('STE Rest', 'STE Act', 'SE Rest', 'SE Act')
 
 %% linear gradient calculations
@@ -142,21 +153,22 @@ disp(['Gradient strength = ' num2str(G * 1000) ' mT/m'])
 x = write_xyz0(fov, 101*101*101, '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/field_maps/xyz0_allzero.h5');
 
 %% linear gradient plot
-fname = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/gradient_fieldmap_allzero.h5';
-m_xyz   = h5read(fname, '/M');
-m_xy    = squeeze(complex(m_xyz(1,1,:), m_xyz(2,1,:)));
+clear
+fname = '/DATA/aaghaeifar/Nextcloud/Projects/microvascular/outputs/gradient_phantom_allzero.h5';
+m_xyz   = permute(h5read(fname, '/M'), 4:-1:1);
+m_xy    = squeeze(complex(m_xyz(1,:,end-1,1), m_xyz(1,:,end-1,2)));
 m_xy    = double(m_xy);
 sz      = nthroot(numel(m_xy), 3);
 m_xy    = reshape(m_xy, [sz, sz, sz])  ;
-phase   = angle(m_xy * exp(-i*pi)); % shift the range to [-pi pi]
+phase   = angle(m_xy .* exp(-i*pi)); % shift the range to [-pi pi]
 close all
 vin(phase) % 3D plot
 
 %% random-walk trajectory
 clear
 clc;
-filename = '../../outputs/gre_trajectory_fieldmap_0.h5';
-xyz_all = h5read(filename, '/XYZ');
+filename = '../../outputs/gre_trajectory_phantom_0.h5';
+xyz_all = permute(h5read(filename, '/XYZ'), 4:-1:1);
 size(xyz_all)
 xyz_all = xyz_all * 1e6;
 n_spins = size(xyz_all, 3);
@@ -178,12 +190,12 @@ base = 'dwi_base_restricted_diffusion_model_sphere.h5';
 
 b = 100:100:5000;
 
-m1 = h5read(fullfile(folder, base), '/M'); 
+m1 = permute(h5read(fullfile(folder, base), '/M'), 4:-1:1); 
 s0 = abs(complex(sum(m1(1,end-1,:)), sum(m1(2,end-1,:))));
 s_dwi  = zeros(numel(b), 1);
 for i=1:numel(b) 
     f = fullfile(folder, ['dwi_x_' num2str(b(i)) '_restricted_diffusion_model_sphere.h5' ]);
-    m1 = h5read(f, '/M'); 
+    m1 = permute(h5read(f, '/M'), 4:-1:1); 
     s_dwi(i) = abs(complex(sum(m1(1,end-1,:)), sum(m1(2,end-1,:))));
 end
 s = [s0; s_dwi];
@@ -194,8 +206,8 @@ b = [0, b];
 % Virtual b-value
 b = 100:100:5000;
 f = fullfile(folder, ['dwi_x_' num2str(b(1)) '_restricted_diffusion_model_sphere.h5' ]);
-m1 = h5read(f, '/M'); 
-xyz = h5read(f, '/XYZ'); 
+m1 = permute(h5read(f, '/M'), 4:-1:1); 
+xyz = permute(h5read(f, '/XYZ'), 4:-1:1); 
 [theta, rho] = cart2pol(m1(1,end-1,:), m1(2,end-1,:));
 G_scale = sqrt(b / b(1));
 for i=1:numel(b)     

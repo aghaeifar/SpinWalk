@@ -9,24 +9,27 @@
  * -------------------------------------------------------------------------- */
 #include <highfive/highfive.hpp>
 #include <filesystem>
+#include <random>
 #include "shape_base.cuh"
 
-#define epsilon 1e-6
 
 shape::shape()
 {
     m_fov = 0;
     m_resolution = 0;
+    m_random_seed = std::random_device{}();
     set_blood_parameters(0.273e-6 * 0.4, 0, 10.0);
-    set_filename();
+    set_filename(); 
 }
 
-shape::shape(float fov_um, size_t resolution, float dChi, float Y, float BVF, std::string filename)
+shape::shape(float fov_um, size_t resolution, float dChi, float Y, float BVF, bool is_seed_fixed, std::string filename)
 :shape()
 {
     set_space(fov_um, resolution);
     set_blood_parameters(dChi, Y, BVF);
     set_filename(filename);
+    if(is_seed_fixed)
+        m_random_seed = 0;
 }
 
 shape::~shape()
@@ -106,9 +109,9 @@ bool shape::create_grid()
         grid_base[i] = start + i * step;
     // data is stored in row-major order in h5!!! 
     float *grid = (float *)m_grid.data();
-    for (const auto& z : grid_base) 
+    for (const auto& x : grid_base) 
         for (const auto& y : grid_base) 
-            for (const auto& x : grid_base) 
+            for (const auto& z : grid_base) 
             {
                 grid[0] = x;
                 grid[1] = y;

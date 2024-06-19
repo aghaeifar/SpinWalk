@@ -7,9 +7,8 @@
 #include <boost/log/trivial.hpp>
 #include "helper_cuda.h"
 
-
 #define SPINWALK_VERSION_MAJOR 1
-#define SPINWALK_VERSION_MINOR 10
+#define SPINWALK_VERSION_MINOR 12
 #define SPINWALK_VERSION_PATCH 0
 
 //---------------------------------------------------------------------------------------------
@@ -65,7 +64,7 @@ void print_device_info()
         std::cout << "-Free GPU Memory: " << free / mb << " MB (out of " << total / mb << " MB)" << std::endl;
     }
 }
-
+ 
 bool check_memory_size(size_t required_size_MB)
 {
     size_t free, total;

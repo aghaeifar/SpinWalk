@@ -14,7 +14,6 @@
 #include "cylinder.cuh"
 #include "basic_functions.cuh"
 
-#define epsilon 1e-6
 
 cylinder::cylinder()
 {
@@ -22,8 +21,8 @@ cylinder::cylinder()
     m_orientation = 0;
 }
 
-cylinder::cylinder(float fov_um, size_t resolution, float dChi, float Y, float radius_um, float BVF, float orientation, std::string filename)
-: shape(fov_um, resolution, dChi, Y, BVF, filename)
+cylinder::cylinder(float fov_um, size_t resolution, float dChi, float Y, float radius_um, float BVF, float orientation, bool is_seed_fixed, std::string filename)
+: shape(fov_um, resolution, dChi, Y, BVF, is_seed_fixed, filename)
 {
     set_cylinder_parameters(radius_um, orientation);
 }
@@ -51,8 +50,7 @@ void cylinder::generate_shapes()
     float cyl_pnt[3], radius ;
 
     // srandom engine
-    std::random_device rd; // Seed
-    std::mt19937 gen(rd()); // Mersenne Twister generator
+    std::mt19937 gen(m_random_seed); // Mersenne Twister generator
     std::uniform_real_distribution<> dist(0.f, 1.f); 
       
     float distance, vol_cyl = 0, vol_tol = m_fov*m_fov*m_fov;
@@ -156,11 +154,11 @@ void cylinder::generate_mask_fieldmap()
         }
 
         #pragma omp parallel for
-        for(int32_t pz=z_min; pz<z_max; pz++)
-        for(int32_t py=y_min; py<y_max; py++)
-        for(int32_t px=x_min; px<x_max; px++)
+        for(size_t pz=z_min; pz<z_max; pz++)
+        for(size_t py=y_min; py<y_max; py++)
+        for(size_t px=x_min; px<x_max; px++)
         {
-            int p = px + py*res1 + pz*res2;
+            size_t p = px*res2 + py*res1 + pz;
             float *grid = &m_grid[3*p];
             float p2p1[3], temp[3], perpendicular[3], distance2, phi_c, phi_2c2_1 ;
             // distance between the points and vessel axis and vector from the projection point to the point

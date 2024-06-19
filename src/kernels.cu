@@ -64,7 +64,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
     }
     // tissue type
     uint8_t ts, ts_old;
-    auto indx = sub2ind(xyz1[0]*param->scale2grid[0], xyz1[1]*param->scale2grid[1], xyz1[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1]);
+    auto indx = sub2ind(xyz1[0]*param->scale2grid[0], xyz1[1]*param->scale2grid[1], xyz1[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1], param->fieldmap_size[2]);
     ts_old = pMask[indx];
     double diffusivity_scale = param->diffusivity[ts_old];
 
@@ -105,7 +105,7 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
             }
            
             // ------ subscripts to linear indices ------
-            ind = sub2ind(xyz_new[0]*param->scale2grid[0], xyz_new[1]*param->scale2grid[1], xyz_new[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1]);
+            ind = sub2ind(xyz_new[0]*param->scale2grid[0], xyz_new[1]*param->scale2grid[1], xyz_new[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1], param->fieldmap_size[2]);
             if(ind >= param->matrix_length || ind < 0)
             {
                 printf("Error:spin=%d, ind=%" PRId64 ", %d,\n\tscale=(%.10f, %.10f, %.10f)\n\txyz=(%.10f, %.10f, %.10f)\n\tscale*xyz(%.10f, %.10f, %.10f)\n\tFoV=(%.10f, %.10f, %.10f)\n\t(%d, %d, %d)\n",spin_no, ind, current_timepoint, param->scale2grid[0], param->scale2grid[1], param->scale2grid[2], xyz_new[0], xyz_new[1], xyz_new[2], param->scale2grid[0]*xyz_new[0], param->scale2grid[1]*xyz_new[1], param->scale2grid[2]*xyz_new[2], param->sample_length[0], param->sample_length[1], param->sample_length[2], xyz_new[0] >= param->sample_length[0], xyz_new[1] >= param->sample_length[1], xyz_new[2] >= param->sample_length[2]);

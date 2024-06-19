@@ -17,7 +17,7 @@ class shape
 {
     public:
         shape();
-        shape(float fov_um, size_t resolution, float dChi, float Y, float BVF, std::string filename);
+        shape(float fov_um, size_t resolution, float dChi, float Y, float BVF, bool is_seed_fixed, std::string filename);
         ~shape();
         void set_space(float fov_um, size_t resolution);
         void set_blood_parameters(float dChi, float Y, float BVF = 10.0); 
@@ -39,6 +39,7 @@ class shape
         std::string m_filename;
         float B0[3] = {0.f, 0.f, 1.f};
         bool m_calc_fieldmap;
+        bool m_random_seed;
 
     private: 
 };

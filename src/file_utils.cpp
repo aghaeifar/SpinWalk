@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
+#include <boost/algorithm/string.hpp>
 #include "file_utils.h"
 #include <boost/log/trivial.hpp> 
 #include <highfive/highfive.hpp>
@@ -59,7 +60,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     std::string seq_name = pt.get<std::string>("SEQ_NAME", "");
     // ============== reading section FILES ==============
     std::vector<std::string> file_paths;
-    for (const auto& str : {std::string("FIELDMAP"), std::string("XYZ0"), std::string("M0")}) 
+    for (const auto& str : {std::string("PHANTOM"), std::string("XYZ0"), std::string("M0")}) 
     {
         file_paths.clear();
         for (uint16_t i = 0; pt.get_child_optional("FILES." + str + "[" + std::to_string(i) + "]") ; i++) 
@@ -72,9 +73,9 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
                 path = (std::filesystem::absolute(config_filename).parent_path() / path).string();
         // replace if there is any
         if (file_paths.size() > 0)
-            filenames[str] = file_paths;
+            filenames[boost::algorithm::to_lower_copy(str)] = file_paths;
     }
-    param->n_fieldmaps = filenames["FIELDMAP"].size();
+    param->n_fieldmaps = filenames["phantom"].size();
       
     // output directory 
     output_dir = std::filesystem::path(pt.get<std::string>("FILES.OUTPUT_DIR", output_dir.string()));
@@ -82,7 +83,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
         output_dir = std::filesystem::absolute(config_filename).parent_path() / output_dir;
     // generate names for output
     file_paths.clear();
-    for (const auto& path : filenames["FIELDMAP"])
+    for (const auto& path : filenames["phantom"])
     {
         auto f = output_dir / (seq_name + "_" + std::filesystem::path(path).filename().string());
         f.replace_extension(".h5");
@@ -91,22 +92,22 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     filenames["output"] = file_paths;
      
     // check header of fieldmap matches
-    auto dims = file_utils::get_size_h5(filenames.at("FIELDMAP")[0], "mask");
+    auto dims = file_utils::get_size_h5(filenames.at("phantom")[0], "mask");
     if(dims.size() != 3)
     {
-        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "mask must be 3D but is " << dims.size() << "D filename:"<< filenames.at("FIELDMAP")[0] << ". Aborting...!";
+        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "mask must be 3D but is " << dims.size() << "D filename:"<< filenames.at("phantom")[0] << ". Aborting...!";
         return false;
     }
     std::vector<float> sample_length(3, 0);
-    file_utils::read_h5(filenames.at("FIELDMAP")[0], sample_length.data(), "fov", "float");
+    file_utils::read_h5(filenames.at("phantom")[0], sample_length.data(), "fov", "float");
     std::copy(dims.begin(), dims.end(), param->fieldmap_size);
     std::copy(sample_length.begin(), sample_length.end(), param->sample_length);
 
-    param->fieldmap_exist = file_utils::get_size_h5(filenames.at("FIELDMAP")[0], "fieldmap").size() == 3;
-    param->mask_exist     = file_utils::get_size_h5(filenames.at("FIELDMAP")[0], "mask").size() == 3;
+    param->fieldmap_exist = file_utils::get_size_h5(filenames.at("phantom")[0], "fieldmap").size() == 3;
+    param->mask_exist     = file_utils::get_size_h5(filenames.at("phantom")[0], "mask").size() == 3;
 
     // ============== reading section SCAN_PARAMETERS ==============
-    param->TR_us = pt.get("SCAN_PARAMETERS.TR", param->TR_us);
+    param->TR_us = (int32_t)pt.get<float>("SCAN_PARAMETERS.TR", param->TR_us);
     param->timestep_us = pt.get("SCAN_PARAMETERS.TIME_STEP", param->timestep_us);
 
     uint16_t i=0, j=0;
@@ -158,7 +159,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
  
     // ---------------- dephasing (start times, Flip angles ) ----------------
     // Dephase start times
-    for(i=0; i<MAX_RF && pt.get<float>("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", -1) > 0; i++)  
+    for(i=0; i<MAX_RF && pt.get<float>("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", -1.f) != -1.f; i++)  
         param->dephasing_us[i] = (int32_t)pt.get<float>("SCAN_PARAMETERS.DEPHASING_T[" + std::to_string(i) + "]", 0.) / param->timestep_us;
     param->n_dephasing = i==0?param->n_dephasing:i;
     // Dephase flip angles
@@ -180,7 +181,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
 
     // ---------------- Gradients (start times, strength (T/m) ) ----------------
     // Gradient start times
-    for(i=0; i<MAX_GRADIENT && pt.get<float>("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", -1.f) > 0; i++)  
+    for(i=0; i<MAX_GRADIENT && pt.get<float>("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", -1.f) != -1.f; i++)  
         param->gradient_us[i] = (int32_t)pt.get<float>("SCAN_PARAMETERS.GRADIENT_T[" + std::to_string(i) + "]", 0.) / param->timestep_us;
     param->n_gradient = i==0?param->n_gradient:i;
     // Gradient strength
@@ -200,7 +201,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
         std::adjacent_find(param->gradient_us, param->gradient_us + i) != param->gradient_us + i )
     {
         ss.str(""); std::copy(param->gradient_us, param->gradient_us + param->n_gradient, std::ostream_iterator<int>(ss, " ")); 
-        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "Gradient Times must be in ascending order and must not have duplicates values: " << ss.str();
+        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "Gradient Times must be in a strickly ascending order and must not have duplicates values: " << ss.str();
         return false;
     }
 
@@ -389,8 +390,7 @@ bool file_utils::save_h5(std::string output_filename, void *data, std::vector<si
     // if dataset exists, delete it
     if (file.exist(dataset_name))
         file.unlink(dataset_name);
-    // we have to reverse the dimensions since the data is stored in row-major order
-    std::reverse(dims.begin(), dims.end());
+
     if (data_type == "float")
     {
         HighFive::DataSet dataset = file.createDataSet<float>(dataset_name, HighFive::DataSpace(dims));

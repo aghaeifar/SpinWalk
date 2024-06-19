@@ -50,11 +50,11 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     BOOST_LOG_TRIVIAL(info) << "Memory size: XYZ0=" << len0 << ", XYZ1=" << len1 << ", M0=" << len0 << ", M1=" << len2 << "";
     std::vector<float>      fieldmap(param.fieldmap_exist?param.matrix_length:0, 0.f);
     std::vector<uint8_t>    mask(param.matrix_length, 0);
-    std::vector<float>      XYZ0(len0, 0.f);     // memory layout(column-wise): [3 x n_spins]
-    std::vector<float>      XYZ1(len1, 0.f);     // memory layout(column-wise): [3 x timepoints x n_spins x n_sample_length_scales] or [3 x 1 x n_spins x n_sample_length_scales]
-    std::vector<float>      M0(len0, 0.f);       // memory layout(column-wise): [3 x n_spins]
-    std::vector<float>      M1(len2, 0.f);       // memory layout(column-wise): [3 x n_TE x n_spins x n_sample_length_scales]
-    std::vector<uint8_t>    T(M1.size()/3, 0);   // memory layout(column-wise): [1 x n_TE x n_spins x n_sample_length_scales]
+    std::vector<float>      XYZ0(len0, 0.f);     // memory layout(row-major): [n_spins x 3]
+    std::vector<float>      XYZ1(len1, 0.f);     // memory layout(row-major): [n_sample_length_scales x n_spins x timepoints x 3] or [n_sample_length_scales x n_spins x 1 x 3]
+    std::vector<float>      M0(len0, 0.f);       // memory layout(row-major): [n_spins x 3]
+    std::vector<float>      M1(len2, 0.f);       // memory layout(row-major): [n_sample_length_scales x n_spins x n_TE x 3]
+    std::vector<uint8_t>    T(M1.size()/3, 0);   // memory layout(row-major): [n_sample_length_scales x n_spins x n_TE x 1]
     BOOST_LOG_TRIVIAL(info) << "Memory allocation (CPU) took " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - st).count() << " ms";
     
     // ========== allocate memory on GPU ==========
@@ -94,31 +94,31 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
     {
         bool hasXYZ0 = false;
         // ========== load files (field-maps, xyz0, m0) ==========
-        if(file_utils::read_fieldmap(filenames.at("FIELDMAP")[fieldmap_no], fieldmap, mask, &param) == false)
+        if(file_utils::read_fieldmap(filenames.at("phantom")[fieldmap_no], fieldmap, mask, &param) == false)
             return false;
 
-        if(fieldmap_no < filenames.at("XYZ0").size())
+        if(fieldmap_no < filenames.at("xyz0").size())
         {   
-            XYZ0.resize(product(file_utils::get_size_h5(filenames.at("XYZ0")[fieldmap_no], "/XYZ")));            
+            XYZ0.resize(product(file_utils::get_size_h5(filenames.at("xyz0")[fieldmap_no], "/XYZ")));            
             if(XYZ0.size()/3 != param.n_spins*device_count)
             {
                 BOOST_LOG_TRIVIAL(error) << "Number of spins in XYZ0 file does not match with the number of spins in the config file! " << XYZ0.size()/3 << " vs " << param.n_spins*device_count ;
                 return false;
             }
-            if(file_utils::read_h5(filenames.at("XYZ0")[fieldmap_no], XYZ0.data(), "/XYZ", "float") == false)
+            if(file_utils::read_h5(filenames.at("xyz0")[fieldmap_no], XYZ0.data(), "/XYZ", "float") == false)
                 return false;
             hasXYZ0 = true;
         }
 
-        if(fieldmap_no < filenames.at("M0").size())
+        if(fieldmap_no < filenames.at("m0").size())
         {
-            M0.resize(product(file_utils::get_size_h5(filenames.at("M0")[fieldmap_no], "/M"))); 
+            M0.resize(product(file_utils::get_size_h5(filenames.at("m0")[fieldmap_no], "/M"))); 
             if(M0.size() != param.n_spins*device_count)
             {
                 BOOST_LOG_TRIVIAL(error) << "Number of spins in M0 file does not match with the number of spins in the config file! " << M0.size() << " vs " << param.n_spins*device_count ;
                 return false;
             }
-            if(file_utils::read_h5(filenames.at("M0")[fieldmap_no], M0.data(), "/M", "float") == false)
+            if(file_utils::read_h5(filenames.at("m0")[fieldmap_no], M0.data(), "/M", "float") == false)
                 return false;
         }
         else
@@ -217,13 +217,13 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
         std::cout << "Saving the results to disk" << '\n';
         std::string f = filenames.at("output")[fieldmap_no];
         
-        std::vector<size_t> dims = {3, param.n_TE, param.n_spins * device_count, param.n_sample_length_scales};
+        std::vector<size_t> dims = {param.n_sample_length_scales, param.n_spins * device_count, param.n_TE, 3};
         file_utils::save_h5(f, M1.data(), dims, "M", "float");
 
-        dims[1] = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
+        dims[2] = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
         file_utils::save_h5(f, XYZ1.data(), dims, "XYZ", "float");
 
-        dims[0] = 1; dims[1] = param.n_TE;
+        dims[3] = 1; dims[2] = param.n_TE;
         file_utils::save_h5(f, T.data(), dims, "T", "uint8_t");
 
         dims[0] = sample_length_scales.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
@@ -289,13 +289,14 @@ int main(int argc, char * argv[])
         ("configs,c", po::value<std::vector<std::string>>(&config_files)->multitoken(), "config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini")
         ("cylinder,C", "generate phantom filled with cylinders")
         ("sphere,s", "generate phantom filled with spheres")
-        ("orientation,o", po::value<float>(&phantom_orientation)->default_value(-1.0), "orientation of the cylinders in degree with respect to B0 (negative value = random orientation)")
+        ("orientation,o", po::value<float>(&phantom_orientation)->default_value(90.0), "orientation of the cylinders in degree with respect to B0")
         ("radius,r", po::value<float>(&phantom_radius)->default_value(50), "radius of the cylinders/spheres in um (negative value = random radius)")
-        ("blood_volume,b", po::value<float>(&phantom_BVF)->default_value(10.0), "fraction of shapes to entire volume <0.0 100.0> ")
+        ("reproducible,R", "set fixed seed for random number generator (for reproducibility)")
+        ("BVF,b", po::value<float>(&phantom_BVF)->default_value(10.0), "fraction of shapes to entire volume <0.0 100.0> (i.e. blood volume fraction)")
         ("fov,v", po::value<float>(&phantom_fov)->default_value(1000.0), "voxel field of view in um (isotropic)")
         ("resolution,z", po::value<int32_t>(&phantom_resolution)->default_value(500), "base resolution")
         ("dchi,d", po::value<float>(&phantom_dchi)->default_value(0.11e-6), "susceptibility difference between fully deoxygenated blood (inside cylinders/spheres) and tissue (outside cylinders/spheres) (default: 0.11e-6 in cgs units)")
-        ("oxy_level,Y", po::value<float>(&phantom_oxy_level)->default_value(0.75), "blood oxygenetation level <0.0 1.0> (negative value = exclude off-resonance effect)")
+        ("oxy_level,Y", po::value<float>(&phantom_oxy_level)->default_value(0.75), "blood oxygenetation level <0.0 1.0> (negative value = exclude off-resonance effect and only generate the mask)")
         ("output_file,f", po::value<std::string>(&phantom_output)->default_value("./phantom.h5"), "path to save phantom (h5 format)");
 
     po::variables_map vm;
@@ -326,12 +327,12 @@ int main(int argc, char * argv[])
     // ========== generate phantom ==========
     if (vm.count("cylinder"))
     {
-        cylinder cyl(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_BVF, phantom_orientation, phantom_output);
+        cylinder cyl(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_BVF, phantom_orientation, vm.count("reproducible")>0, phantom_output);
         cyl.run();
     }
     if (vm.count("sphere"))
     {
-        sphere sph(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_BVF, phantom_output);
+        sphere sph(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_BVF, vm.count("reproducible")>0, phantom_output);
         sph.run();
     }
 
@@ -343,9 +344,9 @@ int main(int argc, char * argv[])
     auto start = std::chrono::steady_clock::now();
     for(const auto& cfile : config_files)
     {
-        std::map<std::string, std::vector<std::string> > filenames = {{"FIELDMAP", 	std::vector<std::string>()},  // input:  map of off-resonance in Tesla
-                                                                      {"XYZ0", 		std::vector<std::string>()},  // input:  spins starting spatial positions in meters
-                                                                      {"M0", 		std::vector<std::string>()},  // input:  spins initial magnetization
+        std::map<std::string, std::vector<std::string> > filenames = {{"phantom", 	std::vector<std::string>()},  // input:  map of off-resonance in Tesla
+                                                                      {"xyz0", 		std::vector<std::string>()},  // input:  spins starting spatial positions in meters
+                                                                      {"m0", 		std::vector<std::string>()},  // input:  spins initial magnetization
                                                                       {"output", 	std::vector<std::string>()},  // output: spins final magnetization + spatial positions in meters + tissue index
                                                                      };
 

@@ -14,6 +14,8 @@
 #include <numeric>
 #include "simulation_parameters.h"
 
+#define ROW_MAJOR
+// #define COL_MAJOR
 
 #define GAMMA  267515315. // rad/s.T
 
@@ -28,9 +30,32 @@ __global__ void cu_scaleArray(float *array, double scale, uint64_t size);
 // generate random initial position
 __global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *param, const uint8_t *pMask, uint32_t spin_no = 0);
 
-__host__  __device__ __forceinline__ int64_t sub2ind(int32_t x, int32_t y, int32_t z, int32_t lenx, int32_t leny)
+// data is stored row-major in the h5 file -> (x1,y1,z1); (x1,y1,z2); (x1,y1,z3)...(x1,y2,z1); (x1,y2,z2); (x1,y2,z3)...
+__host__  __device__ __forceinline__ int64_t sub2ind(int64_t x, int64_t y, int64_t z, int64_t o, int64_t len_dim_x, int64_t len_dim_y, int64_t len_dim_z, int64_t len_dim_o)
 {
-    return (int64_t(z)*int64_t(lenx*leny) + y*lenx + x); 
+#ifdef ROW_MAJOR
+    return (x*len_dim_o*len_dim_z*len_dim_y + y*len_dim_z*len_dim_o + z*len_dim_o + o); 
+#else
+    return (o*len_dim_x*len_dim_y*len_dim_z + z*len_dim_x*len_dim_y + y*len_dim_x + x); // column-major
+#endif
+}
+
+__host__  __device__ __forceinline__ int64_t sub2ind(int64_t x, int64_t y, int64_t z, int64_t len_dim_x, int64_t len_dim_y, int64_t len_dim_z)
+{
+#ifdef ROW_MAJOR
+    return (x*len_dim_z*len_dim_y + y*len_dim_z + z); 
+#else
+    return (z*len_dim_x*len_dim_y + y*len_dim_x + x); // column-major
+#endif
+}
+
+__host__  __device__ __forceinline__ int64_t sub2ind(int64_t x, int64_t y,int64_t len_dim_x, int64_t len_dim_y)
+{
+#ifdef ROW_MAJOR
+    return (x*len_dim_y + y); 
+#else
+    return (y*len_dim_x + x); // column-major
+#endif
 }
 
 
