@@ -11,7 +11,7 @@
 #include <filesystem>
 #include <random>
 #include "tqdm.h"
-#include "sphere.cuh"
+#include "sphere.h"
 #include "basic_functions.cuh"
 
 

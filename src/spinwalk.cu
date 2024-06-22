@@ -13,32 +13,38 @@
 #include <chrono>
 #include <iomanip>
 #include <filesystem>
-#include <cuda_runtime.h>
-#include "tqdm.h"
-#include "helper.cuh"
-#include "kernels.cuh"
-#include "file_utils.h"
-#include "shapes/cylinder.cuh"
-#include "shapes/sphere.cuh"
-#include "helper_cuda.h"
 #include <boost/program_options.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
+#include "tqdm.h"
+#include "version.h"
+#include "kernels.cuh"
+#include "file_utils.h"
+#include "shapes/cylinder.h"
+#include "shapes/sphere.h"
+
+#ifdef __CUDACC__
+#include <cuda_runtime.h>
+#include "helper_cuda.h"
+#include "helper.cuh"
+#else
+#define checkCudaErrors(x) {}
+#endif
 
 #define THREADS_PER_BLOCK  64
 #define LOG_FILE "spinwalk.log"
 
 namespace bl = boost::log;
 
-bool simulate(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<double> sample_length_scales)
+bool run(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<double> sample_length_scales)
 {
     // ========== checking number of GPU(s) ==========
-    int32_t device_count;
+    int32_t device_count=1;
     checkCudaErrors(cudaGetDeviceCount(&device_count));
     BOOST_LOG_TRIVIAL(info) << "Number of available GPU(s): " << device_count; 
     
-    param.n_spins /= device_count; // spins will be distributed in multiple GPUs (if there is). We hope it is divisible 
+    param.n_spins /= device_count; // spins will be distributed in multiple GPUs (if there is). We suppose it is divisible 
     size_t numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
     
     // ========== allocate memory on CPU ==========
@@ -84,6 +90,8 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             checkCudaErrors(cudaMalloc((void**)&d_pFieldMap[d], sizeof(fieldmap[0]) * fieldmap.size())); 
         checkCudaErrors(cudaStreamSynchronize(streams[d]));    
     }
+
+    // ==========^==========
     cudaEvent_t start;
     cudaEvent_t end;  
     checkCudaErrors(cudaEventCreate(&start));
@@ -154,7 +162,7 @@ bool simulate(simulation_parameters param, std::map<std::string, std::vector<std
             if(param.fieldmap_exist)   
             {      
                 checkCudaErrors(cudaMemcpyAsync(d_pFieldMap[d], fieldmap.data(),    fieldmap.size()*sizeof(fieldmap[0]), cudaMemcpyHostToDevice, streams[d]));
-                // convert fieldmap from uT to degree per timestep
+                // convert fieldmap from T to degree per timestep
                 cu_scaleArray<<<uint64_t(fieldmap.size()/THREADS_PER_BLOCK)+1, THREADS_PER_BLOCK, 0, streams[d]>>>(d_pFieldMap[d], param.B0 * param.timestep_us * 1e-6 * GAMMA * RAD2DEG, fieldmap.size());
             }
             if(hasXYZ0 == false)
@@ -287,6 +295,9 @@ int main(int argc, char * argv[])
     desc.add_options()
         ("help,h", "help message (this menu)")
         ("configs,c", po::value<std::vector<std::string>>(&config_files)->multitoken(), "config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini")
+#ifdef __CUDACC__
+        ("gpu,g", "run on GPU(s) (default: CPU)")
+#endif
         ("cylinder,C", "generate phantom filled with cylinders")
         ("sphere,s", "generate phantom filled with spheres")
         ("orientation,o", po::value<float>(&phantom_orientation)->default_value(90.0), "orientation of the cylinders in degree with respect to B0")
@@ -352,6 +363,7 @@ int main(int argc, char * argv[])
 
         std::vector<double> sample_length_scales;
         simulation_parameters param;
+        param.use_gpu = vm.count("gpu") > 0;
         
         // ========== read config file ==========
         bStatus &= file_utils::read_config(cfile, &param, sample_length_scales, filenames);
@@ -369,7 +381,7 @@ int main(int argc, char * argv[])
         }
         
         std::cout << "Simulation starts..." << std::endl;
-        if(simulate(param, filenames, sample_length_scales) == false)
+        if(run(param, filenames, sample_length_scales) == false)
         {
             std::cout << ERR_MSG << "Simulation failed. See the log file " << LOG_FILE <<", Aborting...!" << std::endl;
             return 1;

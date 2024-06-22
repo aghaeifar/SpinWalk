@@ -17,7 +17,12 @@
 #define RAD2DEG 57.2957795130823
 
 
-__host__  __device__ __forceinline__ void xrot(float sin_theta, float cos_theta, const float *m0, float *m1)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void xrot(float sin_theta, float cos_theta, const float *m0, float *m1)
 {
     m1[0] = m0[0]; 
     m1[1] = cos_theta*m0[1] - sin_theta*m0[2];
@@ -25,7 +30,12 @@ __host__  __device__ __forceinline__ void xrot(float sin_theta, float cos_theta,
 }
 
 
-__host__  __device__ __forceinline__ void xrot(float theta, const float *m0, float *m1)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void xrot(float theta, const float *m0, float *m1)
 {
     float s = sinf(theta * DEG2RAD);
     float c = cosf(theta * DEG2RAD);
@@ -33,7 +43,12 @@ __host__  __device__ __forceinline__ void xrot(float theta, const float *m0, flo
 }
 
 
-__host__  __device__ __forceinline__ void yrot(float sin_theta, float cos_theta, const float *m0, float *m1)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void yrot(float sin_theta, float cos_theta, const float *m0, float *m1)
 {
     m1[0] =  cos_theta*m0[0] + sin_theta*m0[2];
     m1[1] =  m0[1];
@@ -41,7 +56,12 @@ __host__  __device__ __forceinline__ void yrot(float sin_theta, float cos_theta,
 }
 
 
-__host__  __device__ __forceinline__ void yrot(float theta, const float *m0, float *m1)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void yrot(float theta, const float *m0, float *m1)
 {
     float s = sinf(theta * DEG2RAD);
     float c = cosf(theta * DEG2RAD);
@@ -49,7 +69,12 @@ __host__  __device__ __forceinline__ void yrot(float theta, const float *m0, flo
 }
 
 
-__host__  __device__ __forceinline__ void zrot(float sin_theta, float cos_theta, const float *m0, float *m1)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void zrot(float sin_theta, float cos_theta, const float *m0, float *m1)
 {
     m1[0] = cos_theta*m0[0] - sin_theta*m0[1];
     m1[1] = sin_theta*m0[0] + cos_theta*m0[1];
@@ -57,7 +82,12 @@ __host__  __device__ __forceinline__ void zrot(float sin_theta, float cos_theta,
 }
 
 
-__host__  __device__ __forceinline__ void zrot(float theta, const float *m0, float *m1)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void zrot(float theta, const float *m0, float *m1)
 {
     float s = sinf(theta * DEG2RAD);
     float c = cosf(theta * DEG2RAD);
@@ -65,7 +95,12 @@ __host__  __device__ __forceinline__ void zrot(float theta, const float *m0, flo
 }
 
 
-__host__  __device__ __forceinline__ void xrot_withphase(float sin_theta, float cos_theta, float rf_phase, const float *m0, float *m1)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void xrot_withphase(float sin_theta, float cos_theta, float rf_phase, const float *m0, float *m1)
 {
     if (rf_phase == 0.0f)
     {
@@ -103,13 +138,23 @@ __host__  __device__ __forceinline__ void xrot_withphase(float sin_theta, float 
 }
 
 
-__host__  __device__ __forceinline__ void xrot_withphase(float theta, float rf_phase, const float *m0, float *m1)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void xrot_withphase(float theta, float rf_phase, const float *m0, float *m1)
 {
     xrot_withphase(sin(theta*DEG2RAD), cos(theta*DEG2RAD), rf_phase, m0, m1);
 }
 
 
-__host__  __device__ __forceinline__ void relax(float e1, float e2, const float *m0, float *m1)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void relax(float e1, float e2, const float *m0, float *m1)
 {
     m1[0] = m0[0] * e2;
     m1[1] = m0[1] * e2;
@@ -117,35 +162,65 @@ __host__  __device__ __forceinline__ void relax(float e1, float e2, const float 
 }
 
 
-__host__  __device__ __forceinline__ void relax(float e1, float e2, float *m)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void relax(float e1, float e2, float *m)
 {
     relax(e1, e2, m, m);
 }
 
 
-__host__  __device__ __forceinline__  float dot_product(const float *a, const float *b)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+float dot_product(const float *a, const float *b)
 {
     return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
 }
 
-__host__  __device__ __forceinline__  float norm(const float *a)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+float norm(const float *a)
 {
     return sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
 }
 
-__host__  __device__ __forceinline__  float norm_p2(const float *a)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+float norm_p2(const float *a)
 {
     return a[0]*a[0] + a[1]*a[1] + a[2]*a[2]; // avoid sqrt
 }
 
-__host__  __device__ __forceinline__  void cross_product(const float *a, const float *b, float *c)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void cross_product(const float *a, const float *b, float *c)
 {
     c[0] = a[1]*b[2] - a[2]*b[1];
     c[1] = a[2]*b[0] - a[0]*b[2];
     c[2] = a[0]*b[1] - a[1]*b[0];
 }
 
-__host__  __device__ __forceinline__  void normalize(float *a, float n = -1.0f)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void normalize(float *a, float n = -1.0f)
 {
     if (n < 0)
         n = norm(a);
@@ -154,35 +229,60 @@ __host__  __device__ __forceinline__  void normalize(float *a, float n = -1.0f)
     a[2] /= n;
 }
 
-__host__  __device__ __forceinline__  void subtract(const float *a, const float *b, float *c)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void subtract(const float *a, const float *b, float *c)
 {
     c[0] = a[0] - b[0];
     c[1] = a[1] - b[1];
     c[2] = a[2] - b[2];
 }
 
-__host__  __device__ __forceinline__  void add(const float *a, const float *b, float *c)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void add(const float *a, const float *b, float *c)
 {
     c[0] = a[0] + b[0];
     c[1] = a[1] + b[1];
     c[2] = a[2] + b[2];
 }
 
-__host__  __device__ __forceinline__  void multiply(const float a, const float *b, float *c)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void multiply(const float a, const float *b, float *c)
 {
     c[0] = a * b[0];
     c[1] = a * b[1];
     c[2] = a * b[2];
 }
 
-__host__  __device__ __forceinline__  void multiply(const float *a, const float *b, float *c)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void multiply(const float *a, const float *b, float *c)
 {
     c[0] = a[0] * b[0];
     c[1] = a[1] * b[1];
     c[2] = a[2] * b[2];
 }
 
-__host__  __device__ __forceinline__  void copy(const float *a, float *b)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void copy(const float *a, float *b)
 {
     b[0] = a[0];
     b[1] = a[1];

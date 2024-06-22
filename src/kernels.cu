@@ -11,12 +11,14 @@
 #include <algorithm>
 #include "kernels.cuh"
 #include "basic_functions.cuh"
+
+#ifdef __CUDACC__
 #include "helper_cuda.h"
 #include <cuda_runtime.h>
 #include <thrust/random.h>
 #include <thrust/device_vector.h>
 #include <thrust/extrema.h>
-
+#endif
 //---------------------------------------------------------------------------------------------
 //
 //---------------------------------------------------------------------------------------------
@@ -24,12 +26,21 @@
 
 uint8_t find_max(const std::vector<uint8_t> &data)
 {
-    thrust::device_vector<uint8_t> gpu_vec(data.begin(), data.end());
-    uint8_t m = *thrust::max_element(gpu_vec.begin(), gpu_vec.end());
+#ifdef __CUDACC__
+    thrust::device_vector<uint8_t> thrust_vec(data.begin(), data.end());
+    uint8_t m = *thrust::max_element(thrust_vec.begin(), thrust_vec.end());
+#else
+    uint8_t m = std::max_element(std::execution::par, data.begin(), data.end());
+#endif
     return m;
 }
 
-__device__ __forceinline__ void dephase_relax(float *m0, float *m1, float accumulated_phase, float T1, float T2, float time_elapsed)
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+void dephase_relax(float *m0, float *m1, float accumulated_phase, float T1, float T2, float time_elapsed)
 {
     // dephase                
     zrot(accumulated_phase, m0, m1); 
@@ -37,18 +48,34 @@ __device__ __forceinline__ void dephase_relax(float *m0, float *m1, float accumu
     relax(exp(-time_elapsed/T1), exp(-time_elapsed/T2), m1);
 }
 
-__global__ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1, uint8_t *T)
+#ifdef __CUDACC__
+__global__ 
+#endif 
+void cu_sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1, uint8_t *T)
 {
     auto spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     if (spin_no >= param->n_spins)
         return;
+    sim(param, pFieldMap,pMask,M0, XYZ0, M1, XYZ1, T, spin_no);
+}
 
+#ifdef __CUDACC__
+__host__  __device__ 
+#endif 
+void sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1, uint8_t *T, uint32_t spin_no)
+{
     float *xyz1 = XYZ1 + 3*spin_no * (param->enRecordTrajectory ? (param->n_dummy_scan + 1)*(param->n_timepoints) : 1);
+#ifdef __CUDACC__
     thrust::minstd_rand gen_r(param->seed + spin_no);
     thrust::minstd_rand gen_u(param->seed + spin_no);
     thrust::normal_distribution<float> dist_random_walk_xyz(0.f, 1.0f);
-    // thrust::uniform_real_distribution<float> dist_random_walk_xyz(-sqrt(6 * param->diffusion_const * param->dt), sqrt(6 * param->diffusion_const * param->dt));
     thrust::uniform_real_distribution<float> dist_cross_tissue(0.f, 1.f);
+#else
+    std::mt19937 gen_r(param->seed + spin_no);
+    std::mt19937 gen_u(param->seed + spin_no);
+    std::normal_distribution<float> dist_random_walk_xyz(0.f, 1.0f);
+    std::uniform_real_distribution<float> dist_cross_tissue(0.f, 1.f);
+#endif
     gen_r.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
     gen_u.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
 
@@ -203,7 +230,10 @@ __global__ void cu_sim(const simulation_parameters *param, const float *pFieldMa
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
-__global__ void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, uint64_t size)
+#ifdef __CUDACC__
+__global__  
+#endif 
+void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, uint64_t size)
 {
     uint64_t n = blockIdx.x * blockDim.x + threadIdx.x ;
     if(n < size)
@@ -218,17 +248,31 @@ __global__ void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, 
 //---------------------------------------------------------------------------------------------
 // CUDA kernel to perform array multiplication with a constant
 //---------------------------------------------------------------------------------------------
-__global__ void cu_scaleArray(float *array, double scale, uint64_t size)
+#ifdef __CUDACC__
+__global__ 
+#endif 
+void cu_scaleArray(float *array, double scale, uint64_t size)
 {
-    auto n = blockIdx.x * blockDim.x + threadIdx.x ;
-    if(n < size)
-        array[n] *= scale;
+    auto idx = blockIdx.x * blockDim.x + threadIdx.x ;
+    scaleArray(array, scale, size, idx);
+}
+
+#ifdef __CUDACC__
+__host__  __device__ 
+#endif 
+void scaleArray(float *array, double scale, uint64_t size, uint32_t idx)
+{
+    if(idx < size)
+        array[idx] *= scale;
 }
 
 //---------------------------------------------------------------------------------------------
 // CUDA kernel to generate random initial position
 //---------------------------------------------------------------------------------------------
-__global__ void cu_randPosGen(float *spin_position_xyz, simulation_parameters *param, const uint8_t *pMask, uint32_t spin_no)
+#ifdef __CUDACC__
+__global__ 
+#endif 
+void cu_randPosGen(float *spin_position_xyz, simulation_parameters *param, const uint8_t *pMask, uint32_t spin_no)
 {
     spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     if(spin_no >= param->n_spins)

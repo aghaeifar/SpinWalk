@@ -10,7 +10,7 @@
 #include <highfive/highfive.hpp>
 #include <filesystem>
 #include <random>
-#include "shape_base.cuh"
+#include "shape_base.h"
 
 
 shape::shape()

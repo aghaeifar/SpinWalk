@@ -52,7 +52,7 @@ typedef struct simulation_parameters
     uint32_t fieldmap_size[3], seed, max_iterations;
     int64_t matrix_length;
     bool enDebug, enCrossFOV, enRecordTrajectory, enProfiling;
-    bool fieldmap_exist, mask_exist;
+    bool fieldmap_exist, mask_exist, use_gpu;
     
     simulation_parameters():
         TR_us(40e3),
@@ -71,7 +71,8 @@ typedef struct simulation_parameters
         enRecordTrajectory(false),
         fieldmap_exist(true),
         mask_exist(true),
-        enProfiling(false)
+        enProfiling(false),
+        use_gpu(false)
     {
         memset(fieldmap_size,   0, 3*sizeof(fieldmap_size[0])); 
         memset(scale2grid,      0, 3*sizeof(scale2grid[0])); 
@@ -94,6 +95,7 @@ typedef struct simulation_parameters
     std::string dump()
     {
         std::stringstream ss;
+        ss<<"Use GPU = "<<(use_gpu?"Yes":"No")<<'\n';
         ss<<"B0 = "<<B0<<" T\n";
         ss<<"timestep = "<<timestep_us<<" us.\n";
         ss<<"TR = "<<TR_us/1000.<<" ms.\n";

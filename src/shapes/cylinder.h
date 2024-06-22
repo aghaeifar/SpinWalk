@@ -11,7 +11,7 @@
 #ifndef CYLINDER_H
 #define CYLINDER_H
 
-#include "shape_base.cuh"
+#include "shape_base.h"
 
 class cylinder : public shape
 {

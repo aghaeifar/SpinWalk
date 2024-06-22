@@ -11,7 +11,7 @@
 #include <filesystem>
 #include <random>
 #include "tqdm.h"
-#include "cylinder.cuh"
+#include "cylinder.h"
 #include "basic_functions.cuh"
 
 

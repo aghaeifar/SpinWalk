@@ -11,7 +11,7 @@
 #ifndef SPHERE_H
 #define SPHERE_H
 
-#include "shape_base.cuh"
+#include "shape_base.h"
 
 class sphere : public shape
 {
