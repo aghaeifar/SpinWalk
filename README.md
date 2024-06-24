@@ -45,15 +45,16 @@ Execute the **spinwalk** command, and you'll encounter the help menu along with 
 
 #### Dependencies
 
-- A C++ compiler supprting C++ 17
+- A C++ compiler supprting C++ 20
 - CUDA driver (*nvidia-smi* and *nvcc --version* must run in terminal)
 - Boost libraries ([+](https://www.boost.org/))
 - HDF5 Library ([+](https://www.hdfgroup.org/downloads/hdf5))
+- Threading Building Blocks (TBB). 
   
 If you prefer to install the program without using Docker, follow these steps (tested in Ubuntu 22.04):
 
 ```
-sudo apt-get update && apt-get install -y libboost-all-dev libhdf5-dev
+sudo apt-get update && apt-get install -y libboost-all-dev libhdf5-dev libtbb-dev
 git clone https://github.com/aghaeifar/SpinWalk.git
 cd SpinWalk
 cmake -B ./build

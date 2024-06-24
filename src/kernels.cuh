@@ -31,29 +31,11 @@ __host__  __device__
 void sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1, uint8_t *T, uint32_t spin_no);
 
 
-// scale position to mimic the different volume size
-#ifdef __CUDACC__
-__global__ 
-#endif
-void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, uint64_t size);
-
-// CUDA kernel to perform array multiplication with a constant
-#ifdef __CUDACC__
-__global__ 
-#endif
-void cu_scaleArray(float *array, double scale, uint64_t size);
-
-#ifdef __CUDACC__
-__host__  __device__ 
-#endif 
-void scaleArray(float *array, double scale, uint64_t size, uint32_t idx);
-
 // generate random initial position
 #ifdef __CUDACC__
-__global__ 
-#endif
-void cu_randPosGen(float *spin_position_xyz, simulation_parameters *param, const uint8_t *pMask, uint32_t spin_no = 0);
-
+__host__  
+#endif 
+void randPosGen(float *spin_position_xyz, const simulation_parameters &param);
 
 // data is stored row-major in the h5 file -> (x1,y1,z1); (x1,y1,z2); (x1,y1,z3)...(x1,y2,z1); (x1,y2,z2); (x1,y2,z3)...
 #ifdef __CUDACC__

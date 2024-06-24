@@ -53,9 +53,9 @@ __global__
 #endif 
 void cu_sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1, uint8_t *T)
 {
-    auto spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
+    uint32_t spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
     if (spin_no >= param->n_spins)
-        return;
+        return;    
     sim(param, pFieldMap,pMask,M0, XYZ0, M1, XYZ1, T, spin_no);
 }
 
@@ -65,6 +65,7 @@ __host__  __device__
 void sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1, uint8_t *T, uint32_t spin_no)
 {
     float *xyz1 = XYZ1 + 3*spin_no * (param->enRecordTrajectory ? (param->n_dummy_scan + 1)*(param->n_timepoints) : 1);
+    //  printf("spin=%d\n", spin_no);
 #ifdef __CUDACC__
     thrust::minstd_rand gen_r(param->seed + spin_no);
     thrust::minstd_rand gen_u(param->seed + spin_no);
@@ -78,7 +79,7 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
 #endif
     gen_r.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
     gen_u.discard(param->seed + spin_no); // each spins has its own seed, and param->seed differes for each GPU in HPC with multiple GPUs
-
+    
     uint32_t itr = 0;
     float field = 0., T1=0., T2=0., rf_phase = param->RF_PH_deg[0], time_elapsed = 0.; 
     float m0[3], m1[3]; 
@@ -90,11 +91,11 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
         m0[i]  = M0[shift + i];
     }
     // tissue type
-    uint8_t ts, ts_old;
+    uint8_t ts, ts_old;    
     auto indx = sub2ind(xyz1[0]*param->scale2grid[0], xyz1[1]*param->scale2grid[1], xyz1[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1], param->fieldmap_size[2]);
     ts_old = pMask[indx];
     double diffusivity_scale = param->diffusivity[ts_old];
-
+    
     bool is_lastscan = false;
     for (uint32_t dummy_scan = 0; dummy_scan < param->n_dummy_scan + 1; dummy_scan++)
     {
@@ -227,72 +228,29 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
 }
 
 
-//---------------------------------------------------------------------------------------------
-//  
-//---------------------------------------------------------------------------------------------
-#ifdef __CUDACC__
-__global__  
-#endif 
-void cu_scalePos(float *scaled_xyz, float *initial_xyz, float scale, uint64_t size)
-{
-    uint64_t n = blockIdx.x * blockDim.x + threadIdx.x ;
-    if(n < size)
-    {
-        uint64_t ind = 3*n;
-        scaled_xyz[ind+0] = initial_xyz[ind+0] * scale;
-        scaled_xyz[ind+1] = initial_xyz[ind+1] * scale;
-        scaled_xyz[ind+2] = initial_xyz[ind+2] * scale;
-    }
-}
-
-//---------------------------------------------------------------------------------------------
-// CUDA kernel to perform array multiplication with a constant
-//---------------------------------------------------------------------------------------------
-#ifdef __CUDACC__
-__global__ 
-#endif 
-void cu_scaleArray(float *array, double scale, uint64_t size)
-{
-    auto idx = blockIdx.x * blockDim.x + threadIdx.x ;
-    scaleArray(array, scale, size, idx);
-}
-
-#ifdef __CUDACC__
-__host__  __device__ 
-#endif 
-void scaleArray(float *array, double scale, uint64_t size, uint32_t idx)
-{
-    if(idx < size)
-        array[idx] *= scale;
-}
 
 //---------------------------------------------------------------------------------------------
 // CUDA kernel to generate random initial position
 //---------------------------------------------------------------------------------------------
+#include <iomanip>
 #ifdef __CUDACC__
-__global__ 
+__host__  
 #endif 
-void cu_randPosGen(float *spin_position_xyz, simulation_parameters *param, const uint8_t *pMask, uint32_t spin_no)
+void randPosGen(float *spin_position_xyz, const simulation_parameters &param)
 {
-    spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
-    if(spin_no >= param->n_spins)
-        return;
-
-    thrust::minstd_rand  gen(param->seed + spin_no);
-    thrust::uniform_real_distribution<float> dist_initial_point(0.f, 1.f);
-    gen.discard(param->seed + spin_no);
-
-    double res = 0;
-    float *xyz = spin_position_xyz + 3*spin_no;
+    float res[3];
     for (uint8_t i = 0; i < 3; i++)
-    {
-        xyz[i] = dist_initial_point(gen) * param->sample_length[i];
+        res[i] = param.sample_length[i] / param.fieldmap_size[i];
+    
+    std::mt19937 gen(param.seed);
+    std::uniform_real_distribution<float> dist_initial_x(res[0], param.sample_length[0] - res[0]);
+    std::uniform_real_distribution<float> dist_initial_y(res[1], param.sample_length[1] - res[1]);
+    std::uniform_real_distribution<float> dist_initial_z(res[2], param.sample_length[2] - res[2]);
 
-        res = param->sample_length[i] / param->fieldmap_size[i];
-        if (xyz[i] < res)
-            xyz[i] = res;
-        else if (xyz[i] >= param->sample_length[i] - res)
-            xyz[i] = param->sample_length[i] - res;
+    for (size_t i = 0; i < param.n_spins; i++)
+    {
+        spin_position_xyz[3*i+0] = dist_initial_x(gen);
+        spin_position_xyz[3*i+1] = dist_initial_y(gen);
+        spin_position_xyz[3*i+2] = dist_initial_z(gen);
     }
 }
-
