@@ -104,7 +104,6 @@ typedef struct simulation_parameters
         ss<<"T1 = "; for(int i=0; i<n_tissue_type; i++) ss<<T1_ms[i]<<' '; ss<<"ms.\n";
         ss<<"Step size = "; for(int i=0; i<n_tissue_type; i++) ss<<diffusivity[i]<<' '; ss<<"\n";
         ss<<"Cross Tissue Probability =\n"; for(int i=0; i<n_tissue_type; i++) {for(int j=0; j<n_tissue_type; j++) ss<<pXY[j+i*n_tissue_type]<<' '; ss<<'\n';};
-
         ss<<"RF flip-angle   = "; for(int i=0; i<n_RF; i++) ss<<RF_FA_deg[i]<<' '; ss<<"deg.\n";
         ss<<"RF phase        = "; for(int i=0; i<n_RF; i++) ss<<RF_PH_deg[i]<<' '; ss<<"deg.\n";
         ss<<"RF time         = "; for(int i=0; i<n_RF; i++) ss<<RF_us[i]*timestep_us<<' '; ss<<"us.\n";
@@ -128,6 +127,7 @@ typedef struct simulation_parameters
         ss<<"mask exists     = "<< mask_exist<<'\n';
         ss<<"off-resonance exists   = "<< fieldmap_exist<<'\n';
         ss<<"gradient (x,y,z) mT/m  =\n"; for(int i=0; i<n_gradient; i++) ss<<gradient_mTm[3*i+0]<<' '<<gradient_mTm[3*i+1]<<' '<<gradient_mTm[3*i+2]<<'\n';
+        ss<<"gradient  time         =\n"; for(int i=0; i<n_gradient; i++) ss<<gradient_us[i]*timestep_us<<' '; ss<<"us.\n";
         ss<<"Record Trajectory      = "<< enRecordTrajectory << '\n';
         ss<<"Required CPU memory    = "<<get_required_memory(1, "cpu")<<" MB\n";
         ss<<"Required GPU memory    = "<<get_required_memory(1, "gpu")<<" MB\n";

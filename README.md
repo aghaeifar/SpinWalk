@@ -40,7 +40,6 @@ We suggest utilizing the provided Dockerfile, which automates the installation o
 docker build -t spinwalk .
 docker run --gpus all --rm -it --runtime=nvidia spinwalk bash
 ```
-Execute the **spinwalk** command, and you'll encounter the help menu along with the list of available GPU(s) in the output.
 ### CMake
 
 #### Dependencies

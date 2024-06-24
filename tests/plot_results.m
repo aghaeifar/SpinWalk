@@ -181,22 +181,51 @@ hold off
 
 % nonzeros(xyz_all)
 
+%% Calculate Gradient Strength for certain b-value in diffusion simulations
+clc
+b = 100:100:5000; % s/mm^2
+gamma = 267.5153151e6;
+d = 50e-6; % gradient duration
+D = 30e-3; % distance between gradients
+
+G = b * 1e6 ./ (gamma * gamma * d * d * (D-d/3));
+G = sqrt(G);  % T/m
+G = G * 1000; % mT/m
+disp(G')
+
+for i = 1:length(b)
+    % Open text file for writing
+    filename = sprintf('/DATA/aaghaeifar/Nextcloud/Projects/microvascular/SpinWalk/config/dwi/dwi_x_%d.ini', b(i));
+    fid = fopen(filename, 'w');    
+    % Write to text file
+    fprintf(fid, 'SEQ_NAME    = dwi_x_%d\n', b(i));
+    fprintf(fid, '[PARENT]\n');
+    fprintf(fid, 'PARENT_CONFIG = dwi_baseline.ini\n\n');
+    fprintf(fid, '[SCAN_PARAMETERS]\n');
+    fprintf(fid, '; Apply gradient in mT/m for each axis. Gradients are active for one DWELL_TIME\n');
+    fprintf(fid, 'GRADIENT_XYZ[0] = %.5f 0.0 0.0\n', G(i));
+    fprintf(fid, 'GRADIENT_XYZ[1] = %.5f 0.0 0.0\n', G(i));
+    % Close text file
+    fclose(fid);
+end
+
+
 %% diffusion
 clc
 clear
 
 folder = '../../outputs/dwi';
-base = 'dwi_base_restricted_diffusion_model_sphere.h5';
+base = 'dwi_base_free_diffusion_model.h5';
 
 b = 100:100:5000;
 
 m1 = permute(h5read(fullfile(folder, base), '/M'), 4:-1:1); 
-s0 = abs(complex(sum(m1(1,end-1,:)), sum(m1(2,end-1,:))));
+s0 = abs(complex(sum(m1(1,:,end-1,1)), sum(m1(1,:,end-1,2))));
 s_dwi  = zeros(numel(b), 1);
 for i=1:numel(b) 
-    f = fullfile(folder, ['dwi_x_' num2str(b(i)) '_restricted_diffusion_model_sphere.h5' ]);
+    f = fullfile(folder, ['dwi_x_' num2str(b(i)) '_free_diffusion_model.h5' ]);
     m1 = permute(h5read(f, '/M'), 4:-1:1); 
-    s_dwi(i) = abs(complex(sum(m1(1,end-1,:)), sum(m1(2,end-1,:))));
+    s_dwi(i) = abs(complex(sum(m1(1,:,end-1,1)), sum(m1(1,:,end-1,2))));
 end
 s = [s0; s_dwi];
 b = [0, b];
@@ -205,10 +234,10 @@ b = [0, b];
 
 % Virtual b-value
 b = 100:100:5000;
-f = fullfile(folder, ['dwi_x_' num2str(b(1)) '_restricted_diffusion_model_sphere.h5' ]);
+f = fullfile(folder, ['dwi_x_' num2str(b(1)) '_free_diffusion_model.h5' ]);
 m1 = permute(h5read(f, '/M'), 4:-1:1); 
 xyz = permute(h5read(f, '/XYZ'), 4:-1:1); 
-[theta, rho] = cart2pol(m1(1,end-1,:), m1(2,end-1,:));
+[theta, rho] = cart2pol(m1(1,:,end-1,1), m1(1,:,end-1,2));
 G_scale = sqrt(b / b(1));
 for i=1:numel(b)     
     % sig = squeeze(rho) .* exp(1j*(squeeze(theta) * G_scale(i)));
@@ -217,7 +246,7 @@ for i=1:numel(b)
     s_dwi(i) = abs(complex(sum(x), sum(y)));
 end
 s2 = [s0; s_dwi];
-b2 = [0, b];5
+b2 = [0, b];
 
 [xData_v, yData_v] = prepareCurveData( double(b2(:)), double(s2(:)) );
 

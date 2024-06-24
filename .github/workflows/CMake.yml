@@ -23,13 +23,13 @@ jobs:
       with:
         cuda: '11.7.0'
         
-    - name: boost install
-      id: boost-install
+    - name: dependencies install
+      id: dependencies-install
       run: sudo apt-get update && sudo apt-get install -yq libboost-all-dev libhdf5-dev libtbb-dev 
       
     - uses: actions/checkout@v3
     
-    - name: echo settings
+    - name: Echo settings
       run: nvcc -V
     
     - run: mkdir ${{github.workspace}}/build   

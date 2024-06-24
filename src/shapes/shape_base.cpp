@@ -82,7 +82,7 @@ bool shape::save()
     // save fov
     float fov[3] = {m_fov, m_fov, m_fov};
     std::vector<size_t> dims_fov(1, 3);
-    HighFive::DataSet dataset_fov = file.createDataSet<uint8_t>("fov", HighFive::DataSpace(dims_fov));
+    HighFive::DataSet dataset_fov = file.createDataSet<float>("fov", HighFive::DataSpace(dims_fov));
     dataset_fov.write_raw(fov);
     return true;
 }
