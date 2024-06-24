@@ -80,7 +80,7 @@ bool shape::save()
     HighFive::DataSet dataset_mask = file.createDataSet<uint8_t>("mask", HighFive::DataSpace(dims));
     dataset_mask.write_raw((int8_t *)m_mask.data());
     // save fov
-    float fov[3] = {m_fov, m_fov, m_fov};
+    float fov[3] = {m_fov*1e-6f, m_fov*1e-6f, m_fov*1e-6f}; // convert um to m
     std::vector<size_t> dims_fov(1, 3);
     HighFive::DataSet dataset_fov = file.createDataSet<float>("fov", HighFive::DataSpace(dims_fov));
     dataset_fov.write_raw(fov);

@@ -209,7 +209,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             thrust::copy(d_T.begin(), d_T.end(), T.begin() + shift);
 #endif
             }
-            // bar.progress(sl, param.n_sample_length_scales);
+            bar.progress(sl, param.n_sample_length_scales);
         }
         bar.finish();
 

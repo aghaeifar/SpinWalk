@@ -76,6 +76,11 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
             filenames[boost::algorithm::to_lower_copy(str)] = file_paths;
     }
     param->n_fieldmaps = filenames["phantom"].size();
+    if(isParentConfig == false && param->n_fieldmaps == 0)
+    {
+        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "No fieldmap is provided. Aborting...!";
+        return false;
+    }
       
     // output directory 
     output_dir = std::filesystem::path(pt.get<std::string>("FILES.OUTPUT_DIR", output_dir.string()));
