@@ -35,7 +35,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
         return false;
     }
     
-    std::string cf_name = std::filesystem::path(config_filename).filename();
+    std::string cf_name = std::filesystem::path(config_filename).filename().string();
     BOOST_LOG_TRIVIAL(info) << "Reading config: " << config_filename;
     boost::property_tree::ptree pt;
     boost::property_tree::ini_parser::read_ini(config_filename, pt);

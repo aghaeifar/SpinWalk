@@ -9,8 +9,6 @@ find_package(HDF5 REQUIRED COMPONENTS CXX)
 find_package(OpenMP REQUIRED)
 # Boost
 find_package(Boost COMPONENTS program_options log log_setup REQUIRED)
-# Find TBB
-find_package(TBB REQUIRED)
 # FindCUDA module
 find_package(CUDA)
 
@@ -43,11 +41,19 @@ include_directories(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ./include ./src .
 # Add the executable
 add_executable(spinwalk ./src/spinwalk.cu ./src/kernels.cu ./src/file_utils.cpp ./src/shapes/shape_base.cpp ./src/shapes/cylinder.cpp ./src/shapes/sphere.cpp)
 # Link CUDA and OpenMP libraries
-target_link_libraries(spinwalk ${CUDA_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES} TBB::tbb)
-
 if (UNIX)
-    install(TARGETS spinwalk DESTINATION bin)    
-endif()  
+# Find TBB
+    find_package(TBB REQUIRED)
+    target_link_libraries(spinwalk ${CUDA_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES} TBB::tbb)
+    install(TARGETS spinwalk DESTINATION bin) 
+elseif (WIN32)
+IF(MSVC)
+    ADD_DEFINITIONS("/EHsc")
+ENDIF(MSVC)
+    target_link_libraries(spinwalk ${CUDA_LIBRARIES} ${OpenMP_CXX_LIBRARIES} ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES})
+endif()
+
+
 
 # cmake ..
 # cmake --build . --config Release

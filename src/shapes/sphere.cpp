@@ -14,7 +14,9 @@
 #include "sphere.h"
 #include "basic_functions.cuh"
 
-
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 // -------------------------------------------------------------------------- //
 sphere::sphere()
 {
@@ -38,7 +40,7 @@ void sphere::set_sphere_parameters(float radius)
 
 void sphere::generate_shapes()
 {
-    std::cout << "Generating coordinates for BVF = " << m_BVF << "% ...\n";    
+    shape::generate_shapes();   
     bool is_random_radius = m_radius < 0;
     float max_radius    = m_radius>0 ? m_radius:-m_radius;
     m_sphere_points.clear();
@@ -142,9 +144,9 @@ void sphere::generate_mask_fieldmap()
         }
 
         #pragma omp parallel for
-        for(size_t pz=z_min; pz<z_max; pz++)
-        for(size_t py=y_min; py<y_max; py++)
-        for(size_t px=x_min; px<x_max; px++)
+        for(int32_t pz=z_min; pz<z_max; pz++)
+        for(int32_t py=y_min; py<y_max; py++)
+        for(int32_t px=x_min; px<x_max; px++)
         {
             size_t p = px*res2 + py*res1 + pz;
             float *grid = (float *)m_grid.data() + 3*p;
@@ -164,9 +166,9 @@ void sphere::generate_mask_fieldmap()
         bar.progress(c, m_sphere_radii.size());
     } 
     bar.finish();
-    m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / res3;
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Spheres generated successfully! Actual BVF: " << m_BVF << "% Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
+    std::cout << "Spheres generated successfully! " << "% Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
+    shape::generate_mask_fieldmap();
 }
 
 void sphere::print_info()

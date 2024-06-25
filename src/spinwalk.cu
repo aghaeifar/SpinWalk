@@ -33,6 +33,7 @@
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/copy.h>
+#include <thrust/iterator/constant_iterator.h>
 #else
 #define checkCudaErrors(x) {}
 #endif

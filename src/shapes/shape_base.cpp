@@ -55,6 +55,17 @@ void shape::set_filename(std::string filename)
     this->m_filename = filename;
 }
 
+void shape::generate_shapes()
+{
+    std::cout << "Generating coordinates...for target BVF = " << m_BVF << "% ...\n";   
+}
+
+void shape::generate_mask_fieldmap()
+{
+    m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
+    std::cout << "Actual BVF = " << m_BVF << "% ...\n";   
+}
+
 bool shape::save()
 {
     std::cout << "Saving the results..." << std::endl;
@@ -84,6 +95,11 @@ bool shape::save()
     std::vector<size_t> dims_fov(1, 3);
     HighFive::DataSet dataset_fov = file.createDataSet<float>("fov", HighFive::DataSpace(dims_fov));
     dataset_fov.write_raw(fov);
+    // blood volume fraction
+    std::vector<size_t> dims_1(1, 1);
+    HighFive::DataSet dataset_BVF = file.createDataSet<float>("bvf", HighFive::DataSpace(dims_1));
+    dataset_BVF.write_raw(&m_BVF);
+
     return true;
 }
 
