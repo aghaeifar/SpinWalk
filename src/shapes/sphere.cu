@@ -10,13 +10,15 @@
 #include <highfive/highfive.hpp>
 #include <filesystem>
 #include <random>
-#include "tqdm.h"
-#include "sphere.h"
+#include "indicators.hpp"
+#include "sphere.cuh"
 #include "basic_functions.cuh"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+using namespace indicators;
 // -------------------------------------------------------------------------- //
 sphere::sphere()
 {
@@ -40,7 +42,12 @@ void sphere::set_sphere_parameters(float radius)
 
 void sphere::generate_shapes()
 {
-    shape::generate_shapes();   
+     if(2*m_radius>=m_fov)
+    {
+        std::cerr << "Error: The radius of the cylinder is too large for the given FOV!\n";
+        return;
+    }
+    std::cout << "Generating coordinates...for target BVF = " << m_BVF << "% ...\n";    
     bool is_random_radius = m_radius < 0;
     float max_radius    = m_radius>0 ? m_radius:-m_radius;
     m_sphere_points.clear();
@@ -52,9 +59,8 @@ void sphere::generate_shapes()
     std::uniform_real_distribution<> dist(0.f, 1.f); 
       
     float distance, vol_sph = 0, vol_tol = m_fov*m_fov*m_fov;
-    int32_t progress = 0, prg_l = 0;
+    int32_t progress = 0;
     auto start = std::chrono::high_resolution_clock::now();
-    tqdm bar;
     while(progress < 100)
     {
         radius = is_random_radius ? dist(gen) * max_radius : max_radius;
@@ -85,13 +91,8 @@ void sphere::generate_shapes()
         m_sphere_points.insert(m_sphere_points.end(), sph_pnt, sph_pnt+3);
         m_sphere_radii.push_back(radius);  
         progress = 0.95 * 100*(100.*vol_sph/vol_tol/m_BVF); // 0.95 is a factor to compensate for spheres in the boundary   
-        if (progress >= prg_l)
-        { 
-            bar.progress(progress, 100);
-            prg_l += 5;
-        }
     }
-    bar.finish();
+
     auto end = std::chrono::high_resolution_clock::now();
     std::cout <<m_sphere_radii.size() << " coordinates generated successfully! Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s" << std::endl;
 
@@ -111,7 +112,7 @@ void sphere::generate_mask_fieldmap()
     m_mask.resize(res3, 0);
     float v_size = m_fov / m_resolution;
 
-    tqdm bar;
+    ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}, option::FontStyles{std::vector<FontStyle>{FontStyle::bold}}};
     auto start = std::chrono::high_resolution_clock::now();
     for (size_t c = 0; c < m_sphere_radii.size(); c++)
     {
@@ -163,12 +164,14 @@ void sphere::generate_mask_fieldmap()
                 m_fieldmap[p] += distance2>sph_rad2 ? 4*M_PI*(1-m_Y)*m_dChi * sph_rad2*sph_rad/distance2/sqrtf(distance2) * (phi_c2 - 1./3.) : 0.f;
             }
         }  
-        bar.progress(c, m_sphere_radii.size());
+        bar.set_progress(100 * (c+1)/float(m_sphere_radii.size()));
     } 
-    bar.finish();
+
+    m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
+    std::cout << "Actual BVF = " << m_BVF << "% ...\n";   
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Spheres generated successfully! " << "% Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
-    shape::generate_mask_fieldmap();
+    std::cout << "Spheres generated successfully! " << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
+    
 }
 
 void sphere::print_info()

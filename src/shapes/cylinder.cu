@@ -10,13 +10,15 @@
 #include <highfive/highfive.hpp>
 #include <filesystem>
 #include <random>
-#include "tqdm.h"
-#include "cylinder.h"
+#include "indicators.hpp"
+#include "cylinder.cuh"
 #include "basic_functions.cuh"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+using namespace indicators;
 
 cylinder::cylinder()
 {
@@ -45,67 +47,119 @@ void cylinder::set_cylinder_parameters(float radius, float orientation)
 
 void cylinder::generate_shapes()
 {
-    shape::generate_shapes(); 
+    if(2*m_radius>=m_fov)
+    {
+        std::cerr << "Error: The radius of the cylinder is too large for the given FOV!\n";
+        return;
+    }
+    std::cout << "Generating coordinates...for target BVF = " << m_BVF << "% ...\n"; 
     bool is_random_radius = m_radius < 0;
     float max_radius    = m_radius>0 ? m_radius:-m_radius;
     m_cylinder_points.clear();
     m_cylinder_radii.clear();
-    float cyl_pnt[3], radius ;
-
+    float cyl_pnt[3], cyl_rad ;
+    float curr_BVF = 0;
     // srandom engine
     std::mt19937 gen(m_random_seed); // Mersenne Twister generator
     std::uniform_real_distribution<> dist(0.f, 1.f); 
       
-    float distance, vol_cyl = 0, vol_tol = m_fov*m_fov*m_fov;
-    int32_t progress = 0, prg_l = 0;
+    float distance, vol_cyl = 0, vol_cyl_total = 0, vol_tol = m_fov*m_fov*m_fov;
     auto start = std::chrono::high_resolution_clock::now();
-    tqdm bar;
-    while(progress < 100)
+    while(curr_BVF < m_BVF)
     {
-        radius = is_random_radius ? dist(gen) * max_radius : max_radius;
+        cyl_rad = is_random_radius ? dist(gen) * max_radius : max_radius;
         for (size_t i = 0; i < 3; i++) // generate a random point for a sphere which fit in the FOV
-            cyl_pnt[i] = dist(gen) * m_fov;   
+            cyl_pnt[i] = dist(gen) * (m_fov+2*cyl_rad) - cyl_rad;   
         
         // check if sphere coordinate is ok
         size_t c;
         for (c=0; c<m_cylinder_radii.size(); c++)
         {   
             float p2p1[3];
-            subtract(cyl_pnt, &m_cylinder_points[3*c], p2p1);
+            subtract(cyl_pnt, m_cylinder_points[c].data(), p2p1);
             distance = sqrtf(p2p1[0]*p2p1[0] + p2p1[1]*p2p1[1]);
             // if the sphere is inside another sphere, generate a new sphere
-            if(distance <= m_cylinder_radii[c] ||  distance <= radius)
+            if(distance <= m_cylinder_radii[c] ||  distance <= cyl_rad)
                 break;
             // adjust the radius of the sphere to avoid overlap
-            if (distance < m_cylinder_radii[c] + radius)
+            if (distance < m_cylinder_radii[c] + cyl_rad)
             {
                 if (!is_random_radius)
                     break;            
-                radius = distance - m_cylinder_radii[c];
+                cyl_rad = distance - m_cylinder_radii[c];
             }
         }
         if (c < m_cylinder_radii.size())
             continue;
 
-        vol_cyl += M_PI * radius*radius * m_fov; // volume of the cylinder
-        m_cylinder_points.insert(m_cylinder_points.end(), cyl_pnt, cyl_pnt+3);
-        m_cylinder_radii.push_back(radius);  
-        progress = 0.95 * 100*(100.*vol_cyl/vol_tol/m_BVF); // 0.95 is a factor to compensate for cylinders in the boundary   
-        if (progress >= prg_l)
-        { 
-            bar.progress(progress, 100);
-            prg_l += 5;
-        }
+        vol_cyl = calculate_volume(cyl_pnt, cyl_rad);
+        // if the total volume of the cylinders is more than the target BVF or the cylinder is outside of volume, skip this cylinder
+        if (100*(vol_cyl + vol_cyl_total) / vol_tol > 1.02*m_BVF || vol_cyl < 0)
+            continue;
+        
+        vol_cyl_total += vol_cyl;
+        curr_BVF = 100.*vol_cyl_total/vol_tol; 
+        m_cylinder_points.push_back({cyl_pnt[0], cyl_pnt[1], cyl_pnt[2]});
+        m_cylinder_radii.push_back(cyl_rad);     
     }
-    bar.finish();
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << m_cylinder_radii.size() << " coordinates generated successfully! Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s" << std::endl;
 }
 
+
+float cylinder::calculate_volume(float *cyl_pnt, float cyl_rad)
+{
+    bool intersect = false;
+    // check if the cylinder is completely outside the volume
+    for (size_t i = 0; i < 2; i++)
+        if(cyl_pnt[i]+cyl_rad < 0 || cyl_pnt[i]-cyl_rad > m_fov)
+            return -1.f;
+    // check if the cylinder is completely inside the volume
+    for (size_t i = 0; i < 2; i++) // only x and y directions
+        if (cyl_pnt[i] < cyl_rad - 1.5 || cyl_pnt[i] > m_fov - cyl_rad + 1.5) // 1.5 is a small margin because of a possible larger volume after discretization
+            intersect = true;
+
+    if (intersect == false)
+        return M_PI * cyl_rad*cyl_rad * m_fov;    
+
+    // find the bounding box of the sphere
+    float v_size = m_fov / m_resolution;
+    float cyl_rad2  = cyl_rad*cyl_rad;
+    size_t res1 = m_resolution;
+    size_t res2 = res1 * res1;
+    int32_t cyl_pnt_vox[3] = {int32_t(cyl_pnt[0]/v_size), int32_t(cyl_pnt[1]/v_size), int32_t(cyl_pnt[2]/v_size)};
+    int32_t cyl_rad_vox = std::ceil(cyl_rad / m_fov * m_resolution)+1; 
+    int32_t z_min = 0;
+    int32_t z_max = m_resolution;
+    int32_t x_min = std::max(0, cyl_pnt_vox[0] - cyl_rad_vox);
+    int32_t x_max = std::min((int32_t)m_resolution, cyl_pnt_vox[0] + cyl_rad_vox + 2);
+    int32_t y_min = std::max(0, cyl_pnt_vox[1] - cyl_rad_vox);
+    int32_t y_max = std::min((int32_t)m_resolution, cyl_pnt_vox[1] + cyl_rad_vox + 2);
+    int32_t counter = 0;
+    #pragma omp parallel for
+    for(int32_t pz=z_min; pz<z_max; pz++)
+    for(int32_t py=y_min; py<y_max; py++)
+    for(int32_t px=x_min; px<x_max; px++)
+    {
+        size_t p = px*res2 + py*res1 + pz;
+        float *grid = &m_grid[3*p];
+        float p2p1[3];
+        // distance between the points and vessel axis and vector from the projection point to the point
+        subtract(grid, cyl_pnt, p2p1);  // vector from the spatial points to the cylinder point
+        float distance2 = p2p1[0]*p2p1[0] + p2p1[1]*p2p1[1];   // distance^2 between the points and vessel axis. this is distance in the plane perpendicular to the vessel axis
+        if (distance2 <= cyl_rad2)
+        {
+            #pragma omp atomic
+            ++counter;
+        }
+    }
+    return counter * v_size*v_size*v_size ;
+}
+
+
 void cylinder::generate_mask_fieldmap()
 {   
     // set the cylinders orientation if they are parallel
-
     std::cout << "Generating cylinders..." << std::endl;    
     size_t res1 = m_resolution;
     size_t res2 = res1 * res1;
@@ -127,11 +181,11 @@ void cylinder::generate_mask_fieldmap()
     theta_c2 = theta_c * theta_c;
     theta_s2 = 1. - theta_c2; // sin^2(theta)
     
-    tqdm bar;
+    ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}, option::FontStyles{std::vector<FontStyle>{FontStyle::bold}}};
     auto start = std::chrono::high_resolution_clock::now();
     for (size_t c = 0; c < m_cylinder_radii.size(); c++)
     {
-        float *cyl_pnt = &m_cylinder_points[3*c];
+        float *cyl_pnt  = m_cylinder_points[c].data();
         float cyl_rad   = m_cylinder_radii[c];
         float cyl_rad2  = cyl_rad*cyl_rad;
         cyl_rad_vox = std::ceil(cyl_rad / v_size)+1;
@@ -185,13 +239,13 @@ void cylinder::generate_mask_fieldmap()
                     m_fieldmap[p] += 2*M_PI * (1-m_Y)*m_dChi * (theta_c2 - 1/3);
             }                 
         }        
-        bar.progress(c, m_cylinder_radii.size());
+        bar.set_progress(100 * (c+1)/float(m_cylinder_radii.size()));
     } 
-    bar.finish();
     
+    m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
+    std::cout << "Actual BVF = " << m_BVF << "% ...\n";   
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Cylinders generated successfully! " << "% Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
-    shape::generate_mask_fieldmap();
+    std::cout << "Cylinders generated successfully! " << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
 }
 
 void cylinder::print_info()

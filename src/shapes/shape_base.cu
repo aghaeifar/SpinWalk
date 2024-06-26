@@ -10,7 +10,7 @@
 #include <highfive/highfive.hpp>
 #include <filesystem>
 #include <random>
-#include "shape_base.h"
+#include "shape_base.cuh"
 
 
 shape::shape()
@@ -53,17 +53,6 @@ void shape::set_blood_parameters(float dChi, float Y, float BVF)
 void shape::set_filename(std::string filename)
 {
     this->m_filename = filename;
-}
-
-void shape::generate_shapes()
-{
-    std::cout << "Generating coordinates...for target BVF = " << m_BVF << "% ...\n";   
-}
-
-void shape::generate_mask_fieldmap()
-{
-    m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
-    std::cout << "Actual BVF = " << m_BVF << "% ...\n";   
 }
 
 bool shape::save()
@@ -111,11 +100,11 @@ bool shape::create_grid()
         std::cerr << "Error: FOV or resolution is not set!" << std::endl;
         return false;
     }
+    auto s = std::chrono::high_resolution_clock::now();
     size_t res1 = m_resolution;
     size_t res2 = res1 * res1;
     size_t res3 = res1 * res2;
-    float s = m_fov/2 - m_fov/res1/2.0;
-    m_grid.resize(res3 * 3);
+    m_grid.reserve(res3 * 3);
     // create a base grid
     std::vector<float> grid_base(res1, 0.f);
     double start = m_fov/res1/2.0;
@@ -134,7 +123,8 @@ bool shape::create_grid()
                 grid[2] = z;
                 grid += 3;
             }
-    std::cout << "Grid created successfully!" << std::endl;
+    auto e = std::chrono::high_resolution_clock::now();
+    std::cout << "Grid created successfully! " << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(e - s).count() << " s\n";
     return true;
 }
 

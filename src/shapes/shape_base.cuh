@@ -25,8 +25,8 @@ class shape
         virtual bool run(){return true;}; 
         virtual bool save();
         virtual bool create_grid();
-        virtual void generate_shapes();
-        virtual void generate_mask_fieldmap();
+        virtual void generate_shapes() = 0;
+        virtual void generate_mask_fieldmap() = 0;
         virtual void print_info();
 
     protected:

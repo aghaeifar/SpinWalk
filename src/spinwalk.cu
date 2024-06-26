@@ -19,12 +19,12 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
-#include "tqdm.h"
+#include "indicators.hpp"
 #include "version.h"
 #include "kernels.cuh"
 #include "file_utils.h"
-#include "shapes/cylinder.h"
-#include "shapes/sphere.h"
+#include "shapes/cylinder.cuh"
+#include "shapes/sphere.cuh"
 
 #ifdef __CUDACC__
 #include <cuda_runtime.h>
@@ -91,7 +91,6 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
     checkCudaErrors(cudaEventCreate(&end));
 #endif
 
-    std::cout << std::string(50, '=') << std::endl;
     for (int16_t fieldmap_no=0; fieldmap_no<param.n_fieldmaps; fieldmap_no++)
     {
         // ========== load files (field-maps, xyz0, m0) ==========
@@ -158,7 +157,10 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
 #endif
         // ========== run ==========       
         checkCudaErrors(cudaEventRecord(start));        
-        tqdm bar;
+        // tqdm bar;
+        using namespace indicators;
+        ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}, option::FontStyles{std::vector<FontStyle>{FontStyle::bold}}};
+        bar.set_progress(0);
         simulation_parameters param_local;
         memcpy(&param_local, &param, sizeof(simulation_parameters));
         std::vector<uint32_t> v(param_local.n_spins);
@@ -210,9 +212,10 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             thrust::copy(d_T.begin(), d_T.end(), T.begin() + shift);
 #endif
             }
-            bar.progress(sl, param.n_sample_length_scales);
+            // bar.progress(sl, param.n_sample_length_scales);
+            bar.set_progress(100 * (sl+1)/float(param.n_sample_length_scales));
         }
-        bar.finish();
+        // bar.finish();
 
         float elapsedTime;
         checkCudaErrors(cudaEventRecord(end));
@@ -237,8 +240,6 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
 
         dims[0] = sample_length_scales.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
         file_utils::save_h5(f, sample_length_scales.data(), dims, "scales", "double");
-
-        std::cout << std::string(50, '=') << std::endl;
     }
 
     // ========== clean up GPU ==========

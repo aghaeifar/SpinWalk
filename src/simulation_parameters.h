@@ -102,14 +102,13 @@ typedef struct simulation_parameters
         ss<<"TE = "; for(int i=0; i<n_TE; i++) ss<<TE_us[i]*timestep_us/1000.<<' '; ss<<"ms.\n";
         ss<<"T2 = "; for(int i=0; i<n_tissue_type; i++) ss<<T2_ms[i]<<' '; ss<<"ms.\n";
         ss<<"T1 = "; for(int i=0; i<n_tissue_type; i++) ss<<T1_ms[i]<<' '; ss<<"ms.\n";
-        ss<<"Step size = "; for(int i=0; i<n_tissue_type; i++) ss<<diffusivity[i]<<' '; ss<<"\n";
+        ss<<"Diffusivity = "; for(int i=0; i<n_tissue_type; i++) ss<<diffusivity[i]<<' '; ss<<"\n";
         ss<<"Cross Tissue Probability =\n"; for(int i=0; i<n_tissue_type; i++) {for(int j=0; j<n_tissue_type; j++) ss<<pXY[j+i*n_tissue_type]<<' '; ss<<'\n';};
         ss<<"RF flip-angle   = "; for(int i=0; i<n_RF; i++) ss<<RF_FA_deg[i]<<' '; ss<<"deg.\n";
         ss<<"RF phase        = "; for(int i=0; i<n_RF; i++) ss<<RF_PH_deg[i]<<' '; ss<<"deg.\n";
         ss<<"RF time         = "; for(int i=0; i<n_RF; i++) ss<<RF_us[i]*timestep_us<<' '; ss<<"us.\n";
         ss<<"dephasing       = "; for(int i=0; i<n_dephasing; i++) ss<<dephasing_deg[i]<<' '; ss<<"deg.\n";
         ss<<"dephasing time  = "; for(int i=0; i<n_dephasing; i++) ss<<dephasing_us[i]*timestep_us<<' '; ss<<"us.\n";
-        ss<<"gradient time   = "; for(int i=0; i<n_gradient; i++) ss<<gradient_us[i]*timestep_us<<' '; ss<<"us.\n";
         ss<<"sample length   = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
         ss<<"scale2grid      = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
         ss<<"fieldmap size   = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
