@@ -26,7 +26,7 @@ uint8_t find_max(const std::vector<uint8_t> &data);
 //---------------------------------------------------------------------------------------------
 std::filesystem::path output_dir("./output");
 
-bool file_utils::read_config(std::string config_filename, simulation_parameters *param, std::vector<double>& sample_length_scales, std::map<std::string, std::vector<std::string> >& filenames, bool isParentConfig)
+bool file_utils::read_config(std::string config_filename, simulation_parameters *param, std::vector<double>& fov_scale, std::map<std::string, std::vector<std::string> >& filenames, bool isParentConfig)
 {
     std::stringstream ss;
     if (std::filesystem::exists(config_filename) == false)
@@ -50,7 +50,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
                 std::filesystem::path parent_path = std::filesystem::absolute(config_filename).parent_path();
                 parent_config = parent_path / parent_config;
             }
-            if (read_config(parent_config.string(), param, sample_length_scales, filenames, true) == false)
+            if (read_config(parent_config.string(), param, fov_scale, filenames, true) == false)
                 return false;
 
         BOOST_LOG_TRIVIAL(info) << "Back to reading config: " << config_filename;
@@ -103,10 +103,10 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
         BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "mask must be 3D but is " << dims.size() << "D filename:"<< filenames.at("phantom")[0] << ". Aborting...!";
         return false;
     }
-    std::vector<float> sample_length(3, 0);
-    file_utils::read_h5(filenames.at("phantom")[0], sample_length.data(), "fov", "float");
+    std::vector<float> fov(3, 0);
+    file_utils::read_h5(filenames.at("phantom")[0], fov.data(), "fov", "float");
     std::copy(dims.begin(), dims.end(), param->fieldmap_size);
-    std::copy(sample_length.begin(), sample_length.end(), param->sample_length);
+    std::copy(fov.begin(), fov.end(), param->fov);
 
     param->fieldmap_exist = file_utils::get_size_h5(filenames.at("phantom")[0], "fieldmap").size() == 3;
     param->mask_exist     = file_utils::get_size_h5(filenames.at("phantom")[0], "mask").size() == 3;
@@ -224,12 +224,12 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     param->max_iterations        = pt.get<float>("SIMULATION_PARAMETERS.MAX_ITERATIONS", param->max_iterations);
 
     std::vector<double> sls;
-    for(i=0; i<MAX_RF && pt.get_child_optional("SIMULATION_PARAMETERS.SAMPLE_LENGTH_SCALES[" + std::to_string(i) + "]"); i++) 
-        sls.push_back(pt.get("SIMULATION_PARAMETERS.SAMPLE_LENGTH_SCALES[" + std::to_string(i) + "]", 0.));
+    for(i=0; i<MAX_RF && pt.get_child_optional("SIMULATION_PARAMETERS.FOV_SCALE[" + std::to_string(i) + "]"); i++) 
+        sls.push_back(pt.get("SIMULATION_PARAMETERS.FOV_SCALE[" + std::to_string(i) + "]", 0.));
 
     if(sls.size() > 0)
-        sample_length_scales = sls;
-    param->n_sample_length_scales = sample_length_scales.size();
+        fov_scale = sls;
+    param->n_fov_scale = fov_scale.size();
 
     // ============== reading section TISSUE_PARAMETERS ==============
     // Diffusivity
@@ -310,10 +310,10 @@ bool file_utils::read_fieldmap(std::string fieldmap_filename, std::vector<float>
         read_h5(fieldmap_filename, mask.data(), "mask", "uint8_t");
     }
 
-    std::vector<float> sample_length(3, 0);
-    file_utils::read_h5(fieldmap_filename, sample_length.data(), "fov", "float");
+    std::vector<float> fov(3, 0);
+    file_utils::read_h5(fieldmap_filename, fov.data(), "fov", "float");
     BOOST_LOG_TRIVIAL(info) << "Size = " << dims[0] << " x " << dims[1] << " x " << dims[2] << std::endl;
-    BOOST_LOG_TRIVIAL(info) << "FoV = " << sample_length[0]*1e6 << " x " << sample_length[1]*1e6 << " x " << sample_length[2]*1e6 << " um^3" << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "FoV = " << fov[0]*1e6 << " x " << fov[1]*1e6 << " x " << fov[2]*1e6 << " um^3" << std::endl;
 
     int n_tissue = find_max(mask) + 1;
     if (n_tissue > param->n_tissue_type)

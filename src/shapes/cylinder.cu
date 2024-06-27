@@ -61,7 +61,7 @@ void cylinder::generate_shapes()
     float curr_BVF = 0;
     // srandom engine
     std::mt19937 gen(m_random_seed); // Mersenne Twister generator
-    std::uniform_real_distribution<> dist(0.f, 1.f); 
+    std::uniform_real_distribution<float> dist(0.f, 1.f); 
       
     float distance, vol_cyl = 0, vol_cyl_total = 0, vol_tol = m_fov*m_fov*m_fov;
     auto start = std::chrono::high_resolution_clock::now();
@@ -181,7 +181,7 @@ void cylinder::generate_mask_fieldmap()
     theta_c2 = theta_c * theta_c;
     theta_s2 = 1. - theta_c2; // sin^2(theta)
     
-    ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}, option::FontStyles{std::vector<FontStyle>{FontStyle::bold}}};
+    ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}};
     auto start = std::chrono::high_resolution_clock::now();
     for (size_t c = 0; c < m_cylinder_radii.size(); c++)
     {

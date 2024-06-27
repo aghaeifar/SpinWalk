@@ -127,16 +127,16 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
                 rnd_wlk = dist_random_walk_xyz(gen_r) * diffusivity_scale;
                 xyz_new[i] = xyz_old[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)
-                    xyz_new[i] += (param->enCrossFOV ? param->sample_length[i] : 2*ABS(rnd_wlk)); // rnd_wlk is negative here
-                else if (xyz_new[i] >= param->sample_length[i])
-                    xyz_new[i] -= (param->enCrossFOV ? param->sample_length[i] : 2*ABS(rnd_wlk)); // rnd_wlk is positive here
+                    xyz_new[i] += (param->enCrossFOV ? param->fov[i] : 2*ABS(rnd_wlk)); // rnd_wlk is negative here
+                else if (xyz_new[i] >= param->fov[i])
+                    xyz_new[i] -= (param->enCrossFOV ? param->fov[i] : 2*ABS(rnd_wlk)); // rnd_wlk is positive here
             }
            
             // ------ subscripts to linear indices ------
             ind = sub2ind(xyz_new[0]*param->scale2grid[0], xyz_new[1]*param->scale2grid[1], xyz_new[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1], param->fieldmap_size[2]);
             if(ind >= param->matrix_length || ind < 0)
             {
-                printf("Error:spin=%d, ind=%" PRId64 ", %d,\n\tscale=(%.10f, %.10f, %.10f)\n\txyz=(%.10f, %.10f, %.10f)\n\tscale*xyz(%.10f, %.10f, %.10f)\n\tFoV=(%.10f, %.10f, %.10f)\n\t(%d, %d, %d)\n",spin_no, ind, current_timepoint, param->scale2grid[0], param->scale2grid[1], param->scale2grid[2], xyz_new[0], xyz_new[1], xyz_new[2], param->scale2grid[0]*xyz_new[0], param->scale2grid[1]*xyz_new[1], param->scale2grid[2]*xyz_new[2], param->sample_length[0], param->sample_length[1], param->sample_length[2], xyz_new[0] >= param->sample_length[0], xyz_new[1] >= param->sample_length[1], xyz_new[2] >= param->sample_length[2]);
+                printf("Error:spin=%d, ind=%" PRId64 ", %d,\n\tscale=(%.10f, %.10f, %.10f)\n\txyz=(%.10f, %.10f, %.10f)\n\tscale*xyz(%.10f, %.10f, %.10f)\n\tFoV=(%.10f, %.10f, %.10f)\n\t(%d, %d, %d)\n",spin_no, ind, current_timepoint, param->scale2grid[0], param->scale2grid[1], param->scale2grid[2], xyz_new[0], xyz_new[1], xyz_new[2], param->scale2grid[0]*xyz_new[0], param->scale2grid[1]*xyz_new[1], param->scale2grid[2]*xyz_new[2], param->fov[0], param->fov[1], param->fov[2], xyz_new[0] >= param->fov[0], xyz_new[1] >= param->fov[1], xyz_new[2] >= param->fov[2]);
                 return;
             }
             // ------ accumulate phase ------
@@ -240,12 +240,12 @@ void randPosGen(float *spin_position_xyz, const simulation_parameters &param)
 {
     float res[3];
     for (uint8_t i = 0; i < 3; i++)
-        res[i] = param.sample_length[i] / param.fieldmap_size[i];
+        res[i] = param.fov[i] / param.fieldmap_size[i];
     
     std::mt19937 gen(param.seed);
-    std::uniform_real_distribution<float> dist_initial_x(res[0], param.sample_length[0] - res[0]);
-    std::uniform_real_distribution<float> dist_initial_y(res[1], param.sample_length[1] - res[1]);
-    std::uniform_real_distribution<float> dist_initial_z(res[2], param.sample_length[2] - res[2]);
+    std::uniform_real_distribution<float> dist_initial_x(res[0], param.fov[0] - res[0]);
+    std::uniform_real_distribution<float> dist_initial_y(res[1], param.fov[1] - res[1]);
+    std::uniform_real_distribution<float> dist_initial_z(res[2], param.fov[2] - res[2]);
 
     for (size_t i = 0; i < param.n_spins; i++)
     {

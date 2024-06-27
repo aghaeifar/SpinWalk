@@ -43,7 +43,7 @@
 
 namespace bl = boost::log;
 
-bool run(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<double> sample_length_scales)
+bool run(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<double> fov_scale)
 {
     // ========== checking number of GPU(s) ==========
     int32_t device_count=1;
@@ -57,28 +57,28 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
     auto st = std::chrono::steady_clock::now();
     size_t trj  = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
     size_t len0 = 3 * param.n_spins;
-    size_t len1 = len0 * param.n_sample_length_scales * trj;
-    size_t len2 = len0 * param.n_sample_length_scales * param.n_TE;
+    size_t len1 = len0 * param.n_fov_scale * trj;
+    size_t len2 = len0 * param.n_fov_scale * param.n_TE;
     BOOST_LOG_TRIVIAL(info) << "Memory size: XYZ0=" << len0 << ", XYZ1=" << len1 << ", M0=" << len0 << ", M1=" << len2 << "";
     std::vector<float>      fieldmap(param.fieldmap_exist?param.matrix_length:0, 0.f);
     std::vector<uint8_t>    mask(param.matrix_length, 0);
     std::vector<float>      XYZ0(len0, 0.f);     // memory layout(row-major): [n_spins x 3]
     std::vector<float>      XYZ0_scaled(len0, 0.f);     // memory layout(row-major): [n_spins x 3]
-    std::vector<float>      XYZ1(len1, 0.f);     // memory layout(row-major): [n_sample_length_scales x n_spins x timepoints x 3] or [n_sample_length_scales x n_spins x 1 x 3]
+    std::vector<float>      XYZ1(len1, 0.f);     // memory layout(row-major): [n_fov_scale x n_spins x timepoints x 3] or [n_fov_scale x n_spins x 1 x 3]
     std::vector<float>      M0(len0, 0.f);       // memory layout(row-major): [n_spins x 3]
-    std::vector<float>      M1(len2, 0.f);       // memory layout(row-major): [n_sample_length_scales x n_spins x n_TE x 3]
-    std::vector<uint8_t>    T(M1.size()/3, 0);   // memory layout(row-major): [n_sample_length_scales x n_spins x n_TE x 1]
+    std::vector<float>      M1(len2, 0.f);       // memory layout(row-major): [n_fov_scale x n_spins x n_TE x 3]
+    std::vector<uint8_t>    T(M1.size()/3, 0);   // memory layout(row-major): [n_fov_scale x n_spins x n_TE x 1]
     BOOST_LOG_TRIVIAL(info) << "Memory allocation (CPU) took " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - st).count() << " ms";
     
     // ========== allocate memory on GPU ==========
 #ifdef __CUDACC__
     thrust::device_vector<float>   d_pFieldMap;
     thrust::device_vector<float>   d_M0(M0.size());
-    thrust::device_vector<float>   d_M1(M1.size() / param.n_sample_length_scales);
-    thrust::device_vector<float>   d_XYZ1(XYZ1.size() / param.n_sample_length_scales); 
+    thrust::device_vector<float>   d_M1(M1.size() / param.n_fov_scale);
+    thrust::device_vector<float>   d_XYZ1(XYZ1.size() / param.n_fov_scale); 
     thrust::device_vector<float>   d_XYZ0(XYZ0.size());
     thrust::device_vector<float>   d_XYZ0_scaled(XYZ0_scaled.size());
-    thrust::device_vector<uint8_t> d_T(T.size() / param.n_sample_length_scales);
+    thrust::device_vector<uint8_t> d_T(T.size() / param.n_fov_scale);
     thrust::device_vector<uint8_t> d_pMask(mask.size());
     simulation_parameters *d_param = nullptr;
     checkCudaErrors(cudaMalloc(&d_param, sizeof(simulation_parameters)));
@@ -113,7 +113,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
                 return false;
         }
         else
-        {   // generate initial spatial position for spins, based on sample_length_ref
+        {   // generate initial spatial position for spins
             BOOST_LOG_TRIVIAL(info) << "GPU " << 1 << ") Generating random initial position for spins... (seed = " << param.seed << ", GPU grid = " << numBlocks << " x " << THREADS_PER_BLOCK << ")";
             randPosGen(XYZ0.data(), param);
             BOOST_LOG_TRIVIAL(info) << "GPU " << 1 << ") Done!";
@@ -141,7 +141,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             BOOST_LOG_TRIVIAL(info) << "M0 of the spin " << i << " = (" << M0[3*i] << ", " << M0[3*i+1] << ", " << M0[3*i+2] << ")" << std::endl;
         
         for(int i=0; i<3; i++)
-            param.scale2grid[i] = param.fieldmap_size[i] / param.sample_length[i];
+            param.scale2grid[i] = param.fieldmap_size[i] / param.fov[i];
         
 #ifdef __CUDACC__
         // ========== copy data to GPU(s) ==========      
@@ -159,23 +159,23 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
         checkCudaErrors(cudaEventRecord(start));        
         // tqdm bar;
         using namespace indicators;
-        ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}, option::FontStyles{std::vector<FontStyle>{FontStyle::bold}}};
+        ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}};
         bar.set_progress(0);
         simulation_parameters param_local;
         memcpy(&param_local, &param, sizeof(simulation_parameters));
         std::vector<uint32_t> v(param_local.n_spins);
         std::generate(std::execution::seq, v.begin(), v.end(), [n = 0] () mutable { return n++; });  
-        for (int32_t sl = 0; sl < param.n_sample_length_scales; sl++)
+        for (int32_t sl = 0; sl < param.n_fov_scale; sl++)
         {
             for (int i = 0; i < 3; i++)
             {
-                param_local.sample_length[i] = sample_length_scales[sl] * param.sample_length[i];
-                param_local.scale2grid[i]    = param_local.fieldmap_size[i] / param_local.sample_length[i];
+                param_local.fov[i] = fov_scale[sl] * param.fov[i];
+                param_local.scale2grid[i]    = param_local.fieldmap_size[i] / param_local.fov[i];
             }           
 
             if(param.no_gpu)
             {
-                float scale = sample_length_scales[sl];                
+                float scale = fov_scale[sl];                
                 // scale position to mimic the different volume size
                 std::transform(std::execution::par_unseq, XYZ0.begin(), XYZ0.end(), XYZ0_scaled.begin(), [scale](auto& c){return c*scale;}); 
                 std::for_each(std::execution::par_unseq, v.begin(), v.end(), [&](int spin) {sim(&param_local, fieldmap.data(), 
@@ -190,10 +190,10 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             else
             {
 #ifdef __CUDACC__  
-            BOOST_LOG_TRIVIAL(info) << "GPU " << 1 << ") Fieldmap " << fieldmap_no << ", simulating sample length scale " << sample_length_scales[sl];
+            BOOST_LOG_TRIVIAL(info) << "GPU " << 1 << ") Fieldmap " << fieldmap_no << ", simulating sample length scale " << fov_scale[sl];
             checkCudaErrors(cudaMemcpy(d_param, &param_local, sizeof(simulation_parameters), cudaMemcpyHostToDevice));
             // scale position to mimic the different volume size
-            thrust::transform(d_XYZ0.begin(), d_XYZ0.end(), thrust::make_constant_iterator(sample_length_scales[sl]), d_XYZ0_scaled.begin(), thrust::multiplies<float>());
+            thrust::transform(d_XYZ0.begin(), d_XYZ0.end(), thrust::make_constant_iterator(fov_scale[sl]), d_XYZ0_scaled.begin(), thrust::multiplies<float>());
             gpuCheckKernelExecutionError(__FILE__, __LINE__);            
             cu_sim<<<numBlocks, THREADS_PER_BLOCK, 0>>>(d_param,thrust::raw_pointer_cast(d_pFieldMap.data()), 
                                                                 thrust::raw_pointer_cast(d_pMask.data()), 
@@ -212,8 +212,8 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             thrust::copy(d_T.begin(), d_T.end(), T.begin() + shift);
 #endif
             }
-            // bar.progress(sl, param.n_sample_length_scales);
-            bar.set_progress(100 * (sl+1)/float(param.n_sample_length_scales));
+            // bar.progress(sl, param.n_fov_scale);
+            bar.set_progress(100 * (sl+1)/float(param.n_fov_scale));
         }
         // bar.finish();
 
@@ -224,12 +224,12 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
         checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start, end));
         std::cout << "Simulation over " << device_count << " GPU(s) took " << std::fixed << std::setprecision(2) <<  elapsedTime/1000. << " second(s)" << '\n';
         // ========== save results ========== 
-        std::cout << "Saving the results to disk" << '\n';
+        std::cout << "Saving the results to disk" << "\n";
         std::string f = filenames.at("output")[fieldmap_no];
         if (std::filesystem::exists(f)) 
             std::filesystem::remove(f);
         
-        std::vector<size_t> dims = {param.n_sample_length_scales, param.n_spins * device_count, param.n_TE, 3};
+        std::vector<size_t> dims = {param.n_fov_scale, param.n_spins * device_count, param.n_TE, 3};
         file_utils::save_h5(f, M1.data(), dims, "M", "float");
 
         dims[2] = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
@@ -238,8 +238,8 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
         dims[3] = 1; dims[2] = param.n_TE;
         file_utils::save_h5(f, T.data(), dims, "T", "uint8_t");
 
-        dims[0] = sample_length_scales.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
-        file_utils::save_h5(f, sample_length_scales.data(), dims, "scales", "double");
+        dims[0] = fov_scale.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
+        file_utils::save_h5(f, fov_scale.data(), dims, "scales", "double");
     }
 
     // ========== clean up GPU ==========
@@ -251,7 +251,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
 } 
 
 
-bool dump_settings(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<double> sample_length_scales)
+bool dump_settings(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<double> fov_scale)
 {
     std::stringstream ss;
     ss << "Dumping settings:" << '\n';
@@ -260,8 +260,8 @@ bool dump_settings(simulation_parameters param, std::map<std::string, std::vecto
             ss << it->first << "[" << i << "] = " << it->second.at(i) << '\n';
     
     ss << "\nSample length scale = [";
-    for (int32_t i = 0; i < param.n_sample_length_scales; i++)
-        ss << sample_length_scales[i] << ", ";
+    for (int32_t i = 0; i < param.n_fov_scale; i++)
+        ss << fov_scale[i] << ", ";
     ss << "]\n";
     ss << param.dump();
     BOOST_LOG_TRIVIAL(info) << ss.str();
@@ -339,25 +339,26 @@ int main(int argc, char * argv[])
     if (config_files.size() == 0)
         return 0;
     
-    std::cout << "Running simulation for " << config_files.size() << " config(s)..." << '\n';
+    std::cout << "Running simulation for " << config_files.size() << " config(s)..." << "\n\n";
     auto start = std::chrono::steady_clock::now();
     for(const auto& cfile : config_files)
     {
+        std::cout << "<" <<  std::filesystem::path(cfile).filename().string() << ">\n";
         std::map<std::string, std::vector<std::string> > filenames = {{"phantom", 	std::vector<std::string>()},  // input:  map of off-resonance in Tesla
                                                                       {"xyz0", 		std::vector<std::string>()},  // input:  spins starting spatial positions in meters
                                                                       {"m0", 		std::vector<std::string>()},  // input:  spins initial magnetization
                                                                       {"output", 	std::vector<std::string>()},  // output: spins final magnetization + spatial positions in meters + tissue index
                                                                      };
 
-        std::vector<double> sample_length_scales;
+        std::vector<double> fov_scale;
         simulation_parameters param;
         param.no_gpu = vm.count("no_gpu") > 0;
         
         // ========== read config file ==========
-        bStatus &= file_utils::read_config(cfile, &param, sample_length_scales, filenames);
+        bStatus &= file_utils::read_config(cfile, &param, fov_scale, filenames);
             
         // ========== dump settings ==========
-        bStatus &= dump_settings(param, filenames, sample_length_scales);
+        bStatus &= dump_settings(param, filenames, fov_scale);
 
         // ========== Check GPU memory ==========
         bStatus &= check_memory_size(param.get_required_memory(getDeviceCount()));
@@ -369,12 +370,13 @@ int main(int argc, char * argv[])
         }
         
         std::cout << "Simulation starts..." << std::endl;
-        if(run(param, filenames, sample_length_scales) == false)
+        if(run(param, filenames, fov_scale) == false)
         {
             std::cout << ERR_MSG << "Simulation failed. See the log file " << LOG_FILE <<", Aborting...!" << std::endl;
             return 1;
-        }
+        }        
+        std::cout << "\n";
     }
-    std::cout << "Simulation(s) finished successfully! Entire elapsed time = " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count()/1000. << " second(s)."  << std::endl;
+    std::cout << "Simulation(s) finished successfully! Total elapsed time = " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count()/1000. << " second(s)."  << std::endl;
     return 0;
 }

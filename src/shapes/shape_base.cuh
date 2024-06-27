@@ -39,7 +39,7 @@ class shape
         std::string m_filename;
         float B0[3] = {0.f, 0.f, 1.f};
         bool m_calc_fieldmap;
-        bool m_random_seed;
+        size_t m_random_seed;
 
     private: 
 };

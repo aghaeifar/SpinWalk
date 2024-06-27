@@ -49,13 +49,13 @@ bool check_memory_size(size_t required_size_MB)
     bool memory_ok = true;
     int32_t device_count = getDeviceCount();
     cudaDeviceProp device_properties;
-    std::cout << "Device(s) memeory check:" << '\n';
+    BOOST_LOG_TRIVIAL(info) << "Device(s) memeory check:" << '\n';
     for(int i=0; i<device_count; i++)
     {
         cudaSetDevice(i);
         cudaGetDeviceProperties(&device_properties, i);
         cudaMemGetInfo(&free, &total);
-        std::cout << "  Device " << i+1 << ", " << device_properties.name  << ": " << (free>required_size_MB ? "OK" : "Not enough") << '\n';
+        BOOST_LOG_TRIVIAL(info)  << "  Device " << i+1 << ", " << device_properties.name  << ": " << (free>required_size_MB ? "OK" : "Not enough") << '\n';
         if(free<required_size_MB)
             BOOST_LOG_TRIVIAL(fatal) << "Not enough GPU memory for the simulation in device "<< i <<"! Required=" << required_size_MB <<" MB, Available=" << free << " MB";
         memory_ok = free<required_size_MB ? false:memory_ok;

@@ -56,10 +56,11 @@ void sphere::generate_shapes()
 
     // srandom engine
     std::mt19937 gen(m_random_seed); // Mersenne Twister generator
-    std::uniform_real_distribution<> dist(0.f, 1.f); 
+    std::uniform_real_distribution<float> dist(0.f, 1.f); 
       
     float distance, vol_sph = 0, vol_tol = m_fov*m_fov*m_fov;
     int32_t progress = 0;
+    ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}};
     auto start = std::chrono::high_resolution_clock::now();
     while(progress < 100)
     {
@@ -91,6 +92,7 @@ void sphere::generate_shapes()
         m_sphere_points.insert(m_sphere_points.end(), sph_pnt, sph_pnt+3);
         m_sphere_radii.push_back(radius);  
         progress = 0.95 * 100*(100.*vol_sph/vol_tol/m_BVF); // 0.95 is a factor to compensate for spheres in the boundary   
+        bar.set_progress(progress);
     }
 
     auto end = std::chrono::high_resolution_clock::now();

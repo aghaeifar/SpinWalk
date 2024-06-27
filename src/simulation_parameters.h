@@ -37,7 +37,7 @@
 
 typedef struct simulation_parameters
 {
-    double sample_length[3], scale2grid[3];
+    double fov[3], scale2grid[3];
     double diffusivity[MAX_TISSUE_TYPE];
     float B0, c, s;
     float RF_FA_deg[MAX_RF], RF_PH_deg[MAX_RF];
@@ -48,7 +48,7 @@ typedef struct simulation_parameters
     float T1_ms[MAX_TISSUE_TYPE], T2_ms[MAX_TISSUE_TYPE];
     int32_t timestep_us, TR_us, TE_us[MAX_TE], RF_us[MAX_RF], dephasing_us[MAX_DEPHASE], gradient_us[MAX_GRADIENT];
     int32_t n_dummy_scan;
-    uint32_t n_spins, n_timepoints, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient, n_sample_length_scales, n_tissue_type;
+    uint32_t n_spins, n_timepoints, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient, n_fov_scale, n_tissue_type;
     uint32_t fieldmap_size[3], seed, max_iterations;
     int64_t matrix_length;
     bool enDebug, enCrossFOV, enRecordTrajectory, enProfiling;
@@ -76,7 +76,7 @@ typedef struct simulation_parameters
     {
         memset(fieldmap_size,   0, 3*sizeof(fieldmap_size[0])); 
         memset(scale2grid,      0, 3*sizeof(scale2grid[0])); 
-        memset(sample_length,   0, 3*sizeof(sample_length[0]));
+        memset(fov,   0, 3*sizeof(fov[0]));
         memset(TE_us,           0, MAX_TE*sizeof(TE_us[0]));        
         memset(RF_FA_deg,       0, MAX_RF*sizeof(RF_FA_deg[0]));
         memset(RF_us,           0, MAX_RF*sizeof(RF_us[0]));
@@ -109,13 +109,13 @@ typedef struct simulation_parameters
         ss<<"RF time         = "; for(int i=0; i<n_RF; i++) ss<<RF_us[i]*timestep_us<<' '; ss<<"us.\n";
         ss<<"dephasing       = "; for(int i=0; i<n_dephasing; i++) ss<<dephasing_deg[i]<<' '; ss<<"deg.\n";
         ss<<"dephasing time  = "; for(int i=0; i<n_dephasing; i++) ss<<dephasing_us[i]*timestep_us<<' '; ss<<"us.\n";
-        ss<<"sample length   = "<< sample_length[0] << " x " << sample_length[1] << " x " << sample_length[2] << " m" << '\n';
+        ss<<"FoV             = "<< fov[0] << " x " << fov[1] << " x " << fov[2] << " m" << '\n';
         ss<<"scale2grid      = "<< scale2grid[0] << " x " << scale2grid[1] << " x " << scale2grid[2] << '\n';
         ss<<"fieldmap size   = "<< fieldmap_size[0] << " x " << fieldmap_size[1] << " x " << fieldmap_size[2] << '\n';
         ss<<"matrix length   = "<< matrix_length << '\n';
         ss<<"dummy scans     = "<< n_dummy_scan<<'\n';
         ss<<"spins           = "<< n_spins<<'\n';
-        ss<<"samples scales  = "<< n_sample_length_scales<<'\n';
+        ss<<"FoV scales      = "<< n_fov_scale<<'\n';
         ss<<"timepoints      = "<< n_timepoints<<'\n';
         ss<<"fieldmaps       = "<< n_fieldmaps<<'\n';
         ss<<"max iterations  = "<< max_iterations<<'\n';
@@ -149,15 +149,15 @@ typedef struct simulation_parameters
         // M0
         variables_size_B += sizeof(float) * 3 * spin ;     
         // M1     
-        variables_size_B += sizeof(float) * 3 * spin * n_TE * ((type == "cpu") ? n_sample_length_scales:1);    
+        variables_size_B += sizeof(float) * 3 * spin * n_TE * ((type == "cpu") ? n_fov_scale:1);    
         // XYZ0  
         variables_size_B += sizeof(float) * 3 * spin ;     
         // XYZ0_scaled    
         variables_size_B += sizeof(float) * ((type == "gpu") ? 3 * spin : 0);        
         // XYZ1 
-        variables_size_B += sizeof(float) * 3 * spin * (enRecordTrajectory ?  n_timepoints * (n_dummy_scan+1) : 1) * ((type == "cpu") ? n_sample_length_scales:1); 
+        variables_size_B += sizeof(float) * 3 * spin * (enRecordTrajectory ?  n_timepoints * (n_dummy_scan+1) : 1) * ((type == "cpu") ? n_fov_scale:1); 
         // T 
-        variables_size_B += sizeof(uint8_t) * spin * n_TE * ((type == "cpu") ? n_sample_length_scales:1);
+        variables_size_B += sizeof(uint8_t) * spin * n_TE * ((type == "cpu") ? n_fov_scale:1);
         size_t variables_size_MB = variables_size_B / B2MB;
 
         return data_size_MB + variables_size_MB;

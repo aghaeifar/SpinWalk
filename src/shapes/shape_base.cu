@@ -135,4 +135,5 @@ void shape::print_info()
     std::cout << "  Resolution: " << m_resolution << "\n";
     std::cout << "  Blood parameters: dChi=" << m_dChi << ", Y=" << m_Y <<  "\n";
     std::cout << "  Filename: " << m_filename <<  "\n";
+    std::cout << "  Seed: " << m_random_seed <<  "\n";
 }
