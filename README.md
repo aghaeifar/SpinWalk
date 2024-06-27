@@ -37,7 +37,7 @@ You can either use the supplied Dockerfile for a consistent build that includes 
 We suggest utilizing the provided Dockerfile, which automates the installation of all dependencies, as well as the cloning and building of the program. Download the [Dockerfile](./Dockerfile) to your current directory and then execute the following commands:
 
 ```
-docker build -t spinwalk .
+docker build --no-cache -t spinwalk .
 docker run --gpus all --rm -it --runtime=nvidia spinwalk bash
 ```
 ### CMake

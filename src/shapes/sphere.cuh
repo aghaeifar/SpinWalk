@@ -17,7 +17,7 @@ class sphere : public shape
 {
     public:
     sphere();
-    sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um = 50, float BVF = 10.0, bool is_seed_fixed=false, std::string filename = "shape.h5");
+    sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um = 50, float BVF = 10.0, int32_t seed = -1, std::string filename = "shape.h5");
     ~sphere();
 
     virtual bool run();

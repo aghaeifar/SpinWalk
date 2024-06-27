@@ -25,8 +25,8 @@ sphere::sphere()
     m_radius = 0;
 }
 
-sphere::sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um, float BVF, bool is_seed_fixed, std::string filename)
-: shape(fov_um, resolution, dChi, Y, BVF, is_seed_fixed, filename)
+sphere::sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um, float BVF, int32_t seed, std::string filename)
+: shape(fov_um, resolution, dChi, Y, BVF, seed, filename)
 {
     set_sphere_parameters(radius_um);
 }
@@ -55,7 +55,7 @@ void sphere::generate_shapes()
     float sph_pnt[3], radius ;
 
     // srandom engine
-    std::mt19937 gen(m_random_seed); // Mersenne Twister generator
+    std::mt19937 gen(m_seed); // Mersenne Twister generator
     std::uniform_real_distribution<float> dist(0.f, 1.f); 
       
     float distance, vol_sph = 0, vol_tol = m_fov*m_fov*m_fov;

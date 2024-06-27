@@ -17,19 +17,19 @@ shape::shape()
 {
     m_fov = 0;
     m_resolution = 0;
-    m_random_seed = std::random_device{}();
+    m_seed = std::random_device{}();
     set_blood_parameters(0.273e-6 * 0.4, 0, 10.0);
     set_filename(); 
 }
 
-shape::shape(float fov_um, size_t resolution, float dChi, float Y, float BVF, bool is_seed_fixed, std::string filename)
+shape::shape(float fov_um, size_t resolution, float dChi, float Y, float BVF, int32_t seed, std::string filename)
 :shape()
 {
     set_space(fov_um, resolution);
     set_blood_parameters(dChi, Y, BVF);
     set_filename(filename);
-    if(is_seed_fixed)
-        m_random_seed = 0;
+    if(seed >= 0)
+        m_seed = seed;
 }
 
 shape::~shape()
@@ -135,5 +135,5 @@ void shape::print_info()
     std::cout << "  Resolution: " << m_resolution << "\n";
     std::cout << "  Blood parameters: dChi=" << m_dChi << ", Y=" << m_Y <<  "\n";
     std::cout << "  Filename: " << m_filename <<  "\n";
-    std::cout << "  Seed: " << m_random_seed <<  "\n";
+    std::cout << "  Seed: " << m_seed <<  "\n";
 }

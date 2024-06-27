@@ -26,8 +26,8 @@ cylinder::cylinder()
     m_orientation = 0;
 }
 
-cylinder::cylinder(float fov_um, size_t resolution, float dChi, float Y, float radius_um, float BVF, float orientation, bool is_seed_fixed, std::string filename)
-: shape(fov_um, resolution, dChi, Y, BVF, is_seed_fixed, filename)
+cylinder::cylinder(float fov_um, size_t resolution, float dChi, float Y, float radius_um, float BVF, float orientation, int32_t seed, std::string filename)
+: shape(fov_um, resolution, dChi, Y, BVF, seed, filename)
 {
     set_cylinder_parameters(radius_um, orientation);
 }
@@ -60,7 +60,7 @@ void cylinder::generate_shapes()
     float cyl_pnt[3], cyl_rad ;
     float curr_BVF = 0;
     // srandom engine
-    std::mt19937 gen(m_random_seed); // Mersenne Twister generator
+    std::mt19937 gen(m_seed); // Mersenne Twister generator
     std::uniform_real_distribution<float> dist(0.f, 1.f); 
       
     float distance, vol_cyl = 0, vol_cyl_total = 0, vol_tol = m_fov*m_fov*m_fov;
