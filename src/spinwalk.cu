@@ -223,14 +223,17 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
         checkCudaErrors(cudaEventSynchronize(end));  
         checkCudaErrors(cudaDeviceSynchronize());     
         checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start, end));
-        std::cout << "Simulation over " << device_count << " GPU(s) took " << std::fixed << std::setprecision(2) <<  elapsedTime/1000. << " second(s)" << '\n';
+        std::cout << "Simulation over " << 1 << " GPU(s) took " << std::fixed << std::setprecision(2) <<  elapsedTime/1000. << " second(s)" << '\n';
         // ========== save results ========== 
         std::cout << "Saving the results to disk." << "\n";
         std::string f = filenames.at("output")[fieldmap_no];
         if (std::filesystem::exists(f)) 
+        {
             std::filesystem::remove(f);
+            BOOST_LOG_TRIVIAL(info) << "File " << f << " already exists. Overwriting it.";
+        }
         
-        std::vector<size_t> dims = {param.n_fov_scale, param.n_spins * device_count, param.n_TE, 3};
+        std::vector<size_t> dims = {param.n_fov_scale, param.n_spins, param.n_TE, 3};
         file_utils::save_h5(f, M1.data(), dims, "M", "float");
 
         dims[2] = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
