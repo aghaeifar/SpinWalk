@@ -189,6 +189,11 @@ typedef struct simulation_parameters
         {
             BOOST_LOG_TRIVIAL(warning) << "Off-resonance map is not provided. Simulation will be performed with a perfect homogeneous field.";
         }
+        if(n_fov_scale == 0)
+        {
+            BOOST_LOG_TRIVIAL(error) << "No FoV scale is provided";
+            return false;
+        }
         return true;
     }
 } simulation_parameters;

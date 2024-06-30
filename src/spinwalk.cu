@@ -95,8 +95,15 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
     {
         // ========== load files (field-maps, xyz0, m0) ==========
         std::cout << "Loading phantom: " << std::filesystem::path(filenames.at("phantom")[fieldmap_no]).filename().string() << "\n";
-        if(file_utils::read_fieldmap(filenames.at("phantom")[fieldmap_no], fieldmap, mask, &param) == false)
+        if(file_utils::read_phantom(filenames.at("phantom")[fieldmap_no], fieldmap, mask, &param) == false)
             return false;
+        param.matrix_length = mask.size(); // update the matrix length based on the mask size from the recent read
+#ifdef __CUDACC__
+        if(d_pMask.size() != mask.size())
+            d_pMask.resize(mask.size());
+        if(d_pFieldMap.size() != fieldmap.size() && param.fieldmap_exist)
+            d_pFieldMap.resize(fieldmap.size());
+#endif
         // convert fieldmap from T to degree per timestep
         float Tesla2deg = param.B0 * param.timestep_us * 1e-6 * GAMMA * RAD2DEG;
         if(param.fieldmap_exist) 
@@ -263,7 +270,7 @@ bool dump_settings(simulation_parameters param, std::map<std::string, std::vecto
         for (int i = 0; i< it->second.size(); i++)
             ss << it->first << "[" << i << "] = " << it->second.at(i) << '\n';
     
-    ss << "\nSample length scale = [";
+    ss << "\nFoV scale = [";
     for (int32_t i = 0; i < param.n_fov_scale; i++)
         ss << fov_scale[i] << ", ";
     ss << "]\n";
