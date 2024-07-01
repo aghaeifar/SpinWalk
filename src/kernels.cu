@@ -127,16 +127,16 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
                 rnd_wlk = dist_random_walk_xyz(gen_r) * diffusivity_scale;
                 xyz_new[i] = xyz_old[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)
-                    xyz_new[i] += (param->enCrossFOV ? param->fov[i] : 2*ABS(rnd_wlk)); // rnd_wlk is negative here
+                    xyz_new[i] += (param->enCrossFOV ? param->fov[i] : 2*std::abs(rnd_wlk)); // rnd_wlk is negative here
                 else if (xyz_new[i] >= param->fov[i])
-                    xyz_new[i] -= (param->enCrossFOV ? param->fov[i] : 2*ABS(rnd_wlk)); // rnd_wlk is positive here
+                    xyz_new[i] -= (param->enCrossFOV ? param->fov[i] : 2*std::abs(rnd_wlk)); // rnd_wlk is positive here
             }
            
             // ------ subscripts to linear indices ------
             ind = sub2ind(xyz_new[0]*param->scale2grid[0], xyz_new[1]*param->scale2grid[1], xyz_new[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1], param->fieldmap_size[2]);
             if(ind >= param->matrix_length || ind < 0)
             {
-                printf("Error:spin=%d, ind=%" PRId64 ", %d,\n\tscale=(%.10f, %.10f, %.10f)\n\txyz=(%.10f, %.10f, %.10f)\n\tscale*xyz(%.10f, %.10f, %.10f)\n\tFoV=(%.10f, %.10f, %.10f)\n\t(%d, %d, %d)\n",spin_no, ind, current_timepoint, param->scale2grid[0], param->scale2grid[1], param->scale2grid[2], xyz_new[0], xyz_new[1], xyz_new[2], param->scale2grid[0]*xyz_new[0], param->scale2grid[1]*xyz_new[1], param->scale2grid[2]*xyz_new[2], param->fov[0], param->fov[1], param->fov[2], xyz_new[0] >= param->fov[0], xyz_new[1] >= param->fov[1], xyz_new[2] >= param->fov[2]);
+                printf("Error:spin=%d, ind=%" PRId64 ", %d,\n\tscale2grid=(%.10f, %.10f, %.10f)\n\txyz=(%.10f, %.10f, %.10f)\n\txyz_old=(%.10f, %.10f, %.10f)\n\tscale2grid*xyz(%.10f, %.10f, %.10f)\n\tPhantomSize=(%d, %d, %d)\n\tFoV=(%.10f, %.10f, %.10f)\n\tError?(%d, %d, %d)\n",spin_no, ind, current_timepoint, param->scale2grid[0], param->scale2grid[1], param->scale2grid[2], xyz_new[0], xyz_new[1], xyz_new[2], xyz_old[0], xyz_old[1], xyz_old[2], param->scale2grid[0]*xyz_new[0], param->scale2grid[1]*xyz_new[1], param->scale2grid[2]*xyz_new[2], param->fieldmap_size[0], param->fieldmap_size[1], param->fieldmap_size[2], param->fov[0], param->fov[1], param->fov[2], xyz_new[0] >= param->fov[0], xyz_new[1] >= param->fov[1], xyz_new[2] >= param->fov[2]);
                 return;
             }
             // ------ accumulate phase ------

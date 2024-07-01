@@ -102,7 +102,7 @@ typedef struct simulation_parameters
         ss<<"TE = "; for(int i=0; i<n_TE; i++) ss<<TE_us[i]*timestep_us/1000.<<' '; ss<<"ms.\n";
         ss<<"T2 = "; for(int i=0; i<n_tissue_type; i++) ss<<T2_ms[i]<<' '; ss<<"ms.\n";
         ss<<"T1 = "; for(int i=0; i<n_tissue_type; i++) ss<<T1_ms[i]<<' '; ss<<"ms.\n";
-        ss<<"Diffusivity = "; for(int i=0; i<n_tissue_type; i++) ss<<diffusivity[i]<<' '; ss<<"\n";
+        ss<<"sqrt(2*diffusivity*timestep) = "; for(int i=0; i<n_tissue_type; i++) ss<<diffusivity[i]<<' '; ss<<"\n";
         ss<<"Cross Tissue Probability =\n"; for(int i=0; i<n_tissue_type; i++) {for(int j=0; j<n_tissue_type; j++) ss<<pXY[j+i*n_tissue_type]<<' '; ss<<'\n';};
         ss<<"RF flip-angle   = "; for(int i=0; i<n_RF; i++) ss<<RF_FA_deg[i]<<' '; ss<<"deg.\n";
         ss<<"RF phase        = "; for(int i=0; i<n_RF; i++) ss<<RF_PH_deg[i]<<' '; ss<<"deg.\n";

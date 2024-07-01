@@ -168,7 +168,6 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
         // tqdm bar;
         using namespace indicators;
         ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}};
-        bar.set_progress(0);
         simulation_parameters param_local;
         memcpy(&param_local, &param, sizeof(simulation_parameters));
         std::vector<uint32_t> v(param_local.n_spins);
@@ -179,6 +178,12 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             {
                 param_local.fov[i] = fov_scale[sl] * param.fov[i];
                 param_local.scale2grid[i]    = param_local.fieldmap_size[i] / param_local.fov[i];
+                for (int n = 0; n < param.n_tissue_type; i++)
+                    if(param_local.fov[i] < 100 * param.diffusivity[n])
+                    {
+                        BOOST_LOG_TRIVIAL(error) << "FoV (= " << param_local.fov[i] << ") must be 100x larger than sqrt(2*diffusivity*timestep) (= " << param.diffusivity[n] << ")!";
+                        return false;
+                    }
             }           
 
             if(param.no_gpu)

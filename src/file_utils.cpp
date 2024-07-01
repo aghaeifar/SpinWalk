@@ -327,7 +327,7 @@ bool file_utils::read_phantom(std::string phantom_filename, std::vector<float> &
     std::copy(fov.begin() , fov.end() , param->fov);
     std::copy(dims.begin(), dims.end(), param->fieldmap_size);
     BOOST_LOG_TRIVIAL(info) << "Size = " << dims[0] << " x " << dims[1] << " x " << dims[2] << std::endl;
-    BOOST_LOG_TRIVIAL(info) << "FoV = " << fov[0]*1e6 << " x " << fov[1]*1e6 << " x " << fov[2]*1e6 << " um^3" << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "FoV = " << param->fov[0]*1e6 << " x " << param->fov[1]*1e6 << " x " << param->fov[2]*1e6 << " um^3" << std::endl;
 
     int n_tissue = find_max(mask) + 1;
     if (n_tissue > param->n_tissue_type)
