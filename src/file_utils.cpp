@@ -280,40 +280,40 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
 }
 
 
-bool file_utils::read_phantom(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<uint8_t> &mask, simulation_parameters *param)
+bool file_utils::read_phantom(std::string phantom_filename, std::vector<float> &fieldmap, std::vector<uint8_t> &mask, simulation_parameters *param)
 {
-    if(std::filesystem::exists(fieldmap_filename) == false)
+    if(std::filesystem::exists(phantom_filename) == false)
     {
-        BOOST_LOG_TRIVIAL(error) << "Fieldmap file does not exist: " << fieldmap_filename;
+        BOOST_LOG_TRIVIAL(error) << "Fieldmap file does not exist: " << phantom_filename;
         return false;
     }
 
-    BOOST_LOG_TRIVIAL(info) << "Opening fieldmap " << fieldmap_filename;
+    BOOST_LOG_TRIVIAL(info) << "Opening fieldmap " << phantom_filename;
     std::vector<size_t> dims;
     if (param->fieldmap_exist)
     {
         BOOST_LOG_TRIVIAL(info) << "Reading...fieldmap...";
-        dims = get_size_h5(fieldmap_filename, "fieldmap");
+        dims = get_size_h5(phantom_filename, "fieldmap");
         if (product(dims) != fieldmap.size())
         {
-            BOOST_LOG_TRIVIAL(warning) << "Hint in reading fieldmap: " << fieldmap_filename;
+            BOOST_LOG_TRIVIAL(warning) << "Phantom size has changed in " << phantom_filename;
             BOOST_LOG_TRIVIAL(warning) << "Fieldmap size does not match the expected size: " << product(dims) << " vs " << fieldmap.size() << ". resize it...!";
             fieldmap.resize(product(dims));
         }
-        read_h5(fieldmap_filename, fieldmap.data(), "fieldmap", "float");
+        read_h5(phantom_filename, fieldmap.data(), "fieldmap", "float");
     }
 
     if (param->mask_exist)
     {
         BOOST_LOG_TRIVIAL(info) << "Reading...mask...";
-        dims = get_size_h5(fieldmap_filename, "mask");
+        dims = get_size_h5(phantom_filename, "mask");
         if (product(dims) != mask.size())
         {
-            BOOST_LOG_TRIVIAL(warning) << "Hint in reading mask: " << fieldmap_filename;
+            BOOST_LOG_TRIVIAL(warning) << "Hint in reading mask: " << phantom_filename;
             BOOST_LOG_TRIVIAL(warning) << "Mask size does not match the expected size: " << product(dims) << " vs " << mask.size() << ". Aborting...!";
             mask.resize(product(dims));
         }
-        read_h5(fieldmap_filename, mask.data(), "mask", "uint8_t");
+        read_h5(phantom_filename, mask.data(), "mask", "uint8_t");
     }
 
     if (param->mask_exist && param->fieldmap_exist && mask.size() != fieldmap.size())
@@ -323,7 +323,9 @@ bool file_utils::read_phantom(std::string fieldmap_filename, std::vector<float> 
     }    
 
     std::vector<float> fov(3, 0);
-    file_utils::read_h5(fieldmap_filename, fov.data(), "fov", "float");
+    file_utils::read_h5(phantom_filename, fov.data(), "fov", "float");
+    std::copy(fov.begin() , fov.end() , param->fov);
+    std::copy(dims.begin(), dims.end(), param->fieldmap_size);
     BOOST_LOG_TRIVIAL(info) << "Size = " << dims[0] << " x " << dims[1] << " x " << dims[2] << std::endl;
     BOOST_LOG_TRIVIAL(info) << "FoV = " << fov[0]*1e6 << " x " << fov[1]*1e6 << " x " << fov[2]*1e6 << " um^3" << std::endl;
 

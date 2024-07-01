@@ -39,7 +39,7 @@ bool read_config(std::string config_filename, simulation_parameters *param, std:
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
-bool read_phantom(std::string fieldmap_filename, std::vector<float> &fieldmap, std::vector<uint8_t> &mask, simulation_parameters *param);
+bool read_phantom(std::string phantom_filename, std::vector<float> &fieldmap, std::vector<uint8_t> &mask, simulation_parameters *param);
 
 //---------------------------------------------------------------------------------------------
 //  

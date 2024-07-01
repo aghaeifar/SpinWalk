@@ -232,7 +232,6 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
 //---------------------------------------------------------------------------------------------
 // CUDA kernel to generate random initial position
 //---------------------------------------------------------------------------------------------
-#include <iomanip>
 #ifdef __CUDACC__
 __host__  
 #endif 
