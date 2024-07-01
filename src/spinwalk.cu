@@ -178,12 +178,16 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             {
                 param_local.fov[i] = fov_scale[sl] * param.fov[i];
                 param_local.scale2grid[i]    = param_local.fieldmap_size[i] / param_local.fov[i];
-                for (int n = 0; n < param.n_tissue_type; i++)
-                    if(param_local.fov[i] < 100 * param.diffusivity[n])
+                for (int n = 0; n < param.n_tissue_type; n++)
+                {
+                    double min_convergence =  2 * param.diffusivity[n] * sqrt(10 * param.n_timepoints); // https://submissions.mirasmart.com/ISMRM2024/Itinerary/PresentationDetail.aspx?evdid=4684
+                    if(param_local.fov[i] < min_convergence )
                     {
-                        BOOST_LOG_TRIVIAL(error) << "FoV (= " << param_local.fov[i] << ") must be 100x larger than sqrt(2*diffusivity*timestep) (= " << param.diffusivity[n] << ")!";
+                        BOOST_LOG_TRIVIAL(error) << "Virtual FoV (= " << param_local.fov[i] << ") is smaller than minimum convergence length (= " << min_convergence << ")!";
+                        BOOST_LOG_TRIVIAL(error) << "Original FoV (= " << param.fov[i] << ") FoV Scale (= " << fov_scale[sl]  << ")!";
                         return false;
                     }
+                }
             }           
 
             if(param.no_gpu)

@@ -102,20 +102,23 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     }
     filenames["output"] = file_paths;
      
-    // check header of fieldmap matches
-    auto dims = file_utils::get_size_h5(filenames.at("phantom")[0], "mask");
-    if(dims.size() != 3)
+    if(param->n_fieldmaps > 0)
     {
-        BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "mask must be 3D but is " << dims.size() << "D filename:"<< filenames.at("phantom")[0] << ". Aborting...!";
-        return false;
-    }
-    std::vector<float> fov(3, 0);
-    file_utils::read_h5(filenames.at("phantom")[0], fov.data(), "fov", "float");
-    std::copy(dims.begin(), dims.end(), param->fieldmap_size);
-    std::copy(fov.begin(), fov.end(), param->fov);
+        // check header of fieldmap matches
+        auto dims = file_utils::get_size_h5(filenames.at("phantom")[0], "mask");
+        if(dims.size() != 3)
+        {
+            BOOST_LOG_TRIVIAL(error) << cf_name << ") " << "mask must be 3D but is " << dims.size() << "D filename:"<< filenames.at("phantom")[0] << ". Aborting...!";
+            return false;
+        }
+        std::vector<float> fov(3, 0);
+        file_utils::read_h5(filenames.at("phantom")[0], fov.data(), "fov", "float");
+        std::copy(dims.begin(), dims.end(), param->fieldmap_size);
+        std::copy(fov.begin(), fov.end(), param->fov);
 
-    param->fieldmap_exist = file_utils::get_size_h5(filenames.at("phantom")[0], "fieldmap").size() == 3;
-    param->mask_exist     = file_utils::get_size_h5(filenames.at("phantom")[0], "mask").size() == 3;
+        param->fieldmap_exist = file_utils::get_size_h5(filenames.at("phantom")[0], "fieldmap").size() == 3;
+        param->mask_exist     = file_utils::get_size_h5(filenames.at("phantom")[0], "mask").size() == 3;
+    }
 
     // ============== reading section SCAN_PARAMETERS ==============
     param->TR_us = (int32_t)pt.get<float>("SCAN_PARAMETERS.TR", param->TR_us);
