@@ -180,7 +180,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
                 param_local.scale2grid[i]    = param_local.fieldmap_size[i] / param_local.fov[i];
                 for (int n = 0; n < param.n_tissue_type; n++)
                 {
-                    double min_convergence =  2 * param.diffusivity[n] * sqrt(10 * param.n_timepoints); // https://submissions.mirasmart.com/ISMRM2024/Itinerary/PresentationDetail.aspx?evdid=4684
+                    double min_convergence = 0.95 * param.diffusivity[n] * sqrt(10 * param.n_timepoints); // https://submissions.mirasmart.com/ISMRM2024/Itinerary/PresentationDetail.aspx?evdid=4684
                     if(param_local.fov[i] < min_convergence )
                     {
                         BOOST_LOG_TRIVIAL(error) << "Virtual FoV (= " << param_local.fov[i] << ") is smaller than minimum convergence length (= " << min_convergence << ")!";
