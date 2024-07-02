@@ -49,7 +49,7 @@ typedef struct simulation_parameters
     int32_t timestep_us, TR_us, TE_us[MAX_TE], RF_us[MAX_RF], dephasing_us[MAX_DEPHASE], gradient_us[MAX_GRADIENT];
     int32_t n_dummy_scan;
     uint32_t n_spins, n_timepoints, n_fieldmaps, n_TE, n_RF, n_dephasing, n_gradient, n_fov_scale, n_tissue_type;
-    uint32_t fieldmap_size[3], seed, max_iterations;
+    size_t fieldmap_size[3], seed, max_iterations;
     int64_t matrix_length;
     bool enDebug, enCrossFOV, enRecordTrajectory, enProfiling;
     bool fieldmap_exist, mask_exist, no_gpu;
@@ -72,6 +72,7 @@ typedef struct simulation_parameters
         fieldmap_exist(true),
         mask_exist(true),
         enProfiling(false),
+        matrix_length(0),
         no_gpu(false)
     {
         memset(fieldmap_size,   0, 3*sizeof(fieldmap_size[0])); 

@@ -313,7 +313,7 @@ bool file_utils::read_phantom(std::string phantom_filename, std::vector<float> &
         if (product(dims) != mask.size())
         {
             BOOST_LOG_TRIVIAL(warning) << "Hint in reading mask: " << phantom_filename;
-            BOOST_LOG_TRIVIAL(warning) << "Mask size does not match the expected size: " << product(dims) << " vs " << mask.size() << ". Aborting...!";
+            BOOST_LOG_TRIVIAL(warning) << "Mask size does not match the expected size: " << product(dims) << " vs " << mask.size() << ". resize it...!";
             mask.resize(product(dims));
         }
         read_h5(phantom_filename, mask.data(), "mask", "uint8_t");
