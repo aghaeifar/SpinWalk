@@ -11,6 +11,7 @@ find_package(OpenMP REQUIRED)
 find_package(Boost COMPONENTS program_options log log_setup REQUIRED)
 # FindCUDA module
 find_package(CUDA)
+# find_package(CUDAToolkit)
 # Find TBB
 find_package(TBB REQUIRED)
 
@@ -24,7 +25,9 @@ if(CUDA_FOUND)
     # Set CUDA architecture (change according to your GPU)
     # set(CUDA_ARCH "-arch=sm_75" CACHE STRING "CUDA architecture")
     # set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES native)
-    set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES 70 75 80 86 90)
+    # set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES 70 75 80 86 90)
+    set(CMAKE_CUDA_ARCHITECTURES 60 61 62 70 72 75 86)
+    # set_property(TARGET ${target} PROPERTY CUDA_SEPARABLE_COMPILATION ON)
     # Add CUDA and OpenMP flags
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${CUDA_ARCH} -Xcompiler=${OpenMP_CXX_FLAGS}")
 else()
