@@ -26,7 +26,7 @@ if(CUDA_FOUND)
     # set(CUDA_ARCH "-arch=sm_75" CACHE STRING "CUDA architecture")
     # set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES native)
     # set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES 70 75 80 86 90)
-    set(CMAKE_CUDA_ARCHITECTURES 60 61 62 70 72 75 86)
+    set(CMAKE_CUDA_ARCHITECTURES 70 72 75 86 89 90)
     # set_property(TARGET ${target} PROPERTY CUDA_SEPARABLE_COMPILATION ON)
     # Add CUDA and OpenMP flags
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${CUDA_ARCH} -Xcompiler=${OpenMP_CXX_FLAGS}")

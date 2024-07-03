@@ -25,7 +25,7 @@ for seq = 1:numel(fname)
 
         m1_t = zeros(numel(scales), 1);
         for s=1:numel(scales)
-            ind = ismember(T(s,:,end), tissue_type);
+            ind = ismember(T(s,:,end-1), tissue_type);
             m1_f = m1(s, ind(:), end-1, :);
             m1_f = squeeze(m1_f);
             m1_t(s) = abs(complex(sum(m1_f(:,1)), sum(m1_f(:,2))));
@@ -94,7 +94,7 @@ for i=1:numel(fname)
     T = permute(h5read(fname{i}, '/T'), 4:-1:1);  
     m1_t = zeros(numel(scales), size(m1, dim_echo)-1);
     for s=1:numel(scales)
-        ind = ismember(T(s,:,end), tissue_type);
+        ind = ismember(T(s,:,end-1), tissue_type);
         m1_f = m1(s, ind(:), 1:end-1, :);
         m1_f = squeeze(m1_f);
         m1_t(s, :) = abs(complex(sum(m1_f(:,:,1)), sum(m1_f(:,:,2))));
