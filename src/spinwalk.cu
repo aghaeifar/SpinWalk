@@ -34,27 +34,27 @@
 #include <thrust/device_vector.h>
 #include <thrust/copy.h>
 #include <thrust/iterator/constant_iterator.h>
-#else
-#define checkCudaErrors(x) {}
 #endif
 
 #define THREADS_PER_BLOCK  64
-#define LOG_FILE "spinwalk.log"
 
 namespace bl = boost::log;
+using namespace indicators;
 
 bool run(simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<double> fov_scale)
 {
+    auto start_config = std::chrono::high_resolution_clock::now();
+    int64_t old_elapsed = 0;
     // ========== checking number of GPU(s) ==========
     int32_t device_count=1;
+#ifdef __CUDACC__
     checkCudaErrors(cudaGetDeviceCount(&device_count));
     BOOST_LOG_TRIVIAL(info) << "Number of available GPU(s): " << device_count; 
-    
+#endif    
     // param.n_spins /= device_count; // spins will be distributed in multiple GPUs (if there is). We suppose it is divisible 
     size_t numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
     
     // ========== allocate memory on CPU ==========
-    auto st = std::chrono::steady_clock::now();
     size_t trj  = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
     size_t len0 = 3 * param.n_spins;
     size_t len1 = len0 * param.n_fov_scale * trj;
@@ -68,7 +68,6 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
     std::vector<float>      M0(len0, 0.f);       // memory layout(row-major): [n_spins x 3]
     std::vector<float>      M1(len2, 0.f);       // memory layout(row-major): [n_fov_scale x n_spins x n_TE x 3]
     std::vector<uint8_t>    T(M1.size()/3, 0);   // memory layout(row-major): [n_fov_scale x n_spins x n_TE x 1]
-    BOOST_LOG_TRIVIAL(info) << "Memory allocation (CPU) took " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - st).count() << " ms";
     
     // ========== allocate memory on GPU ==========
 #ifdef __CUDACC__
@@ -84,11 +83,6 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
     checkCudaErrors(cudaMalloc(&d_param, sizeof(simulation_parameters)));
     if(param.fieldmap_exist)
         d_pFieldMap.resize(fieldmap.size());
-    // ==========^==========
-    cudaEvent_t start;
-    cudaEvent_t end;  
-    checkCudaErrors(cudaEventCreate(&start));
-    checkCudaErrors(cudaEventCreate(&end));
 #endif
 
     for (int16_t fieldmap_no=0; fieldmap_no<param.n_fieldmaps; fieldmap_no++)
@@ -99,9 +93,9 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             return false;
         param.matrix_length = mask.size(); // update the matrix length based on the mask size from the recent read
 #ifdef __CUDACC__
-        if(d_pMask.size() != mask.size())
+        if(d_pMask.size() != mask.size() && param.no_gpu == false)
             d_pMask.resize(mask.size());
-        if(d_pFieldMap.size() != fieldmap.size() && param.fieldmap_exist)
+        if(d_pFieldMap.size() != fieldmap.size() && param.fieldmap_exist && param.no_gpu == false)
             d_pFieldMap.resize(fieldmap.size());
 #endif
         // convert fieldmap from T to degree per timestep
@@ -163,10 +157,8 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
                 d_pFieldMap = fieldmap;
         }
 #endif
-        // ========== run ==========       
-        checkCudaErrors(cudaEventRecord(start));        
-        // tqdm bar;
-        using namespace indicators;
+        // ========== run ==========   
+        auto start_sim = std::chrono::high_resolution_clock::now();
         ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}};
         simulation_parameters param_local;
         memcpy(&param_local, &param, sizeof(simulation_parameters));
@@ -204,9 +196,9 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
                                                                                                               T.data()    + param.n_TE*param.n_spins*sl,
                                                                                                               spin);});
             }
+#ifdef __CUDACC__  
             else
             {
-#ifdef __CUDACC__  
             BOOST_LOG_TRIVIAL(info) << "GPU " << 1 << ") Fieldmap " << fieldmap_no << ", simulating sample length scale " << fov_scale[sl];
             checkCudaErrors(cudaMemcpy(d_param, &param_local, sizeof(simulation_parameters), cudaMemcpyHostToDevice));
             // scale position to mimic the different volume size
@@ -227,19 +219,19 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             thrust::copy(d_XYZ1.begin(), d_XYZ1.end(), XYZ1.begin() + shift);
             shift = param.n_TE*param.n_spins*sl;
             thrust::copy(d_T.begin(), d_T.end(), T.begin() + shift);
-#endif
             }
+#endif
             // bar.progress(sl, param.n_fov_scale);
             bar.set_progress(100 * (sl+1)/float(param.n_fov_scale));
         }
-        // bar.finish();
+        
+        auto end_config     = std::chrono::high_resolution_clock::now();        
+        auto elapsed_sim    = std::chrono::duration_cast<std::chrono::milliseconds>(end_config - start_sim).count() / 1000.0;
+        auto elapsed_config = std::chrono::duration_cast<std::chrono::seconds>(end_config - start_config).count();
+        int precision = elapsed_sim>10 ? 0 : (elapsed_sim > 1 ? 1 : 3);
+        std::cout << "Simulation took " << std::fixed << std::setprecision(precision) <<  elapsed_sim << " sec., everything else took " << elapsed_config - elapsed_sim - old_elapsed<< " sec.\n";
+        old_elapsed = elapsed_config;
 
-        float elapsedTime;
-        checkCudaErrors(cudaEventRecord(end));
-        checkCudaErrors(cudaEventSynchronize(end));  
-        checkCudaErrors(cudaDeviceSynchronize());     
-        checkCudaErrors(cudaEventElapsedTime(&elapsedTime, start, end));
-        std::cout << "Simulation over " << 1 << " GPU(s) took " << std::fixed << std::setprecision(2) <<  elapsedTime/1000. << " second(s)" << '\n';
         // ========== save results ========== 
         std::cout << "Saving the results to disk." << "\n";
         std::string f = filenames.at("output")[fieldmap_no];
@@ -262,11 +254,11 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
         file_utils::save_h5(f, fov_scale.data(), dims, "scales", "double");
     }
 
-    // ========== clean up GPU ==========
+#ifdef __CUDACC__ 
+    // ============ clean up GPU ============
     checkCudaErrors(cudaFree(d_param));        
-    checkCudaErrors(cudaEventDestroy(start));
-    checkCudaErrors(cudaEventDestroy(end));
-    
+#endif
+
     return true;
 } 
 
@@ -294,7 +286,7 @@ int main(int argc, char * argv[])
     bool bStatus = true;
     std::string phantom_output;
     float phantom_radius, phantom_fov, phantom_dchi, phantom_oxy_level, phantom_orientation, phantom_BVF;
-    int32_t phantom_resolution, phantom_seed;
+    int32_t phantom_resolution, phantom_seed, device_id = 0;
     std::vector<std::string>  config_files;
     print_logo();
     // ========== parse command line arguments ==========
@@ -304,7 +296,8 @@ int main(int argc, char * argv[])
         ("help,h", "help message (this menu)")
         ("configs,c", po::value<std::vector<std::string>>(&config_files)->multitoken(), "config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini")
 #ifdef __CUDACC__
-        ("no_gpu,g", "only run on CPU(s) (default: GPU)")
+        ("use_cpu,p", "only run on CPU (default: GPU)")
+        ("device,g",po::value<int32_t>(&device_id)->default_value(0), "select GPU device (if there are multiple GPUs)")
 #endif
         ("cylinder,C", "generate phantom filled with cylinders")
         ("sphere,S", "generate phantom filled with spheres")
@@ -330,7 +323,8 @@ int main(int argc, char * argv[])
         return 1;
     } 
     
-    auto fileSink = bl::add_file_log(bl::keywords::file_name=LOG_FILE, bl::keywords::target_file_name = LOG_FILE, bl::keywords::format = "[%TimeStamp%] [%Severity%]: %Message%", bl::keywords::auto_flush = true);
+    std::string log_filename = "spinwalk_" + std::to_string(device_id) + ".log";
+    auto fileSink = bl::add_file_log(bl::keywords::file_name=log_filename, bl::keywords::target_file_name = log_filename, bl::keywords::format = "[%TimeStamp%] [%Severity%]: %Message%", bl::keywords::auto_flush = true);
     bl::add_common_attributes();
     
     // ========== print help ==========
@@ -341,7 +335,7 @@ int main(int argc, char * argv[])
         return 0;
     }
 
-    std::cout << "Log file location: " << std::filesystem::current_path() / LOG_FILE << '\n';
+    std::cout << "Log file location: " << std::filesystem::current_path() / log_filename << '\n';
 
     // ========== generate phantom ==========
     if (vm.count("cylinder"))
@@ -360,7 +354,7 @@ int main(int argc, char * argv[])
         return 0;
     
     std::cout << "Running simulation for " << config_files.size() << " config(s)..." << "\n\n";
-    auto start = std::chrono::steady_clock::now();
+    auto start = std::chrono::high_resolution_clock::now();
     for(const auto& cfile : config_files)
     {
         std::cout << "<" << std::filesystem::path(cfile).filename().string() << ">\n";
@@ -372,7 +366,7 @@ int main(int argc, char * argv[])
 
         std::vector<double> fov_scale;
         simulation_parameters param;
-        param.no_gpu = vm.count("no_gpu") > 0;
+        param.no_gpu = vm.count("use_cpu") > 0;
         
         // ========== read config file ==========
         bStatus &= file_utils::read_config(cfile, &param, fov_scale, filenames);
@@ -385,18 +379,30 @@ int main(int argc, char * argv[])
 
         if (bStatus == false)
         {
-            std::cout << ERR_MSG << "Simulation failed. See the log file " << LOG_FILE <<", Aborting...!" << std::endl;
+            std::cout << ERR_MSG << "Simulation failed. See the log file " << log_filename <<", Aborting...!" << std::endl;
             return 1;
         }
         
+#ifdef __CUDACC__
+        if(param.no_gpu == false)
+        {
+            if (device_id >= getDeviceCount())
+            {
+                std::cout << ERR_MSG << "Device ID " << device_id << " is not available! Aborting...!" << std::endl;
+                return 1;
+            }
+            cudaSetDevice(device_id);
+        }
+#endif
+
         std::cout << "Simulation starts..." << std::endl;
         if(run(param, filenames, fov_scale) == false)
         {
-            std::cout << ERR_MSG << "Simulation failed. See the log file " << LOG_FILE <<", Aborting...!" << std::endl;
+            std::cout << ERR_MSG << "Simulation failed. See the log file " << log_filename <<", Aborting...!" << std::endl;
             return 1;
         }        
         std::cout << "\n";
     }
-    std::cout << "Simulation(s) finished successfully! Total elapsed time = " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count()/1000. << " second(s)."  << std::endl;
+    std::cout << "Simulation(s) finished successfully! Total elapsed time = " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count()/1000. << " second(s)."  << std::endl;
     return 0;
 }
