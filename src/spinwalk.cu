@@ -176,9 +176,8 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
                     double min_convergence = 0.95 * param.diffusivity[n] * sqrt(1.0 * param.TE_us[param.n_TE-2]); // https://submissions.mirasmart.com/ISMRM2024/Itinerary/PresentationDetail.aspx?evdid=4684
                     if(param_local.fov[i] < min_convergence )
                     {
-                        BOOST_LOG_TRIVIAL(error) << "Virtual FoV (= " << param_local.fov[i] << ") is smaller than minimum convergence length (= " << min_convergence << ")!";
-                        BOOST_LOG_TRIVIAL(error) << "Original FoV (= " << param.fov[i] << ") FoV Scale (= " << fov_scale[sl]  << ")!";
-                        return false;
+                        BOOST_LOG_TRIVIAL(warning) << "Virtual FoV (= " << param_local.fov[i] << ") is smaller than minimum convergence length (= " << min_convergence << ")!";
+                        BOOST_LOG_TRIVIAL(warning) << "Original FoV (= " << param.fov[i] << ") FoV Scale (= " << fov_scale[sl]  << ")!";
                     }
                 }
             }           
@@ -253,6 +252,15 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
 
         dims[0] = fov_scale.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
         file_utils::save_h5(f, fov_scale.data(), dims, "scales", "double");
+
+        dims[0] = fov_scale.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
+        file_utils::save_h5(f, fov_scale.data(), dims, "scales", "double");
+
+        std::vector<float> TE;
+        for(int i=0; i<param.n_TE; i++) TE.push_back(param.TE_us[i]*param.timestep_us*1e-6); 
+        TE.push_back(param.TR_us*param.timestep_us*1e-6);
+        dims[0] = TE.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
+        file_utils::save_h5(f, TE.data(), dims, "TE", "float");
     }
 
 #ifdef __CUDACC__ 

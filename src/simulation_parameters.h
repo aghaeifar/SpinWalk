@@ -181,6 +181,11 @@ typedef struct simulation_parameters
         if (n_dummy_scan < 0)
             n_dummy_scan = 5.0 * T1_ms[0] / TR_us * 1e3;
 
+        if (n_TE == 1)
+        {
+            BOOST_LOG_TRIVIAL(error) << "Echo time is not set";
+            return false;
+        }        
         if (mask_exist == false)
         {
             BOOST_LOG_TRIVIAL(error) << "Mask with labeled tissues is not provided";
