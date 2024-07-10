@@ -45,7 +45,8 @@ void dephase_relax(float *m0, float *m1, float accumulated_phase, float T1, floa
     // dephase                
     zrot(accumulated_phase, m0, m1); 
     // relax
-    relax(exp(-time_elapsed/T1), exp(-time_elapsed/T2), m1);
+    if (T1 >= 0 && T2 >= 0)   
+        relax(exp(-time_elapsed/T1), exp(-time_elapsed/T2), m1);
 }
 
 #ifdef __CUDACC__

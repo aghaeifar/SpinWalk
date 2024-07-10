@@ -166,6 +166,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
         std::generate(std::execution::seq, v.begin(), v.end(), [n = 0] () mutable { return n++; });  
         for (int32_t sl = 0; sl < param.n_fov_scale; sl++)
         {
+            // virtual FoV scaling
             for (int i = 0; i < 3; i++)
             {
                 param_local.fov[i] = fov_scale[sl] * param.fov[i];
@@ -181,7 +182,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
                     }
                 }
             }           
-
+            // run simulation kernel
             if(param.no_gpu)
             {
                 float scale = fov_scale[sl];                
@@ -212,7 +213,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
                                                                 thrust::raw_pointer_cast(d_XYZ1.data()), 
                                                                 thrust::raw_pointer_cast(d_T.data())); 
             gpuCheckKernelExecutionError(__FILE__, __LINE__);
-
+            // copy data back to CPU
             size_t shift = 3*param.n_TE*param.n_spins*sl;
             thrust::copy(d_M1.begin(), d_M1.end(), M1.begin() + shift);
             shift = 3*param.n_spins*trj*sl;
@@ -289,6 +290,7 @@ int main(int argc, char * argv[])
     int32_t phantom_resolution, phantom_seed, device_id = 0;
     std::vector<std::string>  config_files;
     print_logo();
+
     // ========== parse command line arguments ==========
     namespace po = boost::program_options;
     po::options_description desc("Options");
@@ -323,6 +325,7 @@ int main(int argc, char * argv[])
         return 1;
     } 
     
+    // ========== setup log ==========
     std::string log_filename = "spinwalk_" + std::to_string(device_id) + ".log";
     auto fileSink = bl::add_file_log(bl::keywords::file_name=log_filename, bl::keywords::target_file_name = log_filename, bl::keywords::format = "[%TimeStamp%] [%Severity%]: %Message%", bl::keywords::auto_flush = true);
     bl::add_common_attributes();
