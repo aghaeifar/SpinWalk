@@ -10,7 +10,7 @@
 
 <p align="center">
 <a href="https://github.com/aghaeifar/SpinWalk">
-<img src="doc/img/logo.png" alt="MC/DC logo" width="160" height="180">
+<img src="docs/img/logo.png" alt="MC/DC logo" width="160" height="180">
 </a>
 </p>
 
@@ -23,7 +23,7 @@ This program is designed to simulate the behavior of spins under a specific MR s
 
 Here are example plots obtained from SpinWalk where show BOLD sensitivity as a function of vessel size for Gradient Echo (GRE) and Spin Echo (SE) seqeuences.
 
-![](./doc/img/gre_se.jpg)
+![](./docs/img/gre_se.jpg)
 
 Some [literature](#Literature) are provided as reference to get a better feeling of what are intended to get from this kind of simulations.
 
