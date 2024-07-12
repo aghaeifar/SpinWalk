@@ -26,3 +26,18 @@ exclude_patterns = []
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+
+
+html_logo = "_static/logo.png"
+
+
+# Specify master doc so build at read the docs won't fail
+master_doc = "index"
+
+# Syntax highlighting
+pygments_style = "stata-light"
+pygments_dark_style = "stata-dark"
+
+autodoc_default_options = {
+    "imported-members": True,
+}

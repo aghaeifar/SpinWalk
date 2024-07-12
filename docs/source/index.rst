@@ -9,12 +9,8 @@ Welcome to SpinWalk's documentation!
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   
+   installation
+   tutorial
+   file format
+   View on GitHub <https://github.com/aghaeifar/SpinWalk>
