@@ -109,11 +109,13 @@ void sphere::generate_mask_fieldmap()
     int32_t x_min, x_max, y_min, y_max, z_min, z_max;
     int32_t sph_rad_vox, sph_center_vox[3];
 
-    std::cout<<"Allocating memory..."<<std::endl;
+    std::cout<<"Allocating memory...";
     m_fieldmap.resize(m_calc_fieldmap ? res3:0, 0.f);
     m_mask.resize(res3, 0);
+    std::cout<<"Done!\n";
     float v_size = m_fov / m_resolution;
 
+    std::cout << "Generating...\n";
     ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}, option::FontStyles{std::vector<FontStyle>{FontStyle::bold}}};
     auto start = std::chrono::high_resolution_clock::now();
     for (size_t c = 0; c < m_sphere_radii.size(); c++)

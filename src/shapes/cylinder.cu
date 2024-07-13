@@ -168,9 +168,10 @@ void cylinder::generate_mask_fieldmap()
     int32_t cyl_rad_vox, cyl_pnt_vox[3];
 
     std::cout<<"B0 direction: ["<<B0[0]<<", "<<B0[1]<<", "<<B0[2]<<"]\n";
-    std::cout<<"Allocating memory..."<<std::endl;
+    std::cout<<"Allocating memory...";
     m_fieldmap.resize(m_calc_fieldmap ? res3:0, 0.f);
     m_mask.resize(res3, 0);
+    std::cout<<"Done!\n";
     float v_size = m_fov / m_resolution;
 
     float cyl_dir[3] = {0.0, 0.0, 1.0};
@@ -181,6 +182,7 @@ void cylinder::generate_mask_fieldmap()
     theta_c2 = theta_c * theta_c;
     theta_s2 = 1. - theta_c2; // sin^2(theta)
     
+    std::cout<<"Generating...\n";
     ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}};
     auto start = std::chrono::high_resolution_clock::now();
     for (size_t c = 0; c < m_cylinder_radii.size(); c++)

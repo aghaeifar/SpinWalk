@@ -12,5 +12,6 @@ Welcome to SpinWalk's documentation!
    
    installation
    tutorial
-   file format
+   io_file
+   create_phantom 
    View on GitHub <https://github.com/aghaeifar/SpinWalk>
