@@ -258,7 +258,6 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
 
         std::vector<float> TE;
         for(int i=0; i<param.n_TE; i++) TE.push_back(param.TE_us[i]*param.timestep_us*1e-6); 
-        TE.push_back(param.TR_us*1e-6);
         dims[0] = TE.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
         file_utils::save_h5(f, TE.data(), dims, "TE", "float");
     }
