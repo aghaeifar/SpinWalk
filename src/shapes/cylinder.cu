@@ -181,7 +181,7 @@ void cylinder::generate_mask_fieldmap()
     theta_c  = cos(m_orientation * M_PI / 180); // cos(theta), angle between axis of vessel and B0 (in radian)
     theta_c2 = theta_c * theta_c;
     theta_s2 = 1. - theta_c2; // sin^2(theta)
-    
+
     std::cout<<"Generating...\n";
     ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}};
     auto start = std::chrono::high_resolution_clock::now();
@@ -215,7 +215,7 @@ void cylinder::generate_mask_fieldmap()
         #pragma omp parallel for
         for(int32_t pz=z_min; pz<z_max; pz++)
         for(int32_t py=y_min; py<y_max; py++)
-        for(int32_t px=x_min; px<x_max; px++)
+        for(int32_t px=x_min; px<x_max; px++) 
         {
             size_t p = px*res2 + py*res1 + pz;
             float *grid = &m_grid[3*p];
@@ -238,7 +238,7 @@ void cylinder::generate_mask_fieldmap()
                 if (distance2 > cyl_rad2)  // outside the cylinder              
                     m_fieldmap[p] += 2*M_PI * (1-m_Y)*m_dChi * (cyl_rad2 / distance2) * phi_2c2_1 * theta_s2;   
                 else // inside the cylinder                
-                    m_fieldmap[p] += 2*M_PI * (1-m_Y)*m_dChi * (theta_c2 - 1/3);
+                    m_fieldmap[p] += 2*M_PI * (1-m_Y)*m_dChi * (theta_c2 - 1.0/3.0);
             }                 
         }        
         bar.set_progress(100 * (c+1)/float(m_cylinder_radii.size()));
