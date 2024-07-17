@@ -159,7 +159,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
 #endif
         // ========== run ==========   
         auto start_sim = std::chrono::high_resolution_clock::now();
-        ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}};
+        // ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}};
         simulation_parameters param_local;
         memcpy(&param_local, &param, sizeof(simulation_parameters));
         std::vector<uint32_t> v(param_local.n_spins);
@@ -221,8 +221,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             thrust::copy(d_T.begin(), d_T.end(), T.begin() + shift);
             }
 #endif
-            // bar.progress(sl, param.n_fov_scale);
-            bar.set_progress(100 * (sl+1)/float(param.n_fov_scale));
+            // bar.set_progress(100 * (sl+1)/float(param.n_fov_scale));
         }
         
         auto end_config     = std::chrono::high_resolution_clock::now();        

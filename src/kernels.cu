@@ -94,7 +94,7 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
     // tissue type
     uint8_t ts, ts_old;    
     auto indx = sub2ind(xyz1[0]*param->scale2grid[0], xyz1[1]*param->scale2grid[1], xyz1[2]*param->scale2grid[2], param->fieldmap_size[0], param->fieldmap_size[1], param->fieldmap_size[2]);
-    ts_old = pMask[indx];
+    ts = ts_old = pMask[indx];
     double diffusivity_scale = param->diffusivity[ts_old];
     
     bool is_lastscan = false;
@@ -122,10 +122,9 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
         while (current_timepoint < param->n_timepoints) // param->n_timepoints is the total number of timepoints (= TR/dwelltime)
         {
             // ------ generate random walks and wrap around the boundries ------
-            double rnd_wlk;
             for (uint8_t i=0; i<3; i++)
             {
-                rnd_wlk = dist_random_walk_xyz(gen_r) * diffusivity_scale;
+                double rnd_wlk = dist_random_walk_xyz(gen_r) * diffusivity_scale;
                 xyz_new[i] = xyz_old[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)
                     xyz_new[i] += (param->enCrossFOV ? param->fov[i] : 2*std::abs(rnd_wlk)); // rnd_wlk is negative here
@@ -144,8 +143,9 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
             if(ind != ind_old) // fewer access to the global memory which is slow. Helpful for large samples!
             {   
                 // cross-tissue diffusion
-                ts = pMask[ind];           
+                ts = pMask[ind];          
                 if (ts != ts_old) 
+                {
                     if (dist_cross_tissue(gen_u) >= param->pXY[ts_old*param->n_tissue_type + ts])
                     {
                         if(itr++ > param->max_iterations)
@@ -155,16 +155,18 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
                         }
                         continue;
                     }
-                    else
-                        ts_old = ts;
-                itr = 0;       
-                field = pFieldMap != nullptr ? pFieldMap[ind_old = ind]:0.f;
-                ind = pMask[ind]; // the index of the tissue type
-                T1 = param->T1_ms[ind] * 1e-3; // ms -> s
-                T2 = param->T2_ms[ind] * 1e-3; // ms -> s
-                diffusivity_scale = param->diffusivity[ind];
-            }     
+                    ts_old = ts;
+                }
+                    
+                ind_old = ind;   
+                field = pFieldMap != nullptr ? pFieldMap[ind]:0.f;
+                T1 = param->T1_ms[ts_old] * 1e-3; // ms -> s
+                T2 = param->T2_ms[ts_old] * 1e-3; // ms -> s
+                diffusivity_scale = param->diffusivity[ts_old];
+            }    
+
             accumulated_phase += field;
+            itr = 0;
 
             // ------ apply ideal dephasing if there is any ------
             if(counter_dephasing < param->n_dephasing && param->dephasing_us[counter_dephasing] == current_timepoint)
@@ -203,7 +205,7 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
                 // save echo and copy m1 to m0 for the next iteration
                 for (uint32_t i=0, shift=3*param->n_TE*spin_no + 3*current_te; i<3; i++)
                     M1[shift + i] = m0[i] = m1[i];
-                T[spin_no*param->n_TE + current_te] = ts;
+                T[spin_no*param->n_TE + current_te] = ts_old;
 
                 accumulated_phase = 0; // reset phase since we have applied it in the previous step
                 old_timepoint = current_timepoint;
