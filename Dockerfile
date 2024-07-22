@@ -5,9 +5,9 @@ FROM nvidia/cuda:12.0.1-devel-ubuntu22.04
 USER root
 
 # needed for add-apt-repository
-RUN apt-get update && apt install -y software-properties-common && apt-get update
+RUN apt-get update && apt install -y software-properties-common && apt-get update && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/*  
 # needed for gcc 11
-RUN add-apt-repository -y ppa:ubuntu-toolchain-r/test
+RUN add-apt-repository -y ppa:ubuntu-toolchain-r/test  && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/*
 
 # Install the necessary dependencies for TBB and GCC 11
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,7 +26,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 	vim \
     git \
     libboost-all-dev \
-    libhdf5-dev
+    libhdf5-dev \
+    python3-venv \
+    && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/* 
 
 # RUN apt-get install nvidia-cuda-toolkit
 
@@ -44,11 +46,11 @@ RUN apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir numpy torch scipy nibabel ipython jupyter matplotlib tqdm h5py pandas scikit-image scikit-learn seaborn
-
+    pip install --no-cache-dir numpy torch scipy nibabel ipython jupyter matplotlib tqdm h5py pandas scikit-image scikit-learn seaborn virtualenv && rm -rf /root/.cache
 
 # Clone the Git repository
-RUN git clone https://github.com/aghaeifar/SpinWalk.git /opt/SpinWalk
+COPY . /opt/SpinWalk/ 
+# RUN git clone --depth 1 https://github.com/aghaeifar/SpinWalk.git /opt/SpinWalk
 WORKDIR /opt/SpinWalk
 RUN cmake -B ./build && cmake --build ./build --config Release
 RUN cmake --install ./build
