@@ -36,7 +36,7 @@
 #include <thrust/iterator/constant_iterator.h>
 #endif
 
-#define THREADS_PER_BLOCK  64
+#define BLOCKS  256
 
 namespace bl = boost::log;
 using namespace indicators;
@@ -52,7 +52,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
     BOOST_LOG_TRIVIAL(info) << "Number of available GPU(s): " << device_count; 
 #endif    
     // param.n_spins /= device_count; // spins will be distributed in multiple GPUs (if there is). We suppose it is divisible 
-    size_t numBlocks = (param.n_spins + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
+    size_t numGrid = (param.n_spins + BLOCKS - 1) / BLOCKS;
     
     // ========== allocate memory on CPU ==========
     size_t trj  = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
@@ -85,6 +85,16 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
         d_pFieldMap.resize(fieldmap.size());
 #endif
 
+    // int blockSize;   // The launch configurator returned block size 
+    // int minGridSize; // The minimum grid size needed to achieve the 
+    //                 // maximum occupancy for a full device launch 
+    // int gridSize;    // The actual grid size needed, based on input size 
+    // cudaOccupancyMaxPotentialBlockSize( &minGridSize, &blockSize, 
+    //                                     cu_sim, 0, param.n_spins); 
+    // // Round up according to array size 
+    // gridSize = (param.n_spins + blockSize - 1) / blockSize; 
+    // std::cout << "Max potential block size: " << blockSize << ", grid size: " << gridSize << std::endl;
+    
     for (int16_t fieldmap_no=0; fieldmap_no<param.n_fieldmaps; fieldmap_no++)
     {
         // ========== load files (field-maps, xyz0, m0) ==========
@@ -116,7 +126,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
         }
         else
         {   // generate initial spatial position for spins
-            BOOST_LOG_TRIVIAL(info) << "GPU " << 1 << ") Generating random initial position for spins... (seed = " << param.seed << ", GPU grid = " << numBlocks << " x " << THREADS_PER_BLOCK << ")";
+            BOOST_LOG_TRIVIAL(info) << "GPU " << 1 << ") Generating random initial position for spins... (seed = " << param.seed << ", GPU grid = " << numGrid << " x " << BLOCKS << ")";
             randPosGen(XYZ0.data(), param);
             BOOST_LOG_TRIVIAL(info) << "GPU " << 1 << ") Done!";
         }
@@ -204,7 +214,7 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             // scale position to mimic the different volume size
             thrust::transform(d_XYZ0.begin(), d_XYZ0.end(), thrust::make_constant_iterator(fov_scale[sl]), d_XYZ0_scaled.begin(), thrust::multiplies<float>());
             gpuCheckKernelExecutionError(__FILE__, __LINE__);            
-            cu_sim<<<numBlocks, THREADS_PER_BLOCK, 0>>>(d_param,thrust::raw_pointer_cast(d_pFieldMap.data()), 
+            cu_sim<<<numGrid, BLOCKS, 0>>>(d_param,thrust::raw_pointer_cast(d_pFieldMap.data()), 
                                                                 thrust::raw_pointer_cast(d_pMask.data()), 
                                                                 thrust::raw_pointer_cast(d_M0.data()), 
                                                                 thrust::raw_pointer_cast(d_XYZ0_scaled.data()), 
@@ -224,9 +234,9 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             bar.set_progress(100 * (sl+1)/float(param.n_fov_scale));
         }
         
-        auto end_config     = std::chrono::high_resolution_clock::now();        
-        auto elapsed_sim    = std::chrono::duration_cast<std::chrono::milliseconds>(end_config - start_sim).count() / 1000.0;
-        auto elapsed_config = std::chrono::duration_cast<std::chrono::seconds>(end_config - start_config).count();
+        auto end_run     = std::chrono::high_resolution_clock::now();        
+        auto elapsed_sim    = std::chrono::duration_cast<std::chrono::milliseconds>(end_run - start_sim).count() / 1000.0;
+        auto elapsed_config = std::chrono::duration_cast<std::chrono::milliseconds>(end_run - start_config).count() / 1000.0;
         int precision = elapsed_sim>10 ? 0 : (elapsed_sim > 1 ? 1 : 3);
         std::cout << "Simulation took " << std::fixed << std::setprecision(precision) <<  elapsed_sim << " sec., everything else took " << elapsed_config - elapsed_sim - old_elapsed<< " sec.\n";
         old_elapsed = elapsed_config;
