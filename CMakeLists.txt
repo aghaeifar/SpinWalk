@@ -8,9 +8,9 @@ find_package(HDF5 REQUIRED COMPONENTS CXX)
 # Find OpenMP
 find_package(OpenMP REQUIRED)
 # Boost
-find_package(Boost COMPONENTS program_options log log_setup REQUIRED)
+find_package(Boost CONFIG COMPONENTS program_options log log_setup REQUIRED)
 # FindCUDA module
-find_package(CUDA)
+# find_package(CUDA)
 # find_package(CUDAToolkit)
 # Find TBB
 find_package(TBB REQUIRED)

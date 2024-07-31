@@ -1,7 +1,5 @@
-# FROM ubuntu:22.04
-# FROM nvidia/cuda:12.0.1-runtime-ubuntu22.04
-FROM nvidia/cuda:12.0.1-devel-ubuntu22.04
 
+FROM nvidia/cuda:12.5.1-devel-ubuntu22.04
 USER root
 
 # needed for add-apt-repository
@@ -16,9 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libtbb-dev \
     gcc-11 \
     g++-11 \
-    python3.10 \ 
-    python3-pip \
-    python-is-python3 \
 	htop \
     tmux \
 	net-tools \
@@ -27,7 +22,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     libboost-all-dev \
     libhdf5-dev \
-    python3-venv \
+    # python3.10 \ 
+    # python3-pip \
+    # python-is-python3 \
+    # python3-venv \
     && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/* 
 
 # RUN apt-get install nvidia-cuda-toolkit
@@ -38,23 +36,16 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 \
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 11 && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 11
 
-RUN apt-get clean \
- && apt-get -y autoremove \
- && rm -rf /var/lib/apt/lists/*
+# RUN pip install --no-cache-dir --upgrade pip && \
+#     pip install --no-cache-dir numpy torch scipy nibabel ipython jupyter matplotlib tqdm h5py scikit-image scikit-learn seaborn virtualenv && rm -rf /root/.cache
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir numpy torch scipy nibabel ipython jupyter matplotlib tqdm h5py pandas scikit-image scikit-learn seaborn virtualenv && rm -rf /root/.cache
-
-# Clone the Git repository
 COPY . /opt/SpinWalk/ 
+# Clone the Git repository
 # RUN git clone --depth 1 https://github.com/aghaeifar/SpinWalk.git /opt/SpinWalk
 WORKDIR /opt/SpinWalk
-RUN cmake -B ./build && cmake --build ./build --config Release
-RUN cmake --install ./build
-
+RUN cmake -B ./build && cmake --build ./build --config Release && cmake --install ./build
 
 LABEL org.opencontainers.image.authors="Ali Aghaeifar"
-
 
 # docker build -t spinwalk .
 # docker run --gpus all --rm -it --runtime=nvidia spinwalk bash
