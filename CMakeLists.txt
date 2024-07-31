@@ -10,8 +10,8 @@ find_package(HDF5 REQUIRED COMPONENTS CXX)
 find_package(OpenMP REQUIRED)
 
 # Boost
-if(POLICY CMP0167)
-    cmake_policy(SET CMP0167 OLD)
+if(CMAKE_VERSION VERSION_GREATER "3.30")
+    cmake_policy(SET CMP0167 NEW)
 endif()
 find_package(Boost COMPONENTS program_options log log_setup REQUIRED)
 
