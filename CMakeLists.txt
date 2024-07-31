@@ -5,12 +5,21 @@ project(spinwalk LANGUAGES CUDA CXX)
 
 # Find HDF5
 find_package(HDF5 REQUIRED COMPONENTS CXX)
+
 # Find OpenMP
 find_package(OpenMP REQUIRED)
+
 # Boost
-find_package(Boost CONFIG COMPONENTS program_options log log_setup REQUIRED)
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 OLD)
+endif()
+find_package(Boost COMPONENTS program_options log log_setup REQUIRED)
+
 # FindCUDA module
-# find_package(CUDA)
+if(POLICY CMP0146)
+    cmake_policy(SET CMP0146 OLD)
+endif()
+find_package(CUDA)
 # find_package(CUDAToolkit)
 # Find TBB
 find_package(TBB REQUIRED)
@@ -25,9 +34,7 @@ if(CUDA_FOUND)
     # Set CUDA architecture (change according to your GPU)
     # set(CUDA_ARCH "-arch=sm_75" CACHE STRING "CUDA architecture")
     # set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES native)
-    # set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES 70 75 80 86 90)
     set(CMAKE_CUDA_ARCHITECTURES 75 86 89)
-    # set_property(TARGET ${target} PROPERTY CUDA_SEPARABLE_COMPILATION ON)
     # Add CUDA and OpenMP flags
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${CUDA_ARCH} -Xcompiler=${OpenMP_CXX_FLAGS}")
 else()
