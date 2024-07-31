@@ -38,9 +38,6 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 \
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 11 && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 11
 
-# RUN  mkdir -p /mnt/host_home
-# RUN  mkdir -p /mnt/host_tmp
-
 RUN apt-get clean \
  && apt-get -y autoremove \
  && rm -rf /var/lib/apt/lists/*

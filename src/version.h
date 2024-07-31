@@ -5,8 +5,8 @@
 #include <iostream>
 
 #define SPINWALK_VERSION_MAJOR 1
-#define SPINWALK_VERSION_MINOR 13
-#define SPINWALK_VERSION_PATCH 13
+#define SPINWALK_VERSION_MINOR 15
+#define SPINWALK_VERSION_PATCH 0
 
 //---------------------------------------------------------------------------------------------
 //  
