@@ -19,6 +19,7 @@ RUN add-apt-repository -y ppa:ubuntu-toolchain-r/test  && \
     iputils-ping \
 	vim \
     git \
+    wget \ 
     libboost-all-dev \
     libhdf5-dev \
     && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/* 
@@ -28,6 +29,17 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 \
     && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 11 && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 11
+
+# Set the CMake version
+ARG CMAKE_VERSION=3.30.1
+ARG CMAKE_DIR=cmake-${CMAKE_VERSION}-linux-x86_64
+
+# Download and install CMake
+RUN wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/${CMAKE_DIR}.tar.gz && \
+    tar -zxvf ${CMAKE_DIR}.tar.gz && \
+    mv ${CMAKE_DIR} /opt/cmake && \
+    ln -s /opt/cmake/bin/* /usr/local/bin && \
+    rm ${CMAKE_DIR}.tar.gz
 
 COPY . /opt/SpinWalk/ 
 # RUN git clone --depth 1 https://github.com/aghaeifar/SpinWalk.git /opt/SpinWalk
