@@ -11,6 +11,7 @@
 #include <algorithm>
 #include "kernels.cuh"
 #include "basic_functions.cuh"
+#include <execution>
 
 #ifdef __CUDACC__
 #include "helper_cuda.h"
@@ -30,7 +31,7 @@ uint8_t find_max(const std::vector<uint8_t> &data)
     thrust::device_vector<uint8_t> thrust_vec(data.begin(), data.end());
     uint8_t m = *thrust::max_element(thrust_vec.begin(), thrust_vec.end());
 #else
-    uint8_t m = std::max_element(std::execution::par, data.begin(), data.end());
+    uint8_t m = *std::max_element(std::execution::par, data.begin(), data.end());
 #endif
     return m;
 }
@@ -51,7 +52,6 @@ void dephase_relax(float *m0, float *m1, float accumulated_phase, float T1, floa
 
 #ifdef __CUDACC__
 __global__ 
-#endif 
 void cu_sim(const simulation_parameters *param, const float *pFieldMap, const uint8_t *pMask, const float *M0, const float *XYZ0, float *M1, float *XYZ1, uint8_t *T)
 {
     uint32_t spin_no = blockIdx.x * blockDim.x + threadIdx.x ;
@@ -59,6 +59,7 @@ void cu_sim(const simulation_parameters *param, const float *pFieldMap, const ui
         return;    
     sim(param, pFieldMap,pMask,M0, XYZ0, M1, XYZ1, T, spin_no);
 }
+#endif 
 
 #ifdef __CUDACC__
 __host__  __device__ 

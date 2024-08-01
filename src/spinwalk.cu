@@ -21,15 +21,15 @@
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include "indicators.hpp"
 #include "version.h"
-#include "kernels.cuh"
 #include "file_utils.h"
 #include "shapes/cylinder.cuh"
 #include "shapes/sphere.cuh"
+#include "kernels.cuh"
 
 #ifdef __CUDACC__
+#include "helper.cuh"
 #include <cuda_runtime.h>
 #include "helper_cuda.h"
-#include "helper.cuh"
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/copy.h>
@@ -350,7 +350,9 @@ int main(int argc, char * argv[])
     if (vm.count("help") || argc == 1 || unreg.size() > 0)
     {
         std::cout << desc;
+#ifdef __CUDACC__
         print_device_info();
+#endif
         return 0;
     }
 
@@ -394,8 +396,9 @@ int main(int argc, char * argv[])
         bStatus &= dump_settings(param, filenames, fov_scale);
 
         // ========== Check GPU memory ==========
+#ifdef __CUDACC__
         bStatus &= check_memory_size(param.get_required_memory(getDeviceCount()));
-
+#endif
         if (bStatus == false)
         {
             std::cout << ERR_MSG << "Simulation failed. See the log file " << log_filename <<", Aborting...!" << std::endl;

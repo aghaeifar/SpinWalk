@@ -13,7 +13,7 @@
 
 #include <map>
 
-struct simulation_parameters;
+#include "simulation_parameters.h"
 
 
 //---------------------------------------------------------------------------------------------

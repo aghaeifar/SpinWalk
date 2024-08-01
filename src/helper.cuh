@@ -4,8 +4,10 @@
 
 
 #include <boost/log/trivial.hpp>
-#include "helper_cuda.h"
 
+#ifdef __CUDACC__
+#include "helper_cuda.h"
+#endif
 
 //---------------------------------------------------------------------------------------------
 //  check for CUDA and GPU device
@@ -13,7 +15,7 @@
 
 uint32_t getDeviceCount()
 {
-    int32_t device_count;
+    int32_t device_count = 0;
     checkCudaErrors(cudaGetDeviceCount(&device_count));
     return device_count;
 }
