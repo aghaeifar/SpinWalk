@@ -245,7 +245,7 @@ void cylinder::generate_mask_fieldmap()
     } 
     
     m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
-    std::cout << "Actual BVF = " << m_BVF << "% ...\n";   
+    std::cout << "Actual Volume Fraction = " << m_BVF << "% ...\n";   
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << "Cylinders generated successfully! " << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
 }
@@ -254,7 +254,7 @@ void cylinder::print_info()
 {
     shape::print_info();
     std::cout << "  Radius: " << m_radius << " um\n";
-    std::cout << "  BVF: " << m_BVF << "\n";
+    std::cout << "  Volume Fraction: " << m_BVF << "\n";
     std::cout << "  Orientation: " << m_orientation << " rad\n";
 }
 

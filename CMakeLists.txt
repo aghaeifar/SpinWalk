@@ -8,9 +8,6 @@ project(${project})
 # Find HDF5
 find_package(HDF5 REQUIRED COMPONENTS CXX)
 
-# Find OpenMP
-find_package(OpenMP REQUIRED)
-
 # Find TBB
 find_package(TBB REQUIRED)
 
@@ -32,14 +29,12 @@ endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_CXX_FLAGS "-lboost_program_options")
 
 # Add Boost and CUDA include directories
 include_directories(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ./include ./src ./src/shapes)
 # Add the executable
 set(SOURCES ./src/spinwalk.cu ./src/kernels.cu ./src/file_utils.cpp ./src/shapes/shape_base.cu ./src/shapes/cylinder.cu ./src/shapes/sphere.cu)
 
-# Link CUDA and OpenMP libraries
 if(CMAKE_CUDA_COMPILER)
     add_executable(${project} ${SOURCES})
     target_link_libraries(${project} ${CUDA_LIBRARIES} ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES} TBB::tbb)

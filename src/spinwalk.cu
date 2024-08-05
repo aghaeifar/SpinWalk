@@ -4,7 +4,7 @@
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
- * Descrip  : simulating randomwalk in microvascular network
+ * Descrip  : Monte Carlo simulation of the spin dynamics in the presence of off-resonance fields.
  * -------------------------------------------------------------------------- */
 
 // compile(lin) :  nvcc ./src/spinwalk.cu ./src/kernels.cu -I ./include/ -Xptxas -v -O3  -arch=compute_75 -code=sm_75  -Xcompiler -fopenmp -o spinwalk
@@ -15,11 +15,11 @@
 #include <algorithm>
 #include <execution>
 #include <filesystem>
-#include <boost/program_options.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include "indicators.hpp"
+#include "CLI11.hpp"
 #include "version.h"
 #include "file_utils.h"
 #include "shapes/cylinder.cuh"
@@ -84,16 +84,6 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
     if(param.fieldmap_exist)
         d_pFieldMap.resize(fieldmap.size());
 #endif
-
-    // int blockSize;   // The launch configurator returned block size 
-    // int minGridSize; // The minimum grid size needed to achieve the 
-    //                 // maximum occupancy for a full device launch 
-    // int gridSize;    // The actual grid size needed, based on input size 
-    // cudaOccupancyMaxPotentialBlockSize( &minGridSize, &blockSize, 
-    //                                     cu_sim, 0, param.n_spins); 
-    // // Round up according to array size 
-    // gridSize = (param.n_spins + blockSize - 1) / blockSize; 
-    // std::cout << "Max potential block size: " << blockSize << ", grid size: " << gridSize << std::endl;
     
     for (int16_t fieldmap_no=0; fieldmap_no<param.n_fieldmaps; fieldmap_no++)
     {
@@ -300,73 +290,69 @@ bool dump_settings(simulation_parameters param, std::map<std::string, std::vecto
 
 int main(int argc, char * argv[])
 {
-    bool bStatus = true;
+    bool bStatus = true, phantom_cylinder = false, phantom_sphere = false;
     std::string phantom_output;
-    float phantom_radius, phantom_fov, phantom_dchi, phantom_oxy_level, phantom_orientation, phantom_BVF;
-    int32_t phantom_resolution, phantom_seed, device_id = 0;
+    float phantom_radius=50.f, phantom_fov=1000.f, phantom_dchi=0.11e-6, phantom_oxy_level=0.75, phantom_orientation=90.f, phantom_volume_fraction=4.f;
+    int32_t phantom_resolution=500, phantom_seed=-1, device_id = 0;
     std::vector<std::string>  config_files;
-    print_logo();
-
+    
     // ========== parse command line arguments ==========
-    namespace po = boost::program_options;
-    po::options_description desc("Options");
-    desc.add_options()
-        ("help,h", "help message (this menu)")
-        ("configs,c", po::value<std::vector<std::string>>(&config_files)->multitoken(), "config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini")
-#ifdef __CUDACC__
-        ("use_cpu,p", "only run on CPU (default: GPU)")
-        ("device,g",po::value<int32_t>(&device_id)->default_value(0), "select GPU device (if there are multiple GPUs)")
-#endif
-        ("cylinder,C", "generate phantom filled with cylinders")
-        ("sphere,S", "generate phantom filled with spheres")
-        ("orientation,o", po::value<float>(&phantom_orientation)->default_value(90.0), "orientation of the cylinders in degree with respect to B0")
-        ("radius,r", po::value<float>(&phantom_radius)->default_value(50), "radius of the cylinders/spheres in um (negative value = random radius)")
-        ("seed,s", po::value<int32_t>(&phantom_seed)->default_value(-1), "seed for random number generator in phantom creator (negative value = random seed)")
-        ("BVF,b", po::value<float>(&phantom_BVF)->default_value(10.0), "fraction of shapes to entire volume <0.0 100.0> (i.e. blood volume fraction)")
-        ("fov,v", po::value<float>(&phantom_fov)->default_value(1000.0), "voxel field of view in um (isotropic)")
-        ("resolution,z", po::value<int32_t>(&phantom_resolution)->default_value(500), "base resolution")
-        ("dchi,d", po::value<float>(&phantom_dchi)->default_value(0.11e-6), "susceptibility difference between fully deoxygenated blood (inside cylinders/spheres) and tissue (outside cylinders/spheres) (default: 0.11e-6 in cgs units)")
-        ("oxy_level,y", po::value<float>(&phantom_oxy_level)->default_value(0.75), "blood oxygenetation level <0.0 1.0> (negative value = exclude off-resonance effect and only generate the mask)")
-        ("output_file,f", po::value<std::string>(&phantom_output)->default_value("./phantom.h5"), "path to save phantom (h5 format)");
+    CLI::App app{""};
+    app.set_version_flag("--version", get_verion());
 
-    po::variables_map vm;
-    std::vector<std::string> unreg;
-    try{ 
-        po::parsed_options parsed = po::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
-        po::store(parsed, vm);   
-        po::notify(vm); // sets default values
-        unreg = po::collect_unrecognized(parsed.options, po::include_positional);
-    }catch (std::exception& e) {
-        std::cerr << "Error: " << e.what() << "\n";
-        return 1;
-    } 
-    
-    // ========== setup log ==========
-    std::string log_filename = "spinwalk_" + std::to_string(device_id) + ".log";
-    auto fileSink = bl::add_file_log(bl::keywords::file_name=log_filename, bl::keywords::target_file_name = log_filename, bl::keywords::format = "[%TimeStamp%] [%Severity%]: %Message%", bl::keywords::auto_flush = true);
-    bl::add_common_attributes();
-    
-    // ========== print help ==========
-    if (vm.count("help") || argc == 1 || unreg.size() > 0)
+    auto subcommand_phantom = app.add_subcommand("phantom", "Phantom Generator:");
+    subcommand_phantom->add_flag("-c,--cylinder", phantom_cylinder, "fill phantom with cylinders");
+    subcommand_phantom->add_flag("-s,--sphere", phantom_sphere, "fill phantom with spheres");
+    subcommand_phantom->add_option("-r,--radius", phantom_radius, "radius of the cylinders/spheres in um (negative value = random radius)")->capture_default_str();
+    subcommand_phantom->add_option("-n,--orientation", phantom_orientation, "orientation of the cylinders in degree with respect to B0")->capture_default_str();
+    subcommand_phantom->add_option("-v,--volume_fraction", phantom_volume_fraction, "fraction of shapes volume to FoV volume <0.0 100.0>")->check(CLI::Range(0.0, 100.0))->capture_default_str();
+    subcommand_phantom->add_option("-f,--fov", phantom_fov, "voxel field of view in um (isotropic)")->capture_default_str()->check(CLI::PositiveNumber);
+    subcommand_phantom->add_option("-z,--resolution", phantom_resolution, "base resolution")->capture_default_str()->check(CLI::PositiveNumber);
+    subcommand_phantom->add_option("-d,--dchi", phantom_dchi, "susceptibility difference between fully deoxygenated blood and tissue (default: 0.11e-6 in cgs units)")->capture_default_str();
+    subcommand_phantom->add_option("-y,--oxy_level", phantom_oxy_level, "blood oxygenetation level <0.0 1.0> (-1 = exclude off-resonance effect and only generate the mask)")->capture_default_str();
+    subcommand_phantom->add_option("-e,--seed", phantom_seed, "seed for random number generator in phantom creator (-1 = random seed)")->capture_default_str();
+    subcommand_phantom->add_option("-o,--output_file", phantom_output, "path to save phantom (h5 format)")->capture_default_str();
+
+    auto subcommand_sim = app.add_subcommand("sim", "Simulation:");
+    subcommand_sim->add_option("-c,--configs", config_files, "config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini")->check(CLI::ExistingFile)->required();
+#ifdef __CUDACC__
+    subcommand_sim->add_flag("-p,--use_cpu", "only run on CPU (default: GPU)");
+    subcommand_sim->add_option("-d,--device", device_id, "select GPU device (if there are multiple GPUs)");
+#endif
+
+    CLI11_PARSE(app, argc, argv);
+    if(app.count_all() == 1)
     {
-        std::cout << desc;
+        std::cout << app.help() << std::endl;
 #ifdef __CUDACC__
         print_device_info();
 #endif
         return 0;
     }
+    if (subcommand_phantom->parsed() && phantom_cylinder == phantom_sphere)
+    {
+        std::cout << "Error! Please select either --cylinder or --sphere!\nRun with --help for more information.\n";
+        return 0;
+    }
 
+    // ========== logo ==========
+    print_logo();
+
+    // ========== setup log ==========
+    std::string log_filename = "spinwalk_" + std::to_string(device_id) + ".log";
+    auto fileSink = bl::add_file_log(bl::keywords::file_name=log_filename, bl::keywords::target_file_name = log_filename, bl::keywords::format = "[%TimeStamp%] [%Severity%]: %Message%", bl::keywords::auto_flush = true);
+    bl::add_common_attributes();
     std::cout << "Log file location: " << std::filesystem::current_path() / log_filename << '\n';
 
     // ========== generate phantom ==========
-    if (vm.count("cylinder"))
+    if (phantom_cylinder)
     {
-        cylinder cyl(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_BVF, phantom_orientation, phantom_seed, phantom_output);
+        cylinder cyl(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_volume_fraction, phantom_orientation, phantom_seed, phantom_output);
         cyl.run();
     }
-    if (vm.count("sphere"))
+    if (phantom_sphere)
     {
-        sphere sph(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_BVF, phantom_seed, phantom_output);
+        sphere sph(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_volume_fraction, phantom_seed, phantom_output);
         sph.run();
     }
 
@@ -387,7 +373,7 @@ int main(int argc, char * argv[])
 
         std::vector<double> fov_scale;
         simulation_parameters param;
-        param.no_gpu = vm.count("use_cpu") > 0;
+        param.no_gpu = subcommand_sim->count("--use_cpu");
         
         // ========== read config file ==========
         bStatus &= file_utils::read_config(cfile, &param, fov_scale, filenames);
@@ -416,7 +402,6 @@ int main(int argc, char * argv[])
             cudaSetDevice(device_id);
         }
 #endif
-
         std::cout << "Simulation starts..." << std::endl;
         if(run(param, filenames, fov_scale) == false)
         {
