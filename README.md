@@ -66,13 +66,13 @@ After building the program, simply launch `spinwalk` in the terminal to view the
 ## How to simulate
 
 ```
-./spinwalk -c my_config.ini 
+spinwalk sim -c my_config.ini 
 ```
 
 Several configuration files can be simulated sequentially:
 
 ```
-./spinwalk -c config1.ini config2.ini ...
+spinwalk sim -c config1.ini config2.ini ...
 ```
 
 
