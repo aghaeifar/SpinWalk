@@ -298,7 +298,7 @@ int main(int argc, char * argv[])
     
     // ========== parse command line arguments ==========
     CLI::App app{""};
-    app.set_version_flag("--version", get_verion());
+    app.set_version_flag("-v,--version", get_verion());
 
     auto subcommand_phantom = app.add_subcommand("phantom", "Phantom Generator:");
     subcommand_phantom->add_flag("-c,--cylinder", phantom_cylinder, "fill phantom with cylinders");
@@ -318,15 +318,15 @@ int main(int argc, char * argv[])
 #ifdef __CUDACC__
     subcommand_sim->add_flag("-p,--use_cpu", "only run on CPU (default: GPU)");
     subcommand_sim->add_option("-d,--device", device_id, "select GPU device (if there are multiple GPUs)");
+
+    auto callback_gpu_info = [](int count){print_device_info();  exit(0);};
+    app.add_flag("-g,--gpu_info", callback_gpu_info, "print GPU information");
 #endif
 
     CLI11_PARSE(app, argc, argv);
     if(app.count_all() == 1)
     {
         std::cout << app.help() << std::endl;
-#ifdef __CUDACC__
-        print_device_info();
-#endif
         return 0;
     }
     if (subcommand_phantom->parsed() && phantom_cylinder == phantom_sphere)

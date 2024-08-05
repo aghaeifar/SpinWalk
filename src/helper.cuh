@@ -24,13 +24,15 @@ void print_device_info()
 {
     const int kb = 1024;
     const int mb = kb * kb;
-    size_t free, total;
-    
-    int32_t cuda_version, driver_version;
-    int32_t device_count = getDeviceCount();
+    size_t free, total;    
+    int32_t cuda_version, driver_version;    
+
     cudaRuntimeGetVersion(&cuda_version);
     cudaDriverGetVersion(&driver_version);
-    std::cout << "\nDriver version: "<< driver_version << ", CUDA version: "<< cuda_version << ", Number of devices: " << device_count << std::endl;
+    std::cout << "Driver version: "<< driver_version << ", CUDA version: "<< cuda_version << "\n";
+
+    int32_t device_count = getDeviceCount();
+    std::cout <<"Number of devices: " << device_count << "\n";
 
     cudaDeviceProp device_properties;
     for(int i=0; i<device_count; i++)
