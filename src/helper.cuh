@@ -6,7 +6,6 @@
 #include <boost/log/trivial.hpp>
 #include "helper_cuda.h"
 
-#define ERR_MSG  "\033[1;31mError:\033[0m "
 //---------------------------------------------------------------------------------------------
 //  check for CUDA and GPU device
 //---------------------------------------------------------------------------------------------
@@ -17,8 +16,7 @@ bool check_CUDA()
     cudaError_t error = cudaGetDeviceCount(&device);
     if (error != cudaSuccess)
     {
-        std::cout << ERR_MSG << "GPU does not present or driver version does not match CUDA version. Aborting...!\n";
-        std::cout << "CUDA error: " << cudaGetErrorString(error) << "\n";
+        std::cout << "\033[1;31mError:\033[0m " <<cudaGetErrorString(error) << "\n";
         return false;
     }
     return true;
@@ -65,7 +63,7 @@ bool check_memory_size(size_t required_size_MB)
 {
     if (check_CUDA() == false)
         return false;
-        
+
     size_t free, total;
     bool memory_ok = true;
     int32_t device_count = getDeviceCount();

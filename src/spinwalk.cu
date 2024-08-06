@@ -37,6 +37,7 @@
 #endif
 
 #define BLOCKS  256
+#define ERR_MSG  "\033[1;31mError:\033[0m "
 
 namespace bl = boost::log;
 using namespace indicators;
@@ -362,7 +363,7 @@ int main(int argc, char * argv[])
 #ifdef __CUDACC__    
     if (subcommand_sim->count("--use_cpu") == 0)
         if(check_CUDA() == false)
-            return 1;
+            return 0;
 #endif   
 
     std::cout << "Running simulation for " << config_files.size() << " config(s)..." << "\n\n";
