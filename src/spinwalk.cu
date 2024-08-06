@@ -22,8 +22,8 @@
 #include "CLI11.hpp"
 #include "version.h"
 #include "file_utils.h"
-#include "shapes/cylinder.cuh"
-#include "shapes/sphere.cuh"
+#include "shapes/cylinder.h"
+#include "shapes/sphere.h"
 #include "kernels.cuh"
 
 #ifdef __CUDACC__
@@ -300,27 +300,27 @@ int main(int argc, char * argv[])
     CLI::App app{""};
     app.set_version_flag("-v,--version", get_verion());
 
-    auto subcommand_phantom = app.add_subcommand("phantom", "Phantom Generator:");
-    subcommand_phantom->add_flag("-c,--cylinder", phantom_cylinder, "fill phantom with cylinders");
-    subcommand_phantom->add_flag("-s,--sphere", phantom_sphere, "fill phantom with spheres");
-    subcommand_phantom->add_option("-r,--radius", phantom_radius, "radius of the cylinders/spheres in um (negative value = random radius)")->capture_default_str();
-    subcommand_phantom->add_option("-n,--orientation", phantom_orientation, "orientation of the cylinders in degree with respect to B0")->capture_default_str();
-    subcommand_phantom->add_option("-v,--volume_fraction", phantom_volume_fraction, "fraction of shapes volume to FoV volume <0.0 100.0>")->check(CLI::Range(0.0, 100.0))->capture_default_str();
-    subcommand_phantom->add_option("-f,--fov", phantom_fov, "voxel field of view in um (isotropic)")->capture_default_str()->check(CLI::PositiveNumber);
-    subcommand_phantom->add_option("-z,--resolution", phantom_resolution, "base resolution")->capture_default_str()->check(CLI::PositiveNumber);
-    subcommand_phantom->add_option("-d,--dchi", phantom_dchi, "susceptibility difference between fully deoxygenated blood and tissue (default: 0.11e-6 in cgs units)")->capture_default_str();
-    subcommand_phantom->add_option("-y,--oxy_level", phantom_oxy_level, "blood oxygenetation level <0.0 1.0> (-1 = exclude off-resonance effect and only generate the mask)")->capture_default_str();
-    subcommand_phantom->add_option("-e,--seed", phantom_seed, "seed for random number generator in phantom creator (-1 = random seed)")->capture_default_str();
-    subcommand_phantom->add_option("-o,--output_file", phantom_output, "path to save phantom (h5 format)")->capture_default_str();
+    auto subcommand_phantom = app.add_subcommand("phantom", "Phantom Generator");
+    subcommand_phantom->add_flag("-c,--cylinder", phantom_cylinder, "Fill phantom with cylinders");
+    subcommand_phantom->add_flag("-s,--sphere", phantom_sphere, "Fill phantom with spheres");
+    subcommand_phantom->add_option("-r,--radius", phantom_radius, "Radius of the cylinders/spheres in um (negative value = random radius)")->capture_default_str();
+    subcommand_phantom->add_option("-n,--orientation", phantom_orientation, "Orientation of the cylinders in degree with respect to B0")->capture_default_str();
+    subcommand_phantom->add_option("-v,--volume_fraction", phantom_volume_fraction, "Fraction of shapes volume to FoV volume <0.0 100.0>")->check(CLI::Range(0.0, 100.0))->capture_default_str();
+    subcommand_phantom->add_option("-f,--fov", phantom_fov, "Voxel field of view in um (isotropic)")->capture_default_str()->check(CLI::PositiveNumber);
+    subcommand_phantom->add_option("-z,--resolution", phantom_resolution, "Base resolution")->capture_default_str()->check(CLI::PositiveNumber);
+    subcommand_phantom->add_option("-d,--dchi", phantom_dchi, "Susceptibility difference between fully deoxygenated blood and tissue (default: 0.11e-6 in cgs units)")->capture_default_str();
+    subcommand_phantom->add_option("-y,--oxy_level", phantom_oxy_level, "Blood oxygenetation level <0.0 1.0> (-1 = exclude off-resonance effect and only generate the mask)")->capture_default_str();
+    subcommand_phantom->add_option("-e,--seed", phantom_seed, "Seed for random number generator in phantom creator (-1 = random seed)")->capture_default_str();
+    subcommand_phantom->add_option("-o,--output_file", phantom_output, "Path to save phantom (h5 format)")->capture_default_str();
 
-    auto subcommand_sim = app.add_subcommand("sim", "Simulation:");
+    auto subcommand_sim = app.add_subcommand("sim", "Simulation");
     subcommand_sim->add_option("-c,--configs", config_files, "config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini")->check(CLI::ExistingFile)->required();
 #ifdef __CUDACC__
     subcommand_sim->add_flag("-p,--use_cpu", "only run on CPU (default: GPU)");
     subcommand_sim->add_option("-d,--device", device_id, "select GPU device (if there are multiple GPUs)");
 
     auto callback_gpu_info = [](int count){print_device_info();  exit(0);};
-    app.add_flag("-g,--gpu_info", callback_gpu_info, "print GPU information");
+    app.add_flag("-g,--gpu_info", callback_gpu_info, "Print GPU information");
 #endif
 
     CLI11_PARSE(app, argc, argv);
@@ -336,7 +336,7 @@ int main(int argc, char * argv[])
     }
 
     // ========== logo ==========
-    print_logo();
+    print_logo();    
 
     // ========== setup log ==========
     std::string log_filename = "spinwalk_" + std::to_string(device_id) + ".log";
@@ -359,7 +359,12 @@ int main(int argc, char * argv[])
     // ========== loop over configs and simulate ==========
     if (config_files.size() == 0)
         return 0;
-    
+#ifdef __CUDACC__    
+    if (subcommand_sim->count("--use_cpu") == 0)
+        if(check_CUDA() == false)
+            return 1;
+#endif   
+
     std::cout << "Running simulation for " << config_files.size() << " config(s)..." << "\n\n";
     auto start = std::chrono::high_resolution_clock::now();
     for(const auto& cfile : config_files)

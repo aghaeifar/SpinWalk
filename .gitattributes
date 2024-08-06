@@ -1,4 +1,4 @@
-MATLAB/** linguist-vendored
-Python/** linguist-vendored
+demo/** linguist-vendored
+config/** linguist-vendored
 tests/** linguist-vendored
 

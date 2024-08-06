@@ -9,9 +9,9 @@
 
 #include <cinttypes>
 #include <algorithm>
+#include <execution>
 #include "kernels.cuh"
 #include "basic_functions.cuh"
-#include <execution>
 
 #ifdef __CUDACC__
 #include "helper_cuda.h"

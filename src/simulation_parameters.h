@@ -27,7 +27,6 @@
 #define RAD2DEG 57.2957795130823
 
 #define B2MB 1048576
-#define ERR_MSG  "\033[1;31mError:\033[0m "
 #define ROUND(x) ((long)((x)+0.5))
 #define MAX_RF 256          // maximum number of RF
 #define MAX_TE 256          // maximum number of echo times

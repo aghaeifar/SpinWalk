@@ -12,15 +12,16 @@
 #include <iterator>
 #include <algorithm> 
 #include <filesystem>
+#include <execution>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/algorithm/string.hpp>
 #include "file_utils.h"
 #include <boost/log/trivial.hpp> 
 #include <highfive/highfive.hpp>
-// #include "simulation_parameters.h"
 
-uint8_t find_max(const std::vector<uint8_t> &data);
+#define ERR_MSG  "\033[1;31mError:\033[0m "
+
 //---------------------------------------------------------------------------------------------
 //  
 //---------------------------------------------------------------------------------------------
@@ -332,7 +333,7 @@ bool file_utils::read_phantom(std::string phantom_filename, std::vector<float> &
     BOOST_LOG_TRIVIAL(info) << "Size = " << dims[0] << " x " << dims[1] << " x " << dims[2] << std::endl;
     BOOST_LOG_TRIVIAL(info) << "FoV = " << param->fov[0]*1e6 << " x " << param->fov[1]*1e6 << " x " << param->fov[2]*1e6 << " um^3" << std::endl;
 
-    int n_tissue = find_max(mask) + 1;
+    int n_tissue = *std::max_element(std::execution::par, mask.begin(), mask.end()) + 1;
     if (n_tissue > param->n_tissue_type)
     {
         BOOST_LOG_TRIVIAL(error) << "The number of tissue types in the mask does not match the number of tissue types in the config file: " << n_tissue << " vs " << param->n_tissue_type;

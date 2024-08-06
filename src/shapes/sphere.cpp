@@ -11,14 +11,15 @@
 #include <filesystem>
 #include <random>
 #include "indicators.hpp"
-#include "sphere.cuh"
-#include "basic_functions.cuh"
+#include "sphere.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
 using namespace indicators;
+using namespace shapes_functions;
+
 // -------------------------------------------------------------------------- //
 sphere::sphere()
 {

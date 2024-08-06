@@ -11,14 +11,14 @@
 #include <filesystem>
 #include <random>
 #include "indicators.hpp"
-#include "cylinder.cuh"
-#include "basic_functions.cuh"
+#include "cylinder.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
 using namespace indicators;
+using namespace shapes_functions;
 
 cylinder::cylinder()
 {
@@ -42,7 +42,7 @@ void cylinder::set_cylinder_parameters(float radius, float orientation)
     m_radius = radius;
     m_orientation = orientation;
     float B0_orig[3] = {0.f, 0.f, 1.f};
-    yrot(orientation, B0_orig, B0);
+    roty(orientation, B0_orig, B0);
 }
 
 void cylinder::generate_shapes()
