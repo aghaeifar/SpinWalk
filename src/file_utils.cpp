@@ -102,7 +102,7 @@ bool file_utils::read_config(std::string config_filename, simulation_parameters 
     }
     filenames["output"] = file_paths;
      
-    if(param->n_fieldmaps > 0)
+    if(param->n_fieldmaps > 0 && isParentConfig == false)
     {
         // check header of fieldmap matches
         auto dims = file_utils::get_size_h5(filenames.at("phantom")[0], "mask");
