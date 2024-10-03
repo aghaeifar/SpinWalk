@@ -315,10 +315,11 @@ int main(int argc, char * argv[])
     subcommand_phantom->add_option("-o,--output_file", phantom_output, "Path to save phantom (h5 format)")->capture_default_str();
 
     auto subcommand_sim = app.add_subcommand("sim", "Simulation");
-    subcommand_sim->add_option("-c,--configs", config_files, "config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini")->check(CLI::ExistingFile)->required();
+    subcommand_sim->add_option("-c,--configs", config_files, "Config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini")->check(CLI::ExistingFile);
+    subcommand_sim->add_flag("-g,--gen_def_config", "Generate a default configuration file and store in the current folder");
 #ifdef __CUDACC__
-    subcommand_sim->add_flag("-p,--use_cpu", "only run on CPU (default: GPU)");
-    subcommand_sim->add_option("-d,--device", device_id, "select GPU device (if there are multiple GPUs)");
+    subcommand_sim->add_flag("-p,--use_cpu", "Only run on CPU (default: GPU)");
+    subcommand_sim->add_option("-d,--device", device_id, "Select GPU device (if there are multiple GPUs)");
 
     auto callback_gpu_info = [](int count){print_device_info();  exit(0);};
     app.add_flag("-g,--gpu_info", callback_gpu_info, "Print GPU information");
@@ -327,12 +328,19 @@ int main(int argc, char * argv[])
     CLI11_PARSE(app, argc, argv);
     if(app.count_all() == 1)
     {
-        std::cout << app.help() << std::endl;
+        std::cout << app.help() << '\n';
         return 0;
     }
     if (subcommand_phantom->parsed() && phantom_cylinder == phantom_sphere)
+    {  
+        if (phantom_cylinder == true)      
+            std::cout << "Error! Please select either --cylinder or --sphere, not both!"<< '\n';
+        std::cout << subcommand_phantom->help() << '\n';
+        return 0;
+    }
+    if (subcommand_sim->parsed() && config_files.size() == 0 && subcommand_sim->count("--gen_def_config") == 0)
     {
-        std::cout << "Error! Please select either --cylinder or --sphere!\nRun with --help for more information.\n";
+        std::cout << subcommand_sim->help() << '\n';
         return 0;
     }
 
@@ -355,6 +363,14 @@ int main(int argc, char * argv[])
     {
         sphere sph(phantom_fov, phantom_resolution, phantom_dchi, phantom_oxy_level, phantom_radius, phantom_volume_fraction, phantom_seed, phantom_output);
         sph.run();
+    }
+
+    // ========== generate default config ==========
+    if (subcommand_sim->count("--gen_def_config"))
+    {
+        if(generate_default_config("./default_config.ini") == false)
+            return 0;
+        std::cout << "Default configuration file is generated in the current folder." << '\n';
     }
 
     // ========== loop over configs and simulate ==========
