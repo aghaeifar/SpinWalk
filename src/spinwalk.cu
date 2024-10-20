@@ -205,13 +205,13 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
             // scale position to mimic the different volume size
             thrust::transform(d_XYZ0.begin(), d_XYZ0.end(), thrust::make_constant_iterator(fov_scale[sl]), d_XYZ0_scaled.begin(), thrust::multiplies<float>());
             gpuCheckKernelExecutionError(__FILE__, __LINE__);            
-            cu_sim<<<numGrid, BLOCKS, 0>>>(d_param,thrust::raw_pointer_cast(d_pFieldMap.data()), 
-                                                                thrust::raw_pointer_cast(d_pMask.data()), 
-                                                                thrust::raw_pointer_cast(d_M0.data()), 
-                                                                thrust::raw_pointer_cast(d_XYZ0_scaled.data()), 
-                                                                thrust::raw_pointer_cast(d_M1.data()), 
-                                                                thrust::raw_pointer_cast(d_XYZ1.data()), 
-                                                                thrust::raw_pointer_cast(d_T.data())); 
+            cu_sim<<<numGrid, BLOCKS, 0>>>(d_param, thrust::raw_pointer_cast(d_pFieldMap.data()), 
+                                                    thrust::raw_pointer_cast(d_pMask.data()), 
+                                                    thrust::raw_pointer_cast(d_M0.data()), 
+                                                    thrust::raw_pointer_cast(d_XYZ0_scaled.data()), 
+                                                    thrust::raw_pointer_cast(d_M1.data()), 
+                                                    thrust::raw_pointer_cast(d_XYZ1.data()), 
+                                                    thrust::raw_pointer_cast(d_T.data())); 
             gpuCheckKernelExecutionError(__FILE__, __LINE__);
             // copy data back to CPU
             size_t shift = 3*param.n_TE*param.n_spins*sl;
@@ -249,9 +249,6 @@ bool run(simulation_parameters param, std::map<std::string, std::vector<std::str
 
         dims[3] = 1; dims[2] = param.n_TE;
         file_utils::save_h5(f, T.data(), dims, "T", "uint8_t");
-
-        dims[0] = fov_scale.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
-        file_utils::save_h5(f, fov_scale.data(), dims, "scales", "double");
 
         dims[0] = fov_scale.size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
         file_utils::save_h5(f, fov_scale.data(), dims, "scales", "double");

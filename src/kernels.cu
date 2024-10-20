@@ -215,7 +215,7 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
 
             // update old position with the new one
             if(param->enRecordTrajectory && (current_timepoint != 0 || dummy_scan != 0))
-                xyz1 += 3;      
+                xyz1 += 3;
             for (uint8_t i=0; i < 3; i++)
                 xyz1[i] = xyz_old[i] = xyz_new[i];
             // increase timepoint
@@ -240,15 +240,11 @@ void sim(const simulation_parameters *param, const float *pFieldMap, const uint8
 __host__  
 #endif 
 void randPosGen(float *spin_position_xyz, const simulation_parameters &param)
-{
-    float res[3];
-    for (uint8_t i = 0; i < 3; i++)
-        res[i] = param.fov[i] / param.fieldmap_size[i];
-    
+{    
     std::mt19937 gen(param.seed);
-    std::uniform_real_distribution<float> dist_initial_x(res[0], param.fov[0] - res[0]);
-    std::uniform_real_distribution<float> dist_initial_y(res[1], param.fov[1] - res[1]);
-    std::uniform_real_distribution<float> dist_initial_z(res[2], param.fov[2] - res[2]);
+    std::uniform_real_distribution<float> dist_initial_x(0.01*param.fov[0], 0.99*param.fov[0]);
+    std::uniform_real_distribution<float> dist_initial_y(0.01*param.fov[1], 0.99*param.fov[1]);
+    std::uniform_real_distribution<float> dist_initial_z(0.01*param.fov[2], 0.99*param.fov[2]);
 
     for (size_t i = 0; i < param.n_spins; i++)
     {
