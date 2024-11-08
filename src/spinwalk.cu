@@ -293,12 +293,13 @@ int main(int argc, char * argv[])
     float phantom_radius=50.f, phantom_fov=1000.f, phantom_dchi=0.11e-6, phantom_oxy_level=0.75, phantom_orientation=90.f, phantom_volume_fraction=4.f;
     int32_t phantom_resolution=500, phantom_seed=-1, device_id = 0;
     std::vector<std::string>  config_files;
+    std::vector<float> bvalue;
     
     // ========== parse command line arguments ==========
     CLI::App app{""};
     app.set_version_flag("-v,--version", get_verion());
 
-    auto subcommand_phantom = app.add_subcommand("phantom", "Phantom Generator");
+    auto subcommand_phantom = app.add_subcommand("phantom", "Generate Numerical Phantom");
     subcommand_phantom->add_flag("-c,--cylinder", phantom_cylinder, "Fill phantom with cylinders");
     subcommand_phantom->add_flag("-s,--sphere", phantom_sphere, "Fill phantom with spheres");
     subcommand_phantom->add_option("-r,--radius", phantom_radius, "Radius of the cylinders/spheres in um (negative value = random radius)")->capture_default_str();
@@ -311,7 +312,7 @@ int main(int argc, char * argv[])
     subcommand_phantom->add_option("-e,--seed", phantom_seed, "Seed for random number generator in phantom creator (-1 = random seed)")->capture_default_str();
     subcommand_phantom->add_option("-o,--output_file", phantom_output, "Path to save phantom (h5 format)")->capture_default_str();
 
-    auto subcommand_sim = app.add_subcommand("sim", "Simulation");
+    auto subcommand_sim = app.add_subcommand("sim", "Run Monte-Carlo Simulation");
     subcommand_sim->add_option("-c,--configs", config_files, "Config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini")->check(CLI::ExistingFile);
     subcommand_sim->add_flag("-g,--gen_def_config", "Generate a default configuration file and store in the current folder");
 #ifdef __CUDACC__
@@ -321,6 +322,13 @@ int main(int argc, char * argv[])
     auto callback_gpu_info = [](int count){print_device_info();  exit(0);};
     app.add_flag("-g,--gpu_info", callback_gpu_info, "Print GPU information");
 #endif
+
+    auto subcommand_config = app.add_subcommand("config", "Generate Configuration File");
+    subcommand_config->add_flag("-d,--default", "Generate a default configuration file and store in the current folder");
+    subcommand_config->add_flag("-g,--gre", "Generate a configuration file for GRE sequence");
+    subcommand_config->add_flag("-s,--se", "Generate a configuration file for Spin-Echo sequence");
+    subcommand_config->add_flag("-b,--bssfp", "Generate a configuration file for bSSFP sequence");
+    subcommand_config->add_option("-p,--pgse", bvalue, "Generate a configuration file for Pulsed-Gradient Spin-Echo sequence. The switch is followed by b-value, \xCE\xB4, and \xCE\x94. e.g. -p 1000 20 20")->expected(3);
 
     CLI11_PARSE(app, argc, argv);
     if(app.count_all() == 1)
@@ -338,6 +346,11 @@ int main(int argc, char * argv[])
     if (subcommand_sim->parsed() && config_files.size() == 0 && subcommand_sim->count("--gen_def_config") == 0)
     {
         std::cout << subcommand_sim->help() << '\n';
+        return 0;
+    }
+    if (subcommand_config->parsed())
+    {
+        std::cout << subcommand_config->help() << '\n';
         return 0;
     }
 
@@ -392,7 +405,11 @@ int main(int argc, char * argv[])
 
         std::vector<double> fov_scale;
         simulation_parameters param;
+#ifdef __CUDACC__
         param.no_gpu = subcommand_sim->count("--use_cpu");
+#else
+        param.no_gpu = true;
+#endif
         
         // ========== read config file ==========
         bStatus &= file_utils::read_config(cfile, &param, fov_scale, filenames);
