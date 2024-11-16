@@ -1,7 +1,7 @@
 
 /* --------------------------------------------------------------------------
  * Project: SpinWalk
- * File: arbitrary_gradient.h
+ * File: phantom_base.cpp
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 15.05.2024
@@ -10,10 +10,11 @@
 #include <highfive/highfive.hpp>
 #include <filesystem>
 #include <random>
-#include "shape_base.h"
+#include "phantom_base.h"
 
-
-shape::shape()
+namespace phantom
+{
+phantom_base::phantom_base()
 {
     m_fov = 0;
     m_resolution = 0;
@@ -22,8 +23,8 @@ shape::shape()
     set_filename(); 
 }
 
-shape::shape(float fov_um, size_t resolution, float dChi, float Y, float BVF, int32_t seed, std::string filename)
-:shape()
+phantom_base::phantom_base(float fov_um, size_t resolution, float dChi, float Y, float BVF, int32_t seed, std::string filename)
+:phantom_base()
 {
     set_space(fov_um, resolution);
     set_blood_parameters(dChi, Y, BVF);
@@ -32,17 +33,17 @@ shape::shape(float fov_um, size_t resolution, float dChi, float Y, float BVF, in
         m_seed = seed;
 }
 
-shape::~shape()
+phantom_base::~phantom_base()
 {
 }
 
-void shape::set_space(float fov_um, size_t resolution)
+void phantom_base::set_space(float fov_um, size_t resolution)
 {
     this->m_fov = fov_um;
     this->m_resolution = resolution;
 }
 
-void shape::set_blood_parameters(float dChi, float Y, float BVF)
+void phantom_base::set_blood_parameters(float dChi, float Y, float BVF)
 {
     this->m_dChi = dChi;
     this->m_Y = Y;
@@ -50,12 +51,12 @@ void shape::set_blood_parameters(float dChi, float Y, float BVF)
     m_calc_fieldmap = Y >= 0;
 }
 
-void shape::set_filename(std::string filename)
+void phantom_base::set_filename(std::string filename)
 {
     this->m_filename = filename;
 }
 
-bool shape::save()
+bool phantom_base::save() const
 {
     std::cout << "Saving the results..." << std::endl;
     std::filesystem::path parent_path = std::filesystem::absolute(m_filename).parent_path();
@@ -92,7 +93,7 @@ bool shape::save()
     return true;
 }
 
-bool shape::create_grid()
+bool phantom_base::create_grid()
 {
     std::cout << "Creating grid..." << std::endl;
     if (m_fov == 0 || m_resolution == 0)
@@ -128,12 +129,15 @@ bool shape::create_grid()
     return true;
 }
 
-void shape::print_info()
-{
-    std::cout << "Phantom information:" << "\n";
-    std::cout << "  FOV: " << m_fov << " um\n";
-    std::cout << "  Resolution: " << m_resolution << "\n";
-    std::cout << "  Blood parameters: dChi=" << m_dChi << ", Y=" << m_Y <<  "\n";
-    std::cout << "  Filename: " << m_filename <<  "\n";
-    std::cout << "  Seed: " << m_seed <<  "\n";
+// Overload << operator
+std::ostream& operator<<(std::ostream& os, const phantom_base& obj) {
+    os << "Phantom information:" << "\n" 
+       << "  FOV: " << obj.m_fov << " \xC2\xB5m\n"
+       << "  Resolution: " << obj.m_resolution << "\n"
+       << "  Blood parameters: dChi=" << obj.m_dChi << ", Y=" << obj.m_Y <<  "\n"
+       << "  Filename: " << obj.m_filename <<  "\n"
+       << "  Seed: " << obj.m_seed <<  "\n";
+    return os;
+}
+
 }

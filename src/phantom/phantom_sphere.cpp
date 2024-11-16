@@ -11,23 +11,20 @@
 #include <filesystem>
 #include <random>
 #include "indicators.hpp"
-#include "sphere.h"
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include "phantom_sphere.h"
 
 using namespace indicators;
-using namespace shapes_functions;
 
 // -------------------------------------------------------------------------- //
+namespace phantom
+{
 sphere::sphere()
 {
     m_radius = 0;
 }
 
 sphere::sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um, float BVF, int32_t seed, std::string filename)
-: shape(fov_um, resolution, dChi, Y, BVF, seed, filename)
+: phantom_base(fov_um, resolution, dChi, Y, BVF, seed, filename)
 {
     set_sphere_parameters(radius_um);
 }
@@ -179,21 +176,25 @@ void sphere::generate_mask_fieldmap()
     
 }
 
-void sphere::print_info()
+
+std::ostream& operator<<(std::ostream& os, const sphere& obj)
 {
-    shape::print_info();
-    std::cout << "  Radius: " << m_radius << " um\n";
-    std::cout << "  Volume Fraction " << m_BVF << "\n";
+    os << static_cast<const phantom_base&>(obj) 
+       << "  Radius: " << obj.m_radius << " \xC2\xB5m\n"
+       << "  Volume Fraction: " << obj.m_BVF << "\n";
+    return os;
 }
 
 // -------------------------------------------------------------------------- //
 
 bool sphere::run()
 {
-    print_info();
+    std::cout << *this << std::endl;
     create_grid();
     generate_shapes();
     generate_mask_fieldmap();
     save();
     return true;
+}
+
 }

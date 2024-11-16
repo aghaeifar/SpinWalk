@@ -1,33 +1,42 @@
 
 /* --------------------------------------------------------------------------
  * Project: SpinWalk
- * File: file_utils.cpp
+ * File: phantom_base.h
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
  * Descrip  : simulating BOLD in microvascular network
  * -------------------------------------------------------------------------- */
 
-#ifndef SHAPE_BASE_H
-#define SHAPE_BASE_H
+#ifndef PHANTOM_BASE_H
+#define PHANTOM_BASE_H
 
 #include <vector>
+#include <iostream>
 
-class shape
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+namespace phantom
+{
+
+class phantom_base
 {
     public:
-        shape();
-        shape(float fov_um, size_t resolution, float dChi, float Y, float BVF, int32_t seed, std::string filename);
-        ~shape();
+        phantom_base();
+        phantom_base(float fov_um, size_t resolution, float dChi, float Y, float BVF, int32_t seed, std::string filename);
+        virtual ~phantom_base();
         void set_space(float fov_um, size_t resolution);
         void set_blood_parameters(float dChi, float Y, float BVF = 10.0); 
         void set_filename(std::string filename = "shape.h5");      
         virtual bool run(){return true;}; 
-        virtual bool save();
+        virtual bool save() const;
         virtual bool create_grid();
         virtual void generate_shapes() = 0;
         virtual void generate_mask_fieldmap() = 0;
-        virtual void print_info();
+
+        friend std::ostream& operator<<(std::ostream& os, const phantom_base& obj);
 
     protected:
         std::vector<float> m_grid;
@@ -44,9 +53,7 @@ class shape
     private: 
 };
 
-
-namespace shapes_functions
-{      
+   
     inline float dot_product(const float *a, const float *b)
     {
         return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
@@ -124,4 +131,4 @@ namespace shapes_functions
     }
 }
 
-#endif // SHAPE_BASE_H
+#endif // PHANTOM_BASE_H

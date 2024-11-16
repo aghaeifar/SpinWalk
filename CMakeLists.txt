@@ -32,8 +32,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Add Boost and CUDA include directories
 include_directories(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ./include ./src ./src/shapes)
+# Add subfolders
+add_subdirectory(./src/phantom)
 # Add the executable
-set(SOURCES ./src/spinwalk.cu ./src/kernels.cu ./src/file_utils.cpp ./src/shapes/shape_base.cpp ./src/shapes/cylinder.cpp ./src/shapes/sphere.cpp)
+set(SOURCES ./src/spinwalk.cu ./src/kernels.cu ./src/file_utils.cpp ${SUBCOMMAND_PHANTOM})
 
 if(CMAKE_CUDA_COMPILER)
     add_executable(${project} ${SOURCES})
