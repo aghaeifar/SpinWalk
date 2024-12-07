@@ -1,12 +1,4 @@
-<div align="center">
 
-![Build Status](https://github.com/aghaeifar/SpinWalk/workflows/CMake/badge.svg)
-![Lates Release](https://img.shields.io/github/v/release/aghaeifar/SpinWalk)
-![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/aghaeifar/SpinWalk)
-![GitHub top language](https://img.shields.io/github/languages/top/aghaeifar/SpinWalk)
-![License](https://img.shields.io/github/license/aghaeifar/SpinWalk)
-
-</div>
 
 <p align="center">
 <a href="https://github.com/aghaeifar/SpinWalk">
@@ -18,6 +10,18 @@
 <strong>Spins Random Walk Simulator</strong>
 <br />
 </p>
+
+<div align="center">
+
+![Build Status](https://github.com/aghaeifar/SpinWalk/workflows/CMake/badge.svg)
+![Lates Release](https://img.shields.io/github/v/release/aghaeifar/SpinWalk)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/aghaeifar/SpinWalk)
+![GitHub top language](https://img.shields.io/github/languages/top/aghaeifar/SpinWalk)
+![License](https://img.shields.io/github/license/aghaeifar/SpinWalk)
+
+</div>
+
+---
 
 This program is designed to simulate the behavior of spins under a specific MR sequence within a microvascular network or digitally generated phantom. Breifly, the susceptibility variation between blood and tissue leads to local field inhomogeneity which accordingly can be used to generate an MR contrast. The program tries to perform a Monte-Carlo simulation over range of spins which are randomly or regularly distributed and diffuse in presence of user defined magnetic field. SpinWalk is a versatile Monte Carlo simulator. While its primary goal is to simulate BOLD fMRI, it can also be utilized for a wide range of diffusion applications.
 
@@ -61,7 +65,7 @@ cmake --build ./build --config Release
 ```
 
 ## Quick test after build
-After building the program, simply launch `spinwalk` in the terminal to view the help menu with all available options. At the end of the output, the detected GPUs and driver must be displayed.
+After building the program, simply launch `spinwalk` in the terminal to view the help menu with all available options. If a GPU is avaialbe and CUDA is installed, launch `spinwalk -g` to display GPU and driver version.
 
 ## How to simulate
 

@@ -10,12 +10,8 @@
 #include <highfive/highfive.hpp>
 #include <filesystem>
 #include <random>
-#include "indicators.hpp"
+#include "barkeep.h"
 #include "phantom_cylinder.h"
-
-
-
-using namespace indicators;
 
 namespace phantom
 {
@@ -57,14 +53,15 @@ void cylinder::generate_shapes()
     m_cylinder_points.clear();
     m_cylinder_radii.clear();
     float cyl_pnt[3], cyl_rad ;
-    float curr_BVF = 0;
     // srandom engine
     std::mt19937 gen(m_seed); // Mersenne Twister generator
     std::uniform_real_distribution<float> dist(0.f, 1.f); 
       
     float distance, vol_cyl = 0, vol_cyl_total = 0, vol_tol = m_fov*m_fov*m_fov;
+    int32_t progress = 0;
+    auto bar = barkeep::ProgressBar(&progress, {.total = 100, .message = "Simulating", .style = barkeep::ProgressBarStyle::Rich,});
     auto start = std::chrono::high_resolution_clock::now();
-    while(curr_BVF < m_BVF)
+    while(progress < 100)
     {
         cyl_rad = is_random_radius ? dist(gen) * max_radius : max_radius;
         for (size_t i = 0; i < 3; i++) // generate a random point for a sphere which fit in the FOV
@@ -95,12 +92,13 @@ void cylinder::generate_shapes()
         // if the total volume of the cylinders is more than the target BVF or the cylinder is outside of volume, skip this cylinder
         if (100*(vol_cyl + vol_cyl_total) / vol_tol > 1.02*m_BVF || vol_cyl < 0)
             continue;
-        
+
         vol_cyl_total += vol_cyl;
-        curr_BVF = 100.*vol_cyl_total/vol_tol; 
+        progress = 100*(100.*vol_cyl_total/vol_tol/m_BVF);
         m_cylinder_points.push_back({cyl_pnt[0], cyl_pnt[1], cyl_pnt[2]});
         m_cylinder_radii.push_back(cyl_rad);     
     }
+    bar->done();
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << m_cylinder_radii.size() << " coordinates generated successfully! Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s" << std::endl;
 }
@@ -182,7 +180,8 @@ void cylinder::generate_mask_fieldmap()
     theta_s2 = 1. - theta_c2; // sin^2(theta)
 
     std::cout<<"Generating...\n";
-    ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}};
+    size_t c = 0;
+    auto bar = barkeep::ProgressBar(&c, {.total = m_cylinder_radii.size(), .message = "Simulating", .style = barkeep::ProgressBarStyle::Rich,});
     auto start = std::chrono::high_resolution_clock::now();
     for (size_t c = 0; c < m_cylinder_radii.size(); c++)
     {
@@ -240,9 +239,8 @@ void cylinder::generate_mask_fieldmap()
                     m_fieldmap[p] += 2*M_PI * (1-m_Y)*m_dChi * (theta_c2 - 1.0/3.0);
             }                 
         }        
-        bar.set_progress(100 * (c+1)/float(m_cylinder_radii.size()));
     } 
-    
+    bar->done();    
     m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
     std::cout << "Actual Volume Fraction = " << m_BVF << "% ...\n";   
     auto end = std::chrono::high_resolution_clock::now();

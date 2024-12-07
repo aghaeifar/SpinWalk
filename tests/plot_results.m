@@ -5,8 +5,8 @@ fname{1}{1} = '../../outputs/gre_phantom_0.h5';
 fname{1}{2} = '../../outputs/gre_phantom_1.h5';
 fname{2}{1} = '../../outputs/se_phantom_0.h5';
 fname{2}{2} = '../../outputs/se_phantom_1.h5';
-fname{3}{1} = '../../outputs/ssfp_phantom_0.h5';
-fname{3}{2} = '../../outputs/ssfp_phantom_1.h5';
+% fname{3}{1} = '../../outputs/ssfp_phantom_0.h5';
+% fname{3}{2} = '../../outputs/ssfp_phantom_1.h5';
 
 dim_vessel_size = 1;
 dim_spin = 2;
@@ -25,10 +25,10 @@ for seq = 1:numel(fname)
 
         m1_t = zeros(numel(scales), 1);
         for s=1:numel(scales)
-            ind = ismember(T(s,:,end-1), tissue_type);
-            m1_f = m1(s, ind(:), end-1, :);
+            ind = ismember(T(s,:), tissue_type);
+            m1_f = m1(s, ind(:), end, :);
             m1_f = squeeze(m1_f);
-            m1_t(s) = abs(complex(sum(m1_f(:,1)), sum(m1_f(:,2))));
+            m1_t(s) = abs(complex(mean(m1_f(:,1)), mean(m1_f(:,2))));
         end
         signal_magnitude{seq, i} = m1_t;
     end
@@ -40,7 +40,7 @@ for seq = 1:numel(fname)
     relative_signal  = 100 * (1 - signal_magnitude{seq, 1} ./ signal_magnitude{seq, 2});    
     h = semilogx(vessel_radius, relative_signal); xlabel('Vessel radius (um)'); ylabel('BOLD Signal %'); 
     hold on;
-    ylim([0, 7])
+    % ylim([0, 7])
 end
 legend('GRE', 'SE', 'SSFP')
 

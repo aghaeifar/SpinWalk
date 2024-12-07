@@ -1,0 +1,4 @@
+set(SUBCOMMAND_CONFIG
+    ${CMAKE_CURRENT_SOURCE_DIR}/handler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/config_generator.cpp
+    PARENT_SCOPE)

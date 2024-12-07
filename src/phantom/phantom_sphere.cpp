@@ -10,10 +10,8 @@
 #include <highfive/highfive.hpp>
 #include <filesystem>
 #include <random>
-#include "indicators.hpp"
+#include "barkeep.h"
 #include "phantom_sphere.h"
-
-using namespace indicators;
 
 // -------------------------------------------------------------------------- //
 namespace phantom
@@ -58,7 +56,7 @@ void sphere::generate_shapes()
       
     float distance, vol_sph = 0, vol_tol = m_fov*m_fov*m_fov;
     int32_t progress = 0;
-    ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}};
+    auto bar = barkeep::ProgressBar(&progress, {.total = 100, .message = "Simulating", .style = barkeep::ProgressBarStyle::Rich,});
     auto start = std::chrono::high_resolution_clock::now();
     while(progress < 100)
     {
@@ -90,8 +88,8 @@ void sphere::generate_shapes()
         m_sphere_points.insert(m_sphere_points.end(), sph_pnt, sph_pnt+3);
         m_sphere_radii.push_back(radius);  
         progress = 0.95 * 100*(100.*vol_sph/vol_tol/m_BVF); // 0.95 is a factor to compensate for spheres in the boundary   
-        bar.set_progress(progress);
     }
+    bar->done();
 
     auto end = std::chrono::high_resolution_clock::now();
     std::cout <<m_sphere_radii.size() << " coordinates generated successfully! Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s" << std::endl;
@@ -114,9 +112,10 @@ void sphere::generate_mask_fieldmap()
     float v_size = m_fov / m_resolution;
 
     std::cout << "Generating...\n";
-    ProgressBar bar{option::ShowPercentage{true}, option::Start{"["}, option::Fill{"="}, option::Lead{">"}, option::End{"]"}, option::FontStyles{std::vector<FontStyle>{FontStyle::bold}}};
+    size_t c = 0;
+    auto bar = barkeep::ProgressBar(&c, {.total = m_sphere_radii.size(), .message = "Simulating", .style = barkeep::ProgressBarStyle::Rich,});
     auto start = std::chrono::high_resolution_clock::now();
-    for (size_t c = 0; c < m_sphere_radii.size(); c++)
+    for (c = 0; c < m_sphere_radii.size(); c++)
     {
         float *sph_center = &m_sphere_points[3*c];
         float sph_rad   = m_sphere_radii[c];
@@ -166,8 +165,8 @@ void sphere::generate_mask_fieldmap()
                 m_fieldmap[p] += distance2>sph_rad2 ? 4*M_PI*(1-m_Y)*m_dChi * sph_rad2*sph_rad/distance2/sqrtf(distance2) * (phi_c2 - 1./3.) : 0.f;
             }
         }  
-        bar.set_progress(100 * (c+1)/float(m_sphere_radii.size()));
     } 
+    bar->done();
 
     m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
     std::cout << "Actual Volume Fraction = " << m_BVF << "% ...\n";   

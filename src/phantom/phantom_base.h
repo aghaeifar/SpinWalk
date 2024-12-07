@@ -54,81 +54,18 @@ class phantom_base
 };
 
    
-    inline float dot_product(const float *a, const float *b)
-    {
-        return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
-    }
+float dot_product(const float *a, const float *b);
+float norm(const float *a);
+float norm_p2(const float *a);
+void cross_product(const float *a, const float *b, float *c);
+void normalize(float *a, float n = -1.0f);
+void subtract(const float *a, const float *b, float *c);
+void add(const float *a, const float *b, float *c);
+void multiply(const float a, const float *b, float *c);
+void multiply(const float *a, const float *b, float *c);
+void copy(const float *a, float *b);
+void roty(float theta, const float *m0, float *m1);
 
-    inline float norm(const float *a)
-    {
-        return sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
-    }
-
-    inline float norm_p2(const float *a)
-    {
-        return a[0]*a[0] + a[1]*a[1] + a[2]*a[2]; // avoid sqrt
-    }
-
-    inline void cross_product(const float *a, const float *b, float *c)
-    {
-        c[0] = a[1]*b[2] - a[2]*b[1];
-        c[1] = a[2]*b[0] - a[0]*b[2];
-        c[2] = a[0]*b[1] - a[1]*b[0];
-    }
-
-    inline void normalize(float *a, float n = -1.0f)
-    {
-        if (n < 0)
-            n = norm(a);
-        a[0] /= n;
-        a[1] /= n;
-        a[2] /= n;
-    }
-
-    inline void subtract(const float *a, const float *b, float *c)
-    {
-        c[0] = a[0] - b[0];
-        c[1] = a[1] - b[1];
-        c[2] = a[2] - b[2];
-    }
-
-    inline void add(const float *a, const float *b, float *c)
-    {
-        c[0] = a[0] + b[0];
-        c[1] = a[1] + b[1];
-        c[2] = a[2] + b[2];
-    }
-
-    inline void multiply(const float a, const float *b, float *c)
-    {
-        c[0] = a * b[0];
-        c[1] = a * b[1];
-        c[2] = a * b[2];
-    }
-
-    inline void multiply(const float *a, const float *b, float *c)
-    {
-        c[0] = a[0] * b[0];
-        c[1] = a[1] * b[1];
-        c[2] = a[2] * b[2];
-    }
-
-    inline void copy(const float *a, float *b)
-    {
-        b[0] = a[0];
-        b[1] = a[1];
-        b[2] = a[2];
-    }
-
-    inline void roty(float theta, const float *m0, float *m1)
-    {
-        float deg2rad = 0.0174532925199433; // = M_PI/180 
-        float s = sinf(theta * deg2rad);
-        float c = cosf(theta * deg2rad);
-        m1[0] =  c*m0[0] + s*m0[2];
-        m1[1] =  m0[1];
-        m1[2] = -s*m0[0] + c*m0[2];
-    }
 }
 
 #endif // PHANTOM_BASE_H

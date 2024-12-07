@@ -29,13 +29,19 @@ endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+add_compile_definitions(MINI_CASE_SENSITIVE)
+
 
 # Add Boost and CUDA include directories
 include_directories(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ./include ./src ./src/shapes)
 # Add subfolders
+add_subdirectory(./src/diff_grad)
 add_subdirectory(./src/phantom)
+add_subdirectory(./src/config)
+add_subdirectory(./src/sim)
+
 # Add the executable
-set(SOURCES ./src/spinwalk.cu ./src/kernels.cu ./src/file_utils.cpp ${SUBCOMMAND_PHANTOM})
+set(SOURCES ./src/spinwalk.cu ${SUBCOMMAND_PHANTOM} ${SUBCOMMAND_SIM} ${SUBCOMMAND_GRADIENT} ${SUBCOMMAND_CONFIG})
 
 if(CMAKE_CUDA_COMPILER)
     add_executable(${project} ${SOURCES})

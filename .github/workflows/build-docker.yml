@@ -1,0 +1,17 @@
+name: Build and Publish image to Docker Hub
+on:
+    [workflow_dispatch]
+
+jobs:
+  publish_images:
+    runs-on: nvidia/cuda:12.5.1-devel-ubuntu22.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: build image
+        run: |
+          docker build . -t aghaeifar/spinwalk:latest
+      - name: push image to docker hub
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker push aghaeifar/spinwalk:latest
