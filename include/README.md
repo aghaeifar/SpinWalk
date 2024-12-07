@@ -11,3 +11,5 @@ We use [barkeep](https://github.com/oir/barkeep) for progress indication. Barkee
 ## CLI11
 We use [CLI11](https://github.com/CLIUtils/CLI11) for command line parsing. CLI11 is a powerful library for creating command-line interfaces with rich features. It simplifies the process of defining and managing command-line arguments, making our application more robust and easier to use.
 
+## mINI
+We use [mINI](https://github.com/metayeti/mINI) to parse config file. mINI is a tiny C++ library for manipulating INI files.
