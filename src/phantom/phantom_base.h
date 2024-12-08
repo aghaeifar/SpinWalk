@@ -33,8 +33,8 @@ class phantom_base
         virtual bool run(){return true;}; 
         virtual bool save() const;
         virtual bool create_grid();
-        virtual void generate_shapes() = 0;
-        virtual void generate_mask_fieldmap() = 0;
+        virtual bool generate_shapes() = 0;
+        virtual bool generate_mask_fieldmap() = 0;
 
         friend std::ostream& operator<<(std::ostream& os, const phantom_base& obj);
 

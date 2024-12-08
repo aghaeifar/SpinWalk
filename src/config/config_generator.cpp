@@ -1,5 +1,7 @@
 #include <sstream>
 #include <fstream>
+#include <filesystem>
+#include <iostream>
 
 // boost includes
 #include <boost/log/trivial.hpp> 
@@ -10,8 +12,9 @@
 namespace config
 {
 
-bool generate_default_config(std::string file_name)
+bool generate_default_config(uint32_t TE_us, uint32_t timestep_us, std::vector<std::string> phantoms, std::string output)
 {
+    BOOST_LOG_TRIVIAL(info) << "Generating default config: " << output << " failed";
     std::stringstream ss;
     ss << "[GENERAL]" << "\n";
     ss << "PARENT_CONFIG = " << "\n";
@@ -100,12 +103,12 @@ bool generate_default_config(std::string file_name)
     ss << "; scale PHANTOM length to simulate different sample sizes" << "\n";
     ss << "FOV_SCALE[0] = 1.0" << "\n";
     
-    std::ofstream myFile(file_name);
+    std::ofstream myFile(output);
     if (myFile.is_open()) {
         myFile << ss.str();
         myFile.close();
     } else {
-       BOOST_LOG_TRIVIAL(error) << "Wriing default config to file " << file_name << " failed";
+       BOOST_LOG_TRIVIAL(error) << "Wriing default config to file " << output << " failed";
        return false;
     }
 
@@ -113,23 +116,104 @@ bool generate_default_config(std::string file_name)
 }
 
 
-bool generate_gre(std::string file_name)
+bool generate_gre(uint32_t TE_us, uint32_t timestep_us, std::vector<std::string> phantoms, std::string output)
 {
-     return true;
+    auto output_file = std::filesystem::path(output);
+    auto default_config_output = output_file.parent_path() / "default_config.ini";
+    if(generate_default_config(TE_us, timestep_us, phantoms, default_config_output.string()) == false)
+        return false;
+
+    mINI::INIFile file(output);
+    mINI::INIStructure ini;
+    
+    ini["GENERAL"]["PARENT_CONFIG"] = default_config_output.string();
+    ini["GENERAL"]["SEQ_NAME"] = "gre";
+
+    for (size_t i = 0; i < phantoms.size(); i++)
+        ini["FILES"]["PHANTOM[" + std::to_string(i) + "]"] = phantoms[i];
+
+    ini["SCAN_PARAMETERS"]["TR"]        = std::to_string(TE_us + timestep_us);
+    ini["SCAN_PARAMETERS"]["TE[0]"]     = std::to_string(TE_us);
+    ini["SCAN_PARAMETERS"]["RF_FA[0]"]  = "90.0";
+    ini["SCAN_PARAMETERS"]["RF_PH[0]"]  = "0";
+    ini["SCAN_PARAMETERS"]["RF_T[0]"]   = "0";
+    ini["SCAN_PARAMETERS"]["TIME_STEP"] = std::to_string(timestep_us);
+
+
+    if(file.generate(ini, true) == false)
+    {
+        BOOST_LOG_TRIVIAL(error) << "Failed to write config file: " << output;
+        return false;
+    }
+    return true;
 }
 
-bool generate_se(std::string file_name)
+bool generate_se(uint32_t TE_us, uint32_t timestep_us, std::vector<std::string> phantoms, std::string output)
 {
-     return true;
+    auto output_file = std::filesystem::path(output);
+    auto default_config_output = output_file.parent_path() / "default_config.ini";
+    if(generate_default_config(TE_us, timestep_us, phantoms, default_config_output.string()) == false)
+        return false;
+
+    mINI::INIFile file(output);
+    mINI::INIStructure ini;
+    
+    ini["GENERAL"]["PARENT_CONFIG"] = default_config_output.string();
+    ini["GENERAL"]["SEQ_NAME"] = "se";
+
+    for (size_t i = 0; i < phantoms.size(); i++)
+        ini["FILES"]["PHANTOM[" + std::to_string(i) + "]"] = phantoms[i];
+
+    ini["SCAN_PARAMETERS"]["TR"]        = std::to_string(TE_us + timestep_us);
+    ini["SCAN_PARAMETERS"]["TE[0]"]     = std::to_string(TE_us);
+    ini["SCAN_PARAMETERS"]["RF_FA[0]"]  = "90.0";
+    ini["SCAN_PARAMETERS"]["RF_FA[1]"]  = "180.0";
+    ini["SCAN_PARAMETERS"]["RF_PH[0]"]  = "0";
+    ini["SCAN_PARAMETERS"]["RF_PH[1]"]  = "90";
+    ini["SCAN_PARAMETERS"]["RF_T[0]"]   = "0";
+    ini["SCAN_PARAMETERS"]["RF_T[0]"]   = std::to_string(TE_us/2);
+    ini["SCAN_PARAMETERS"]["TIME_STEP"] = std::to_string(timestep_us);
+
+
+    if(file.generate(ini, true) == false)
+    {
+        BOOST_LOG_TRIVIAL(error) << "Failed to write config file: " << output;
+        return false;
+    }
+    return true;
 }
 
-bool generate_bssfp(std::string file_name)
+bool generate_bssfp(uint32_t TE_us, uint32_t timestep_us, std::vector<std::string> phantoms, std::string output)
 {
-     return true;
-}
+    auto output_file = std::filesystem::path(output);
+    auto default_config_output = output_file.parent_path() / "default_config.ini";
+    if(generate_default_config(TE_us, timestep_us, phantoms, default_config_output.string()) == false)
+        return false;
 
-bool generate_dwi(std::string file_name)
-{
+    mINI::INIFile file(output);
+    mINI::INIStructure ini;
+    
+    ini["GENERAL"]["PARENT_CONFIG"] = default_config_output.string();
+    ini["GENERAL"]["SEQ_NAME"] = "bssfp";
+
+    for (size_t i = 0; i < phantoms.size(); i++)
+        ini["FILES"]["PHANTOM[" + std::to_string(i) + "]"] = phantoms[i];
+
+    ini["SCAN_PARAMETERS"]["TR"]            = std::to_string(TE_us*2);
+    ini["SCAN_PARAMETERS"]["TE[0]"]         = std::to_string(TE_us);
+    ini["SCAN_PARAMETERS"]["RF_FA[0]"]      = "16.0";
+    ini["SCAN_PARAMETERS"]["RF_PH[0]"]      = "0";
+    ini["SCAN_PARAMETERS"]["RF_T[0]"]       = "0";
+    ini["SCAN_PARAMETERS"]["TIME_STEP"]     = std::to_string(timestep_us);
+    ini["SCAN_PARAMETERS"]["DUMMY_SCAN"]    = "-1";
+    ini["SCAN_PARAMETERS"]["PHASE_CYCLING"] = "180";
+
+
+    if(file.generate(ini, true) == false)
+    {
+        BOOST_LOG_TRIVIAL(error) << "Failed to write config file: " << output;
+        return false;
+    }
     return true;
 }
 

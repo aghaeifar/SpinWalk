@@ -7,11 +7,16 @@
  * Date     : 15.05.2024
  * Descrip  : 
  * -------------------------------------------------------------------------- */
-#include <highfive/highfive.hpp>
 #include <filesystem>
 #include <random>
+// boost includes
+#include <boost/log/trivial.hpp> 
+
+#include <highfive/highfive.hpp>
+
 #include "barkeep.h"
 #include "phantom_cylinder.h"
+
 
 namespace phantom
 {
@@ -40,14 +45,14 @@ void cylinder::set_cylinder_parameters(float radius, float orientation)
     roty(orientation, B0_orig, B0);
 }
 
-void cylinder::generate_shapes()
+bool cylinder::generate_shapes()
 {
     if(2*m_radius>=m_fov)
     {
-        std::cerr << "Error: The radius of the cylinder is too large for the given FOV!\n";
-        return;
+        BOOST_LOG_TRIVIAL(error) << "Error: The radius of the cylinder is too large for the given FOV!\n";
+        return false;
     }
-    std::cout << "Generating coordinates...for target BVF = " << m_BVF << "% ...\n"; 
+    BOOST_LOG_TRIVIAL(info) << "Generating coordinates...for target BVF = " << m_BVF << "% ...\n"; 
     bool is_random_radius = m_radius < 0;
     float max_radius    = m_radius>0 ? m_radius:-m_radius;
     m_cylinder_points.clear();
@@ -59,7 +64,7 @@ void cylinder::generate_shapes()
       
     float distance, vol_cyl = 0, vol_cyl_total = 0, vol_tol = m_fov*m_fov*m_fov;
     int32_t progress = 0;
-    auto bar = barkeep::ProgressBar(&progress, {.total = 100, .message = "Simulating", .style = barkeep::ProgressBarStyle::Rich,});
+    auto bar = barkeep::ProgressBar(&progress, {.total = 100, .message = "Generating (1/2)", .style = barkeep::ProgressBarStyle::Rich,});
     auto start = std::chrono::high_resolution_clock::now();
     while(progress < 100)
     {
@@ -100,7 +105,8 @@ void cylinder::generate_shapes()
     }
     bar->done();
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << m_cylinder_radii.size() << " coordinates generated successfully! Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s" << std::endl;
+    BOOST_LOG_TRIVIAL(info) << m_cylinder_radii.size() << " coordinates generated successfully! Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s" << std::endl;
+    return true;
 }
 
 
@@ -154,21 +160,21 @@ float cylinder::calculate_volume(float *cyl_pnt, float cyl_rad)
 }
 
 
-void cylinder::generate_mask_fieldmap()
+bool cylinder::generate_mask_fieldmap()
 {   
     // set the cylinders orientation if they are parallel
-    std::cout << "Generating cylinders..." << std::endl;    
+    BOOST_LOG_TRIVIAL(info) << "Generating cylinders..." << std::endl;    
     size_t res1 = m_resolution;
     size_t res2 = res1 * res1;
     size_t res3 = res1 * res2;
     int32_t x_min, x_max, y_min, y_max, z_min, z_max;
     int32_t cyl_rad_vox, cyl_pnt_vox[3];
 
-    std::cout<<"B0 direction: ["<<B0[0]<<", "<<B0[1]<<", "<<B0[2]<<"]\n";
-    std::cout<<"Allocating memory...";
+    BOOST_LOG_TRIVIAL(info) <<"B0 direction: ["<<B0[0]<<", "<<B0[1]<<", "<<B0[2]<<"]\n";
+    BOOST_LOG_TRIVIAL(info) <<"Allocating memory...";
     m_fieldmap.resize(m_calc_fieldmap ? res3:0, 0.f);
     m_mask.resize(res3, 0);
-    std::cout<<"Done!\n";
+    BOOST_LOG_TRIVIAL(info) << "Done!\n";
     float v_size = m_fov / m_resolution;
 
     float cyl_dir[3] = {0.0, 0.0, 1.0};
@@ -179,11 +185,10 @@ void cylinder::generate_mask_fieldmap()
     theta_c2 = theta_c * theta_c;
     theta_s2 = 1. - theta_c2; // sin^2(theta)
 
-    std::cout<<"Generating...\n";
     size_t c = 0;
-    auto bar = barkeep::ProgressBar(&c, {.total = m_cylinder_radii.size(), .message = "Simulating", .style = barkeep::ProgressBarStyle::Rich,});
+    auto bar = barkeep::ProgressBar(&c, {.total = m_cylinder_radii.size(), .message = "Generating (2/2)", .style = barkeep::ProgressBarStyle::Rich,});
     auto start = std::chrono::high_resolution_clock::now();
-    for (size_t c = 0; c < m_cylinder_radii.size(); c++)
+    for (c = 0; c < m_cylinder_radii.size(); c++)
     {
         float *cyl_pnt  = m_cylinder_points[c].data();
         float cyl_rad   = m_cylinder_radii[c];
@@ -242,9 +247,10 @@ void cylinder::generate_mask_fieldmap()
     } 
     bar->done();    
     m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
-    std::cout << "Actual Volume Fraction = " << m_BVF << "% ...\n";   
+    BOOST_LOG_TRIVIAL(info) << "Actual Volume Fraction = " << m_BVF << "% ...\n";   
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Cylinders generated successfully! " << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
+    BOOST_LOG_TRIVIAL(info) << "Cylinders generated successfully! " << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
+    return true;
 }
 
 std::ostream& operator<<(std::ostream& os, const cylinder& obj)
@@ -260,11 +266,15 @@ std::ostream& operator<<(std::ostream& os, const cylinder& obj)
 
 bool cylinder::run()
 {
-    std::cout << *this << std::endl;
-    create_grid();
-    generate_shapes();
-    generate_mask_fieldmap();
-    save();
+    BOOST_LOG_TRIVIAL(info) << *this << std::endl;
+    if(create_grid() == false)
+        return false;
+    if(generate_shapes() == false)
+        return false;
+    if(generate_mask_fieldmap() == false)
+        return false;
+    if(save() == false)
+        return false;
     return true;
 }
 

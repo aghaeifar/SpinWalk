@@ -65,10 +65,10 @@ int main(int argc, char * argv[])
     auto subcommand_phantom = app.add_subcommand("phantom", "Generate numerical phantom");
     subcommand_phantom->add_flag("-c,--cylinder", arg_cyl, "Fill phantom with cylinders");
     subcommand_phantom->add_flag("-s,--sphere", arg_sphere, "Fill phantom with spheres");
-    subcommand_phantom->add_option("-r,--radius", arg_radius, "Radius of the cylinders/spheres in um (negative value = random radius)")->capture_default_str();
+    subcommand_phantom->add_option("-r,--radius", arg_radius, "Radius of the cylinders/spheres in \u00B5m (negative value = random radius)")->capture_default_str();
     subcommand_phantom->add_option("-n,--orientation", arg_ori, "Orientation of the cylinders in degree with respect to B0")->capture_default_str();
-    subcommand_phantom->add_option("-v,--volume_fraction", arg_vol_fra, "Fraction of shapes volume to FoV volume <0.0 100.0>")->check(CLI::Range(0.0, 100.0))->capture_default_str();
-    subcommand_phantom->add_option("-f,--fov", arg_fov, "Voxel field of view in um (isotropic)")->mandatory(true)->check(CLI::PositiveNumber);
+    subcommand_phantom->add_option("-v,--volume_fraction", arg_vol_fra, "Fraction of shapes volume to FoV volume in % <0.0 100.0>")->capture_default_str();
+    subcommand_phantom->add_option("-f,--fov", arg_fov, "Voxel field of view in \u00B5m (isotropic)")->mandatory(true)->check(CLI::PositiveNumber);
     subcommand_phantom->add_option("-z,--resolution", arg_res, "Base resolution")->mandatory(true)->check(CLI::PositiveNumber);
     subcommand_phantom->add_option("-d,--dchi", arg_dchi, "Susceptibility difference between fully deoxygenated blood and tissue (default: 0.11e-6 in cgs units)")->capture_default_str();
     subcommand_phantom->add_option("-y,--oxy_level", arg_oxy_level, "Blood oxygenetation level <0.0 1.0> (-1 = exclude off-resonance effect and only generate the mask)")->capture_default_str();

@@ -43,7 +43,7 @@ bool config_reader::read(std::string config_filename_path)
         return false;
     }
     
-    std::string filename = std::filesystem::canonical(std::filesystem::path(config_filename_path)).filename().string();
+    std::string filename = std::filesystem::weakly_canonical(std::filesystem::path(config_filename_path)).filename().string();
     BOOST_LOG_TRIVIAL(info) << "Reading config: " << config_filename_path;
     mINI::INIFile file(config_filename_path);
     mINI::INIStructure ini;
@@ -74,12 +74,12 @@ bool config_reader::read(std::string config_filename_path)
         // make paths absolute
         for (auto& path : files_container.at(str))
             if (std::filesystem::path(path).is_relative()) 
-                path = std::filesystem::canonical(std::filesystem::absolute(config_filename_path).parent_path() / path).string();
+                path = std::filesystem::weakly_canonical(std::filesystem::absolute(config_filename_path).parent_path() / path).string();
     }
     
     output_dir = ini["FILES"]["OUTPUT_DIR"].empty() ? output_dir : ini["FILES"]["OUTPUT_DIR"]; 
     if (std::filesystem::path(output_dir).is_relative())
-        output_dir = std::filesystem::canonical(std::filesystem::absolute(config_filename).parent_path() / output_dir).string();
+        output_dir = std::filesystem::weakly_canonical(std::filesystem::absolute(config_filename).parent_path() / output_dir).string();
      
     // ============== reading section SCAN_PARAMETERS ==============
     param->TR_us = ini["SCAN_PARAMETERS"]["TR"].empty() ? param->TR_us : std::stoi(ini["SCAN_PARAMETERS"]["TR"]);
