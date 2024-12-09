@@ -9,6 +9,8 @@
  * -------------------------------------------------------------------------- */
 #include <filesystem>
 #include <random>
+// boost includes
+#include <boost/log/trivial.hpp> 
 
 #include <highfive/highfive.hpp>
 
@@ -60,14 +62,14 @@ void phantom_base::set_filename(std::string filename)
 
 bool phantom_base::save() const
 {
-    std::cout << "Saving the results..." << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "Saving the results..." << std::endl;
     std::filesystem::path parent_path = std::filesystem::absolute(m_filename).parent_path();
     if (std::filesystem::is_directory(parent_path) == false)
     {
-        std::cout << "cannot find directory " << parent_path.string() << ". Trying to create it.";
+        BOOST_LOG_TRIVIAL(warning) << "cannot find directory " << parent_path.string() << ". Trying to create it.";
         if(std::filesystem::create_directories(parent_path) == false)
         {
-            std::cerr  << "cannot create directory " << parent_path.string();
+            BOOST_LOG_TRIVIAL(error)  << "cannot create directory " << parent_path.string();
             return false;
         }
     }
@@ -97,7 +99,7 @@ bool phantom_base::save() const
 
 bool phantom_base::create_grid()
 {
-    std::cout << "Creating grid..." << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "Creating grid..." << std::endl;
     if (m_fov == 0 || m_resolution == 0)
     {
         std::cerr << "Error: FOV or resolution is not set!" << std::endl;
@@ -127,7 +129,7 @@ bool phantom_base::create_grid()
                 grid += 3;
             }
     auto e = std::chrono::high_resolution_clock::now();
-    std::cout << "Grid created successfully! " << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(e - s).count() << " s\n";
+    BOOST_LOG_TRIVIAL(info) << "Grid created successfully! " << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(e - s).count() << " s\n";
     return true;
 }
 

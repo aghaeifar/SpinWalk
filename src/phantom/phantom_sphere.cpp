@@ -7,9 +7,12 @@
  * Date     : 15.05.2024
  * Descrip  : 
  * -------------------------------------------------------------------------- */
-#include <highfive/highfive.hpp>
 #include <filesystem>
 #include <random>
+// boost includes
+#include <boost/log/trivial.hpp> 
+
+#include <highfive/highfive.hpp>
 #include "barkeep.h"
 #include "phantom_sphere.h"
 
@@ -36,14 +39,14 @@ void sphere::set_sphere_parameters(float radius)
     m_radius = radius;
 }
 
-void sphere::generate_shapes()
+bool sphere::generate_shapes()
 {
      if(2*m_radius>=m_fov)
     {
-        std::cerr << "Error: The radius of the cylinder is too large for the given FOV!\n";
-        return;
+        BOOST_LOG_TRIVIAL(error) << "Error: The radius of the cylinder is too large for the given FOV!\n";
+        return false;
     }
-    std::cout << "Generating coordinates...for target BVF = " << m_BVF << "% ...\n";    
+    BOOST_LOG_TRIVIAL(info) << "Generating coordinates...for target BVF = " << m_BVF << "% ...\n";    
     bool is_random_radius = m_radius < 0;
     float max_radius    = m_radius>0 ? m_radius:-m_radius;
     m_sphere_points.clear();
@@ -56,7 +59,7 @@ void sphere::generate_shapes()
       
     float distance, vol_sph = 0, vol_tol = m_fov*m_fov*m_fov;
     int32_t progress = 0;
-    auto bar = barkeep::ProgressBar(&progress, {.total = 100, .message = "Simulating", .style = barkeep::ProgressBarStyle::Rich,});
+    auto bar = barkeep::ProgressBar(&progress, {.total = 100, .message = "Generating (1/2)", .style = barkeep::ProgressBarStyle::Rich,});
     auto start = std::chrono::high_resolution_clock::now();
     while(progress < 100)
     {
@@ -92,28 +95,27 @@ void sphere::generate_shapes()
     bar->done();
 
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout <<m_sphere_radii.size() << " coordinates generated successfully! Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s" << std::endl;
-
+    BOOST_LOG_TRIVIAL(info) <<m_sphere_radii.size() << " coordinates generated successfully! Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s" << std::endl;
+    return true;
 }
 
-void sphere::generate_mask_fieldmap()
+bool sphere::generate_mask_fieldmap()
 {
-    std::cout << "Generating spheres..." << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "Generating spheres..." << std::endl;
     size_t res1 = m_resolution;
     size_t res2 = res1 * res1;
     size_t res3 = res1 * res2;
     int32_t x_min, x_max, y_min, y_max, z_min, z_max;
     int32_t sph_rad_vox, sph_center_vox[3];
 
-    std::cout<<"Allocating memory...";
+    BOOST_LOG_TRIVIAL(info) << "Allocating memory...";
     m_fieldmap.resize(m_calc_fieldmap ? res3:0, 0.f);
     m_mask.resize(res3, 0);
-    std::cout<<"Done!\n";
+    BOOST_LOG_TRIVIAL(info) << "Done!\n";
     float v_size = m_fov / m_resolution;
 
-    std::cout << "Generating...\n";
     size_t c = 0;
-    auto bar = barkeep::ProgressBar(&c, {.total = m_sphere_radii.size(), .message = "Simulating", .style = barkeep::ProgressBarStyle::Rich,});
+    auto bar = barkeep::ProgressBar(&c, {.total = m_sphere_radii.size(), .message = "Generating (2/2)", .style = barkeep::ProgressBarStyle::Rich,});
     auto start = std::chrono::high_resolution_clock::now();
     for (c = 0; c < m_sphere_radii.size(); c++)
     {
@@ -169,10 +171,10 @@ void sphere::generate_mask_fieldmap()
     bar->done();
 
     m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
-    std::cout << "Actual Volume Fraction = " << m_BVF << "% ...\n";   
+    BOOST_LOG_TRIVIAL(info) << "Actual Volume Fraction = " << m_BVF << "% ...\n";   
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Spheres generated successfully! " << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
-    
+    BOOST_LOG_TRIVIAL(info) << "Spheres generated successfully! " << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
+    return true;
 }
 
 
@@ -188,11 +190,15 @@ std::ostream& operator<<(std::ostream& os, const sphere& obj)
 
 bool sphere::run()
 {
-    std::cout << *this << std::endl;
-    create_grid();
-    generate_shapes();
-    generate_mask_fieldmap();
-    save();
+    BOOST_LOG_TRIVIAL(info) << *this << std::endl;
+    if(create_grid() == false)
+        return false;
+    if(generate_shapes() == false)
+        return false;
+    if(generate_mask_fieldmap() == false)
+        return false;
+    if(save() == false)
+        return false;
     return true;
 }
 

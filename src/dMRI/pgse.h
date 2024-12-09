@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace diff_grad
+namespace dMRI
 {
 
 class pgse

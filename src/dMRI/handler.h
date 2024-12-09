@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-namespace diff_grad {
+namespace dMRI {
     struct execute_args {
         float b_value = 0.f;        
         uint32_t start_ms = 0;        

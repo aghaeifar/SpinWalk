@@ -24,8 +24,8 @@ class cylinder : public phantom_base
 
     virtual bool run() override;
     virtual void set_cylinder_parameters(float radius_um = 50, float orientation = -1.0f);    
-    virtual void generate_shapes();
-    virtual void generate_mask_fieldmap();
+    virtual bool generate_shapes();
+    virtual bool generate_mask_fieldmap();
     virtual float calculate_volume(float *cyl_pnt, float radius);
 
     friend std::ostream& operator<<(std::ostream& os, const cylinder& obj);

@@ -24,8 +24,8 @@ class sphere : public phantom_base
 
     virtual bool run() override;
     virtual void set_sphere_parameters(float radius_um = 50);    
-    virtual void generate_shapes();
-    virtual void generate_mask_fieldmap();
+    virtual bool generate_shapes();
+    virtual bool generate_mask_fieldmap();
 
     friend std::ostream& operator<<(std::ostream& os, const sphere& obj);
 
