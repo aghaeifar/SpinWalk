@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.24)
 message(STATUS "CMake version: ${CMAKE_VERSION}")
 include(CheckLanguage)
 
@@ -15,14 +15,14 @@ find_package(TBB REQUIRED)
 if(CMAKE_VERSION VERSION_GREATER "3.30")
     cmake_policy(SET CMP0167 NEW)
 endif()
-find_package(Boost COMPONENTS program_options log log_setup REQUIRED)
+find_package(Boost COMPONENTS log log_setup REQUIRED)
 
 check_language(CUDA)
 # Check for CUDA-capable GPU
 if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
     # set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES native)
-    set(CMAKE_CUDA_ARCHITECTURES 75 86 89)
+    set(CMAKE_CUDA_ARCHITECTURES all)
 else()
     message("CUDA not found. Compiling without GPU support.")
 endif()
