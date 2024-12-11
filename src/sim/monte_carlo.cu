@@ -52,10 +52,11 @@ void monte_carlo::allocate_memory()
     size_t trj_dim_size  = param->enRecordTrajectory ? param->n_timepoints * (param->n_dummy_scan + 1) : 1;
     XYZ0.data.resize(param->n_spins * 3);     // memory layout(row-major): [n_spins x 3]
     XYZ0_scaled.data.resize(XYZ0.data.size());       // memory layout(row-major): [n_spins x 3]
-    XYZ1.data.resize(trj_dim_size * param->n_fov_scale * XYZ0.data.size());     // memory layout(row-major): [n_fov_scale x n_spins x timepoints x 3] or [n_fov_scale x n_spins x 1 x 3]
+    XYZ1.data.resize(trj_dim_size * param->n_scales * XYZ0.data.size());     // memory layout(row-major): [n_scale x n_spins x timepoints x 3] or [n_scale x n_spins x 1 x 3]
     M0.data.resize(param->n_spins * 3);       // memory layout(row-major): [n_spins x 3]
-    M1.data.resize(param->n_fov_scale * param->TE_us.data.size() * M0.data.size());    // memory layout(row-major): [n_fov_scale x n_spins x n_TE x 3]
-    T.data.resize(M1.data.size()/3);                 // memory layout(row-major): [n_fov_scale x n_spins x n_TE x 1]
+    M1.data.resize(param->n_scales * param->TE_us.data.size() * M0.data.size());    // memory layout(row-major): [n_scale x n_spins x n_TE x 3]
+    T.data.resize(M1.data.size()/3);                 // memory layout(row-major): [n_scale x n_spins x n_TE x 1]
+    gradient_mTm.data.resize(param->gradient_mTm.data.size());
 }
 
 size_t monte_carlo::get_total_memory() const
@@ -144,7 +145,7 @@ bool monte_carlo::initialize_magnetization(std::string filename)
 void monte_carlo::save(std::string filename)
 {
     M1.copy_to_host();
-    std::vector<size_t> dims = {param->n_fov_scale, param->n_spins, param->TE_us.data.size(), 3};
+    std::vector<size_t> dims = {param->n_scales, param->n_spins, param->TE_us.data.size(), 3};
     h5_helper::write(filename, "M", dims, M1.data);
 
     XYZ1.copy_to_host();
@@ -155,8 +156,8 @@ void monte_carlo::save(std::string filename)
     dims[3] = 1; dims[2] = param->TE_us.data.size();
     h5_helper::write(filename, "T", dims, T.data);
 
-    dims[0] = config->get_fov_scales().size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
-    h5_helper::write(filename, "scales", dims, config->get_fov_scales());
+    dims[0] = config->get_scales().size(); dims[1] = 1; dims[2] = 1; dims[3] = 1;
+    h5_helper::write(filename, "scales", dims, config->get_scales());
 
     std::vector<float> TE_us;
     for(int i=0; i<param->TE_us.data.size(); i++) TE_us.push_back(param->TE_us.data[i]*param->timestep_us*1e-6); 
@@ -164,7 +165,7 @@ void monte_carlo::save(std::string filename)
     h5_helper::write(filename, "TE", dims, TE_us);
 }
 
-bool monte_carlo::run(std::string config_filename) // simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<double> fov_scale
+bool monte_carlo::run(std::string config_filename) // simulation_parameters param, std::map<std::string, std::vector<std::string> > filenames, std::vector<double> scale
 {   
     auto start_run = std::chrono::high_resolution_clock::now();
     // ========== read config file ==========
@@ -177,6 +178,7 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
     BOOST_LOG_TRIVIAL(info) << "\n" << std::string(20, '-') << "\nSimulation parameters:\n" << param->dump() << "\n" << std::string(20, '-') ;
     size_t trj  = param->enRecordTrajectory ? param->n_timepoints * (param->n_dummy_scan + 1) : 1;
     size_t ind_fieldmap = 0;
+    gradient_mTm.data = param->gradient_mTm.data;
     for (auto &file_phantom : config->get_filename("PHANTOM")){
         BOOST_LOG_TRIVIAL(info) << "Simulating phantom: " << file_phantom;
         if(read_phantom(file_phantom) == false)
@@ -185,7 +187,8 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
             return false;
         if(initialize_magnetization(config->get_filename("M0")[ind_fieldmap]) == false)
             return false;
-        
+
+        XYZ0_scaled.data      = XYZ0.data;
         param->matrix_length  = mask.data.size(); // update the matrix length based on the mask size from the recent read
         param->fieldmap_exist = fieldmap.data.size() > 0;
 
@@ -206,30 +209,39 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
             device = GPU;
         }
 #endif
+
         XYZ1.init(device, false);
         M0.init(device, true); 
         M1.init(device, false);
         T.init(device, false); 
-        XYZ0_scaled.init(device, false);
+        XYZ0_scaled.init(device, true);
         XYZ0.init(device, true); 
         mask.init(device, true); 
         fieldmap.init(device, true);
+        gradient_mTm.init(device, false);
         param->init(device, true); 
-
+        for (int i = 0; i < 3; i++) // FoV scaling
+            param->fov[i] = fov.data[i]; 
         // ========== run ==========   
         uint32_t ind_scale = 0;
         std::vector<uint32_t> v(param->n_spins);
         std::generate(std::execution::seq, v.begin(), v.end(), [n = 0] () mutable { return n++; }); 
         
         auto start_sim = std::chrono::high_resolution_clock::now();
-        auto bar = barkeep::ProgressBar(&ind_scale, {.total = param->n_fov_scale, .message = "Simulating", .style = barkeep::ProgressBarStyle::Rich,});
-        for (const auto fov_scale : config->get_fov_scales())
+        auto bar = barkeep::ProgressBar(&ind_scale, {.total = param->n_scales, .message = "Simulating", .style = barkeep::ProgressBarStyle::Rich,});
+        for (const auto scale : config->get_scales())
         {   
-            BOOST_LOG_TRIVIAL(info) << "Simulating FoV scale " << fov_scale;  
-            // bar.set_progress(100.0 * (ind_scale+1)/param->n_fov_scale); 
-            std::transform(std::execution::par_unseq, XYZ0.data.begin(), XYZ0.data.end(), XYZ0_scaled.data.begin(), [fov_scale](auto& c){return c*fov_scale;}); 
-            for (int i = 0; i < 3; i++) // FoV scaling
-                param->fov[i] = fov_scale * fov.data[i]; 
+            BOOST_LOG_TRIVIAL(info) << "Simulating scale " << scale; 
+            if(config->get_scale_type() == e_scale_type::s_fov){           
+                std::transform(std::execution::par_unseq, XYZ0.data.begin(), XYZ0.data.end(), XYZ0_scaled.data.begin(), [scale](auto& c){return c*scale;}); 
+                for (int i = 0; i < 3; i++) // FoV scaling
+                    param->fov[i] = scale * fov.data[i]; 
+                XYZ0_scaled.init(device, true);
+             } else if (config->get_scale_type() == e_scale_type::s_gradient){                                
+                std::transform(std::execution::par_unseq, gradient_mTm.data.begin(), gradient_mTm.data.end(), param->gradient_mTm.data.begin(), [scale](auto& c){return c*scale;}); 
+                param->gradient_mTm.init(device, true);
+             }
+
             // here we need to check voxel size and step size to make sure that the simulation is stable: doi:10.1016/j.neuroimage.2018.06.046 & https://submissions.mirasmart.com/ISMRM2024/Itinerary/PresentationDetail.aspx?evdid=4684
             
             // ========== simulation kernel  ==========
@@ -242,8 +254,7 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
                                                                                                 T.ptr + param->TE_us.data.size()*param->n_spins*ind_scale,
                                                                                                 spin);});
 #ifdef __CUDACC__  
-            }else{
-                XYZ0_scaled.init(GPU, true);
+            }else{         
                 size_t numGrid = (param->n_spins + BLOCKS - 1) / BLOCKS;
                 cu_sim<<<numGrid, BLOCKS, 0>>>(param, fieldmap.ptr, mask.ptr, M0.ptr, XYZ0_scaled.ptr, 
                                                M1.ptr + 3*param->TE_us.data.size()*param->n_spins*ind_scale, 

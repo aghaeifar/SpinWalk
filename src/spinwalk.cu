@@ -42,8 +42,8 @@ int main(int argc, char * argv[])
     int32_t arg_seed = -1;
     std::vector<std::string>  config_files, phantom_files;
     std::vector<uint32_t> bdelta;
-    std::vector<float>bvector;
-    float bvalue;
+    std::vector<float> bvector;
+    std::vector<double> bvalue;
     
     // ========== parse command line arguments ==========
     CLI::App app{""};
@@ -65,7 +65,7 @@ int main(int argc, char * argv[])
     auto subcommand_phantom = app.add_subcommand("phantom", "Generate numerical phantom");
     subcommand_phantom->add_flag("-c,--cylinder", arg_cyl, "Fill phantom with cylinders");
     subcommand_phantom->add_flag("-s,--sphere", arg_sphere, "Fill phantom with spheres");
-    subcommand_phantom->add_option("-r,--radius", arg_radius, "Radius of the cylinders/spheres in \u00B5m (negative value = allowing smaller radiuses too)")->capture_default_str();
+    subcommand_phantom->add_option("-r,--radius", arg_radius, "Radius of the cylinders/spheres in \u00B5m (negative value = random but smaller than radius)")->capture_default_str();
     subcommand_phantom->add_option("-n,--orientation", arg_ori, "Orientation of the cylinders in degree with respect to B0")->capture_default_str();
     subcommand_phantom->add_option("-v,--volume_fraction", arg_vol_fra, "Fraction of shapes volume to FoV volume in % <0.0 100.0>")->capture_default_str();
     subcommand_phantom->add_option("-f,--fov", arg_fov, "Voxel field of view in \u00B5m (isotropic)")->mandatory(true)->check(CLI::PositiveNumber);
@@ -83,7 +83,7 @@ int main(int argc, char * argv[])
     subcommand_config->add_option("-o,--output",config_file, "Path to save the configuration file")->mandatory(true);
 
     auto subcommand_diffgrad = app.add_subcommand("dMRI", "Generate diffusion gradient table");
-    subcommand_diffgrad->add_option("-b,--bvalue", bvalue, "b-value (s/mm\u00B2)")->mandatory(true);
+    subcommand_diffgrad->add_option("-b,--bvalue", bvalue, "b-value(s) as many as you want. e.g. -b 100 500 1000 5000 (s/mm\u00B2)")->mandatory(true);
     subcommand_diffgrad->add_option("-v,--bvector", bvector, "Gradient direction: X Y Z, e.g. 0.267 0.534 0.801")->mandatory(true)->expected(3);
     subcommand_diffgrad->add_option("-d,--delta", bdelta, "start time, \xCE\xB4 and \xCE\x94 in ms, e.g. 10 3 5 ")->mandatory(true)->expected(3);
     subcommand_diffgrad->add_option("-c,--config", config_file, "input config file to insert PGSE gradients and excitation and refocusing RF")->mandatory(true)->check(CLI::ExistingFile);
@@ -112,7 +112,7 @@ int main(int argc, char * argv[])
 
     // ========== generate diffusion gradients ==========
     if (subcommand_diffgrad->parsed())
-        if (dMRI::handler::execute({.b_value=bvalue, .start_ms=bdelta[0], .delta_ms=bdelta[1], .DELTA_ms=bdelta[2], .dir=bvector, .output=config_file}) == false){
+        if (dMRI::handler::execute({.start_ms=bdelta[0], .delta_ms=bdelta[1], .DELTA_ms=bdelta[2], .dir=bvector, .b_value=bvalue, .output=config_file}) == false){
             std::cout << ERR_MSG << "Diffusion gradient generation failed. See the log file " << log_filename <<", Aborting...!" << "\n";
             return 1;
         }

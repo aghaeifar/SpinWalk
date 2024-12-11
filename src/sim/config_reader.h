@@ -9,13 +9,15 @@
 struct simulation_parameters;
 
 namespace sim {
+    enum e_scale_type {s_fov=0, s_gradient=1};
     class config_reader {
     public:
         config_reader() {};
         virtual ~config_reader() {};
         virtual bool prepare(std::string config_filename, simulation_parameters *param);
         std::vector<std::string> get_filename(std::string key) const { return files_container.at(key); }        
-        std::vector<float> get_fov_scales() const { return fov_scales; }
+        std::vector<float> get_scales() const { return scales; }
+        e_scale_type get_scale_type() const { return scale_type; }
         std::string get_output_filename(size_t ind) const { return output_files.at(ind); }
         void dump() const;
 
@@ -33,7 +35,8 @@ namespace sim {
                                                                             {"M0", 		std::vector<std::string>()}  // input:  spins initial magnetization
                                                                             };
         std::vector<std::string> output_files; // output: spins final magnetization + spatial positions in meters + tissue index
-        std::vector<float> fov_scales; 
+        std::vector<float> scales; 
+        e_scale_type scale_type;
         simulation_parameters *param = nullptr;
     };
 

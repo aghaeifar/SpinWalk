@@ -68,8 +68,7 @@ bool sphere::generate_shapes()
             sph_pnt[i] = dist(gen) * m_fov;        
         // check if sphere coordinate is ok
         size_t c;
-        for (c=0; c<m_sphere_radii.size(); c++)
-        {   
+        for (c=0; c<m_sphere_radii.size(); c++) {   
             float p2p1[3];
             subtract(sph_pnt, &m_sphere_points[3*c], p2p1);
             distance = norm(p2p1);
@@ -77,8 +76,7 @@ bool sphere::generate_shapes()
             if(distance <= m_sphere_radii[c] ||  distance <= radius)
                 break;
             // adjust the radius of the sphere to avoid overlap
-            if (distance < m_sphere_radii[c] + radius)
-            {
+            if (distance < m_sphere_radii[c] + radius) {
                 if (!is_random_radius)
                     break;            
                 radius = distance - m_sphere_radii[c];

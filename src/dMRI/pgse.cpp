@@ -37,7 +37,7 @@ std::string read(std::string config_file, std::string section, std::string key)
     return value;
 }
 
-void pgse::set_parameters(double b_value, uint32_t start_ms, uint32_t delta_ms, uint32_t DELTA_ms)
+void pgse::set_parameters(std::vector<double> b_value, uint32_t start_ms, uint32_t delta_ms, uint32_t DELTA_ms)
 {
     this->b_value  = b_value;
     this->start_ms = start_ms;
@@ -79,7 +79,7 @@ bool pgse::run(std::string config_file)
 
     double d  = delta_ms * 1e-3; // gradient duration
     double D  = DELTA_ms * 1e-3; // distance between gradients
-    double G2 = b_value  * 1e6 / (GAMMA * GAMMA * d * d * (D-d/3.0));
+    double G2 = b_value[0] * 1e6 / (GAMMA * GAMMA * d * d * (D-d/3.0));
     double G  = sqrt(G2) * 1000.;  //  mT/m
     BOOST_LOG_TRIVIAL(info) << "Gradient amplitude: " << G << " mT/m";
 
@@ -118,6 +118,10 @@ bool pgse::run(std::string config_file)
     for (; i < 2*n_points; i++)
         ini["SCAN_PARAMETERS"]["GRADIENT_T[" + std::to_string(i) + "]"] = std::to_string(start_us + (DELTA_ms-delta_ms)*1000 + i*timestep_us);
     
+    ini["SIMULATION_PARAMETERS"]["WHAT_TO_SCALE"] = "1"; // 0: FoV, 1: Gradient
+    for (i=0; i < b_value.size(); i++)
+        ini["SIMULATION_PARAMETERS"]["SCALE[" + std::to_string(i) + "]"] = std::to_string(sqrt(b_value[i] / b_value[0]));
+
     if(file.write(ini, true) == false)
     {
         BOOST_LOG_TRIVIAL(error) << "Failed to write config file: " << config_file;

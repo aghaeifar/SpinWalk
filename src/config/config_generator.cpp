@@ -100,6 +100,8 @@ bool generate_default_config(uint32_t TE_us, uint32_t timestep_us, std::vector<s
     ss << "RECORD_TRAJECTORY = 0" << "\n";
     ss << "; maximum number of iterations that is allowed to generate random-walk. If spin can not move yet (e.g. because of restricted boundaries), it is considered lost and magnetization is set to zero" << "\n";
     ss << "MAX_ITERATIONS = 1e4" << "\n";
+    ss << "; SCALE WHAT? 0: FOV, 1: GRADIENT\n";
+    ss << "WHAT_TO_SCALE = 0\n";
     ss << "; scale PHANTOM length to simulate different sample sizes" << "\n";
     ss << "FOV_SCALE[0] = 1.0" << "\n";
     

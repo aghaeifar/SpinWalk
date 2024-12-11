@@ -25,7 +25,7 @@ typedef struct simulation_parameters
     float B0=9.4, c, s;
     float phase_cycling;
     int32_t timestep_us, TR_us, n_dummy_scan=0;
-    uint32_t n_spins=1e3, n_timepoints=0, n_substrate=0, n_fov_scale=1;
+    uint32_t n_spins=1e3, n_timepoints=0, n_substrate=0, n_scales=1;
     size_t phantom_size[3], seed=0, max_iterations=9999;
     int64_t matrix_length;
     bool enCrossFOV, enRecordTrajectory, fieldmap_exist;
@@ -91,10 +91,10 @@ typedef struct simulation_parameters
         ss<<"Phase cycling   = "<< phase_cycling<<'\n';
         ss<<"Seed            = "<< seed<<'\n';
         ss<<"off-resonance exists   = "<< (fieldmap_exist ? "Yes" : "No") <<'\n';
-        ss<<"gradient (x,y,z) mT/m  =\n"; for(int i=0; i<gradient_mTm.data.size(); i++) ss<<gradient_mTm.data[3*i+0]<<' '<<gradient_mTm.data[3*i+1]<<' '<<gradient_mTm.data[3*i+2]<<'\n';
+        ss<<"gradient (x,y,z) mT/m  =\n"; for(int i=0; i<gradient_mTm.data.size()/3; i++) ss<<gradient_mTm.data[3*i+0]<<' '<<gradient_mTm.data[3*i+1]<<' '<<gradient_mTm.data[3*i+2]<<'\n';
         ss<<"gradient  time         = "; for(int i=0; i<gradient_us.data.size(); i++) ss<<gradient_us.data[i]*timestep_us<<' '; ss<<"us\n";
         ss<<"Record Trajectory      = "<< (enRecordTrajectory ? "Yes" : "No")<<'\n';
-        ss<<"Number of FoV scales   = "<< n_fov_scale<<'\n';
+        ss<<"Number of scales   = "<< n_scales<<'\n';
         ss<<"Number of substrates   = "<< n_substrate;
         return ss.str();
     }

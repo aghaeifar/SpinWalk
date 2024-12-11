@@ -28,7 +28,7 @@ void config_reader::cleanup()
     seq_name = "";
     output_dir = "";
     config_filename = "";
-    fov_scales.clear();
+    scales.clear();
     output_files.clear();
     for (auto &files : files_container )
         files.second.clear();
@@ -141,7 +141,7 @@ bool config_reader::read(std::string config_filename_path)
     std::vector<float> gradient_mTm; 
     for(uint16_t i=0; ini["SCAN_PARAMETERS"]["GRADIENT_XYZ[" + std::to_string(i) + "]"].empty() == false ; i++)     {
         std::istringstream iss(ini["SCAN_PARAMETERS"]["GRADIENT_XYZ[" + std::to_string(i) + "]"]);
-        std::vector<double> values{std::istream_iterator<double>(iss), std::istream_iterator<double>()};
+        std::vector<float> values{std::istream_iterator<float>(iss), std::istream_iterator<float>()};
         gradient_mTm.insert(gradient_mTm.end(), values.begin(), values.end());
     }
     if (gradient_mTm.size() > 0)
@@ -160,12 +160,14 @@ bool config_reader::read(std::string config_filename_path)
     param->max_iterations        = ini["SIMULATION_PARAMETERS"]["MAX_ITERATIONS"].empty() ? param->max_iterations : std::stod(ini["SIMULATION_PARAMETERS"]["MAX_ITERATIONS"]);
      
     // Field of view Scales
-    if(ini["SIMULATION_PARAMETERS"].has("FOV_SCALE[0]"))
-        fov_scales.clear();
-    for (uint16_t i = 0; ini["SIMULATION_PARAMETERS"]["FOV_SCALE[" + std::to_string(i) + "]"].empty() == false ; i++) 
-        fov_scales.push_back(std::stod(ini["SIMULATION_PARAMETERS"]["FOV_SCALE[" + std::to_string(i) + "]"]));
-    param->n_fov_scale = fov_scales.size(); 
-      
+    if(ini["SIMULATION_PARAMETERS"].has("SCALE[0]"))
+        scales.clear();
+    for (uint16_t i = 0; ini["SIMULATION_PARAMETERS"]["SCALE[" + std::to_string(i) + "]"].empty() == false ; i++) 
+        scales.push_back(std::stod(ini["SIMULATION_PARAMETERS"]["SCALE[" + std::to_string(i) + "]"]));
+    param->n_scales = scales.size(); 
+    // What to scale?
+    scale_type = ini["SIMULATION_PARAMETERS"]["WHAT_TO_SCALE"].empty() ? scale_type : e_scale_type(std::stoi(ini["SIMULATION_PARAMETERS"]["WHAT_TO_SCALE"]));   
+
     // ============== reading section TISSUE_PARAMETERS ==============
     // Diffusivity
     std::vector<double> diffusivity; 
@@ -272,46 +274,44 @@ bool config_reader::check()
     }   
 
     // ============== check size ==============
-    if( param->RF_FA_deg.data.size() != param->RF_us.data.size() || param->RF_FA_deg.data.size() != param->RF_PH_deg.data.size())
-    {
+    if( param->RF_FA_deg.data.size() != param->RF_us.data.size() || param->RF_FA_deg.data.size() != param->RF_PH_deg.data.size()){
         BOOST_LOG_TRIVIAL(error) << "RF_FA, RF_PH and RF_us must have the same number of elements " << param->RF_FA_deg.data.size() << " vs " << param->RF_PH_deg.data.size() << " vs " << param->RF_us.data.size();
         return false;
     }
 
-    if(param->dephasing_us.data.size() != param->dephasing_deg.data.size())
-    {
+    if(param->dephasing_us.data.size() != param->dephasing_deg.data.size()){
         BOOST_LOG_TRIVIAL(error) << "DEPHASING and DEPHASING_T must have the same number of elements " << param->dephasing_deg.data.size() << " vs " << param->dephasing_us.data.size();
         return false;
     }
 
-    if(param->gradient_mTm.data.size() / 3 != param->gradient_us.data.size())
-    {
+    if(param->gradient_mTm.data.size() / 3 != param->gradient_us.data.size()){
         BOOST_LOG_TRIVIAL(error) << "GRADIENT_XYZ and GRADIENT_T must have the same number of elements " << param->gradient_mTm.data.size() << " vs " << param->gradient_us.data.size();
         return false;
     }
 
-    if (param->T1_ms.data.size() != param->T2_ms.data.size())
-    {
+    if (param->T1_ms.data.size() != param->T2_ms.data.size()){
         BOOST_LOG_TRIVIAL(error) << "T1 and T2 must have the same number of elements " << param->T1_ms.data.size() << " vs " << param->T2_ms.data.size();
         return false;
     }
 
-    if (param->T1_ms.data.size() != param->diffusivity.data.size())
-    {
+    if (param->T1_ms.data.size() != param->diffusivity.data.size()){
         BOOST_LOG_TRIVIAL(error) << "T1 and diffusivity must have the same number of elements " << param->T1_ms.data.size() << " vs " << param->diffusivity.data.size();
         return false;
     }
 
-    if (param->T1_ms.data.size() * param->T1_ms.data.size() != param->pXY.data.size())
-    {
+    if (param->T1_ms.data.size() * param->T1_ms.data.size() != param->pXY.data.size()){
         BOOST_LOG_TRIVIAL(error) << "T1 and P_XY must have the same number of elements " << param->T1_ms.data.size() << " vs " << param->pXY.data.size();
         return false;
     }
 
-    if (fov_scales.size() == 0)
-    {
-        BOOST_LOG_TRIVIAL(warning) << "FOV_SCALE is not set! Using default value 1.0";
-        fov_scales.push_back(1.0);
+    if (scales.size() == 0){
+        BOOST_LOG_TRIVIAL(warning) << "SCALE is not set! Using default value 1.0";
+        scales.push_back(1.0);
+    }
+
+    if(scale_type != s_fov && scale_type != s_gradient){
+        BOOST_LOG_TRIVIAL(error) << "WHAT_TO_SCALE must be 0 or 1, but is " << scale_type;
+        return false;
     }
 
     return true;

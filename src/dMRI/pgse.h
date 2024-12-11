@@ -11,7 +11,7 @@ class pgse
 public:
     pgse(){};
     virtual ~pgse(){};
-    virtual void set_parameters(double b_value, uint32_t start_ms, uint32_t delta_ms, uint32_t DELTA_ms);
+    virtual void set_parameters(std::vector<double> b_value, uint32_t start_ms, uint32_t delta_ms, uint32_t DELTA_ms);
     virtual void set_direction(std::vector<float> dir){this->dir = dir;}
     virtual bool run(std::string config_file);
 
@@ -22,7 +22,7 @@ protected:
 private:
     std::vector<float> dir;
     uint32_t DELTA_ms = 0, delta_ms = 0, start_ms = 0;
-    double b_value = 0;
+    std::vector<double> b_value;
 };
 
 }

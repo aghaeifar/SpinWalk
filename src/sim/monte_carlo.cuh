@@ -36,6 +36,7 @@ class monte_carlo {
         host_device_array<uint8_t>    T;         // memory layout(row-major): [n_fov_scale x n_spins x n_TE x 1]
         host_device_array<uint8_t>    mask;
         host_device_array<float>      fov;
+        host_device_array<float>      gradient_mTm;
         simulation_parameters         *param;
         config_reader                 *config;
 #ifdef __CUDACC__

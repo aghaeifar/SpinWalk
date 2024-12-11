@@ -7,7 +7,7 @@
 
 namespace dMRI {
     bool handler::execute(const execute_args& args) {        
-        std::cout << "Generating PGSE for b-value = " << args.b_value << " s/mm\u00B2\n";
+        std::cout << "Generating PGSE gradient table...\n";
         pgse gg;
         gg.set_parameters(args.b_value, args.start_ms, args.delta_ms, args.DELTA_ms);
         gg.set_direction(args.dir);
