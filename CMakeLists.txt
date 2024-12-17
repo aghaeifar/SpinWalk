@@ -22,7 +22,8 @@ check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
     # set_property(TARGET ${target} PROPERTY CUDA_ARCHITECTURES native)
-    set(CMAKE_CUDA_ARCHITECTURES all)
+    # set(CMAKE_CUDA_ARCHITECTURES all)
+    set(CMAKE_CUDA_ARCHITECTURES 75 86 89)
 else()
     message("CUDA not found. Compiling without GPU support.")
 endif()
@@ -31,6 +32,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_compile_definitions(MINI_CASE_SENSITIVE)
 
+# Enable AddressSanitizer for debug builds
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    add_compile_options(-fsanitize=address -g -O1)
+    add_link_options(-fsanitize=address)
+endif()
 
 # Add Boost and CUDA include directories
 include_directories(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ./include ./src ./src/shapes)

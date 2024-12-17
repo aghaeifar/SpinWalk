@@ -11,13 +11,14 @@
 
 namespace sim{
 
-bool config_reader::prepare(std::string config_filename, simulation_parameters *param)
+bool config_reader::prepare(std::string config_filename, parameters *param, parameters_hvec *param_hvec)
 {
     cleanup();
     this->param = param;
+    this->param_hvec = param_hvec;
     this->config_filename = config_filename;
     if (this->read(config_filename) == false)
-        return false;
+        return false;    
     if (this->check() == false)
         return false;
     return true;
@@ -33,6 +34,7 @@ void config_reader::cleanup()
     for (auto &files : files_container )
         files.second.clear();
     param = nullptr;
+    param_hvec = nullptr;
 }
 
 bool config_reader::read(std::string config_filename_path)
@@ -61,7 +63,7 @@ bool config_reader::read(std::string config_filename_path)
             return false;
         BOOST_LOG_TRIVIAL(info) << "Back to reading config: " << config_filename_path;
     }
-
+    
     seq_name = ini["GENERAL"]["SEQ_NAME"].empty() ? seq_name : ini["GENERAL"]["SEQ_NAME"];
     
     // ============== reading section FILES ==============
@@ -76,21 +78,21 @@ bool config_reader::read(std::string config_filename_path)
             if (std::filesystem::path(path).is_relative()) 
                 path = std::filesystem::weakly_canonical(std::filesystem::absolute(config_filename_path).parent_path() / path).string();
     }
-    
+
     output_dir = ini["FILES"]["OUTPUT_DIR"].empty() ? output_dir : ini["FILES"]["OUTPUT_DIR"]; 
     if (std::filesystem::path(output_dir).is_relative())
         output_dir = std::filesystem::weakly_canonical(std::filesystem::absolute(config_filename).parent_path() / output_dir).string();
-
+    
     // ============== reading section SCAN_PARAMETERS ==============
     param->TR_us = ini["SCAN_PARAMETERS"]["TR"].empty() ? param->TR_us : std::stoi(ini["SCAN_PARAMETERS"]["TR"]);
     param->timestep_us = ini["SCAN_PARAMETERS"]["TIME_STEP"].empty() ? param->timestep_us : std::stoi(ini["SCAN_PARAMETERS"]["TIME_STEP"]);
-
+    
     // ---------------- Echo times ----------------      
     std::vector<int32_t> TE_us; 
     for(uint16_t i=0; ini["SCAN_PARAMETERS"]["TE[" + std::to_string(i) + "]"].empty() == false ; i++) 
         TE_us.push_back(std::stoi(ini["SCAN_PARAMETERS"]["TE[" + std::to_string(i) + "]"]) / param->timestep_us );    
     if(TE_us.size() > 0)
-        param->TE_us.data = TE_us;
+        param_hvec->TE_us = TE_us;
    
     // ---------------- RF pulses (start times, flip angles, phases ) ----------------
     // RF start times
@@ -98,21 +100,21 @@ bool config_reader::read(std::string config_filename_path)
     for(uint16_t i=0; ini["SCAN_PARAMETERS"]["RF_T[" + std::to_string(i) + "]"].empty() == false ; i++) 
         RF_us.push_back(std::stoi(ini["SCAN_PARAMETERS"]["RF_T[" + std::to_string(i) + "]"]) / param->timestep_us );       
     if (RF_us.size() > 0)
-        param->RF_us.data = RF_us;  
+        param_hvec->RF_us = RF_us;  
     
     // RF flip angles
     std::vector<float> RF_FA; 
     for(uint16_t i=0; ini["SCAN_PARAMETERS"]["RF_FA[" + std::to_string(i) + "]"].empty() == false ; i++) 
         RF_FA.push_back(std::stof(ini["SCAN_PARAMETERS"]["RF_FA[" + std::to_string(i) + "]"])); 
     if (RF_FA.size() > 0)
-        param->RF_FA_deg.data = RF_FA;
-
+        param_hvec->RF_FA_deg = RF_FA;
+    
     // RF phases
     std::vector<float> RF_PH; 
     for(uint16_t i=0; ini["SCAN_PARAMETERS"]["RF_PH[" + std::to_string(i) + "]"].empty() == false ; i++) 
         RF_PH.push_back(std::stof(ini["SCAN_PARAMETERS"]["RF_PH[" + std::to_string(i) + "]"])); 
     if (RF_PH.size() > 0)
-        param->RF_PH_deg.data = RF_PH;
+        param_hvec->RF_PH_deg = RF_PH;
 
     // ---------------- dephasing (start times, Flip angles ) ----------------
     // Dephase start times
@@ -120,14 +122,14 @@ bool config_reader::read(std::string config_filename_path)
     for(uint16_t i=0; ini["SCAN_PARAMETERS"]["DEPHASING_T[" + std::to_string(i) + "]"].empty() == false ; i++) 
         dephasing_us.push_back(std::stoi(ini["SCAN_PARAMETERS"]["DEPHASING_T[" + std::to_string(i) + "]"]) / param->timestep_us );       
     if (dephasing_us.size() > 0)
-        param->dephasing_us.data = dephasing_us; 
+        param_hvec->dephasing_us = dephasing_us; 
      
     // Dephase flip angles
     std::vector<float> dephasing_deg; 
     for(uint16_t i=0; ini["SCAN_PARAMETERS"]["DEPHASING[" + std::to_string(i) + "]"].empty() == false ; i++) 
         dephasing_deg.push_back(std::stof(ini["SCAN_PARAMETERS"]["DEPHASING[" + std::to_string(i) + "]"])); 
     if (dephasing_deg.size() > 0)
-        param->dephasing_deg.data = dephasing_deg;
+        param_hvec->dephasing_deg = dephasing_deg;
      
     // ---------------- Gradients (start times, strength (T/m) ) ----------------
     // Gradient start times
@@ -135,7 +137,7 @@ bool config_reader::read(std::string config_filename_path)
     for(uint16_t i=0; ini["SCAN_PARAMETERS"]["GRADIENT_T[" + std::to_string(i) + "]"].empty() == false ; i++) 
         gradient_us.push_back(std::stoi(ini["SCAN_PARAMETERS"]["GRADIENT_T[" + std::to_string(i) + "]"]) / param->timestep_us );       
     if (gradient_us.size() > 0)
-        param->gradient_us.data = gradient_us; 
+        param_hvec->gradient_us = gradient_us; 
      
     // Gradient strength
     std::vector<float> gradient_mTm; 
@@ -145,7 +147,7 @@ bool config_reader::read(std::string config_filename_path)
         gradient_mTm.insert(gradient_mTm.end(), values.begin(), values.end());
     }
     if (gradient_mTm.size() > 0)
-        param->gradient_mTm.data = gradient_mTm;
+        param_hvec->gradient_mTm = gradient_mTm;
      
     // ============== reading section SCAN_PARAMETERS ==============
     param->n_dummy_scan = ini["SCAN_PARAMETERS"]["DUMMY_SCAN"].empty() ? param->n_dummy_scan : std::stoi(ini["SCAN_PARAMETERS"]["DUMMY_SCAN"]);
@@ -174,21 +176,21 @@ bool config_reader::read(std::string config_filename_path)
     for(uint16_t i=0; ini["TISSUE_PARAMETERS"]["DIFFUSIVITY[" + std::to_string(i) + "]"].empty() == false ; i++) 
         diffusivity.push_back(std::stof(ini["TISSUE_PARAMETERS"]["DIFFUSIVITY[" + std::to_string(i) + "]"])); 
     if (diffusivity.size() > 0)
-        param->diffusivity.data = diffusivity;
-    param->n_substrate = param->diffusivity.data.size();
+        param_hvec->diffusivity = diffusivity;
+    param->n_substrate = param_hvec->diffusivity.size();
      
     // T1 & T2
     std::vector<float> T1_ms; 
     for(uint16_t i=0; ini["TISSUE_PARAMETERS"]["T1[" + std::to_string(i) + "]"].empty() == false ; i++) 
         T1_ms.push_back(std::stof(ini["TISSUE_PARAMETERS"]["T1[" + std::to_string(i) + "]"])); 
     if (T1_ms.size() > 0)
-        param->T1_ms.data = T1_ms;
+        param_hvec->T1_ms = T1_ms;
      
     std::vector<float> T2_ms; 
     for(uint16_t i=0; ini["TISSUE_PARAMETERS"]["T2[" + std::to_string(i) + "]"].empty() == false ; i++) 
         T2_ms.push_back(std::stof(ini["TISSUE_PARAMETERS"]["T2[" + std::to_string(i) + "]"])); 
     if (T2_ms.size() > 0)
-        param->T2_ms.data = T2_ms;
+        param_hvec->T2_ms = T2_ms;
      
     // Cross Tissue Probability
     std::vector<float> pXY; 
@@ -198,7 +200,7 @@ bool config_reader::read(std::string config_filename_path)
         pXY.insert(pXY.end(), values.begin(), values.end());
     }
     if (pXY.size() > 0)
-        param->pXY.data = pXY;
+        param_hvec->pXY = pXY;
          
     // ============== End ==============
     return true;
@@ -214,7 +216,7 @@ bool config_reader::check()
                 BOOST_LOG_TRIVIAL(error) << "File does not exist: " << path;
                 return false;
             }
-
+    
     // resize for consistency
     files_container.at("XYZ0").resize(files_container.at("PHANTOM").size(), "");
     files_container.at("M0").resize(files_container.at("PHANTOM").size(), "");
@@ -236,71 +238,71 @@ bool config_reader::check()
 
     // ============== check timings ==============
     // TE
-    if (std::is_sorted(param->TE_us.data.begin(), param->TE_us.data.end()) == false || 
-        std::adjacent_find(param->TE_us.data.begin(), param->TE_us.data.end()) != param->TE_us.data.end() || 
-        param->TE_us.data[0] < 0 || param->TE_us.data.size() == 0)
+    if (std::is_sorted(param_hvec->TE_us.begin(), param_hvec->TE_us.end()) == false || 
+        std::adjacent_find(param_hvec->TE_us.begin(), param_hvec->TE_us.end()) != param_hvec->TE_us.end() || 
+        param_hvec->TE_us[0] < 0 || param_hvec->TE_us.size() == 0)
     {
-        std::stringstream ss; std::copy(param->TE_us.data.begin(), param->TE_us.data.end(), std::ostream_iterator<int>(ss, " "));
+        std::stringstream ss; std::copy(param_hvec->TE_us.begin(), param_hvec->TE_us.end(), std::ostream_iterator<int>(ss, " "));
         BOOST_LOG_TRIVIAL(error) << "TE must exists and be in ascending order and must not have duplicates or negative values: " << ss.str();
         return false;
     }     
-
+    
     // RF
-    if (std::is_sorted(param->RF_us.data.begin(), param->RF_us.data.end()) == false || 
-        std::adjacent_find(param->RF_us.data.begin(), param->RF_us.data.end()) != param->RF_us.data.end() || 
-        param->RF_us.data[0] != 0 || param->RF_us.data.size() == 0)
+    if (std::is_sorted(param_hvec->RF_us.begin(), param_hvec->RF_us.end()) == false || 
+        std::adjacent_find(param_hvec->RF_us.begin(), param_hvec->RF_us.end()) != param_hvec->RF_us.end() || 
+        param_hvec->RF_us[0] != 0 || param_hvec->RF_us.size() == 0)
     {
-        std::stringstream ss; std::copy(param->RF_us.data.begin(), param->RF_us.data.end(), std::ostream_iterator<int>(ss, " "));
+        std::stringstream ss; std::copy(param_hvec->RF_us.begin(), param_hvec->RF_us.end(), std::ostream_iterator<int>(ss, " "));
         BOOST_LOG_TRIVIAL(error) << "RF times must be in ascending order, starts with 0 and must not have duplicates values: " << ss.str();
         return false;
     }  
 
     // dephasing   
-    if (std::is_sorted(param->dephasing_us.data.begin(), param->dephasing_us.data.end()) == false || 
-        std::adjacent_find(param->dephasing_us.data.begin(), param->dephasing_us.data.end()) != param->dephasing_us.data.end())
+    if (std::is_sorted(param_hvec->dephasing_us.begin(), param_hvec->dephasing_us.end()) == false || 
+        std::adjacent_find(param_hvec->dephasing_us.begin(), param_hvec->dephasing_us.end()) != param_hvec->dephasing_us.end())
     {
-        std::stringstream ss; std::copy(param->dephasing_us.data.begin(), param->dephasing_us.data.end(), std::ostream_iterator<int>(ss, " "));
+        std::stringstream ss; std::copy(param_hvec->dephasing_us.begin(), param_hvec->dephasing_us.end(), std::ostream_iterator<int>(ss, " "));
         BOOST_LOG_TRIVIAL(error) << "Dephasing Times must be in ascending order and must not have duplicates values: " << ss.str();
         return false;
     }   
 
     // gradients   
-    if (std::is_sorted(param->gradient_us.data.begin(), param->gradient_us.data.end()) == false || 
-        std::adjacent_find(param->gradient_us.data.begin(), param->gradient_us.data.end()) != param->gradient_us.data.end())
+    if (std::is_sorted(param_hvec->gradient_us.begin(), param_hvec->gradient_us.end()) == false || 
+        std::adjacent_find(param_hvec->gradient_us.begin(), param_hvec->gradient_us.end()) != param_hvec->gradient_us.end())
     {
-        std::stringstream ss; std::copy(param->gradient_us.data.begin(), param->gradient_us.data.end(), std::ostream_iterator<int>(ss, " "));
+        std::stringstream ss; std::copy(param_hvec->gradient_us.begin(), param_hvec->gradient_us.end(), std::ostream_iterator<int>(ss, " "));
         BOOST_LOG_TRIVIAL(error) << "Gradient times must be in a strickly ascending order and must not have duplicates values: " << ss.str();
         return false;
     }   
 
     // ============== check size ==============
-    if( param->RF_FA_deg.data.size() != param->RF_us.data.size() || param->RF_FA_deg.data.size() != param->RF_PH_deg.data.size()){
-        BOOST_LOG_TRIVIAL(error) << "RF_FA, RF_PH and RF_us must have the same number of elements " << param->RF_FA_deg.data.size() << " vs " << param->RF_PH_deg.data.size() << " vs " << param->RF_us.data.size();
+    if( param_hvec->RF_FA_deg.size() != param_hvec->RF_us.size() || param_hvec->RF_FA_deg.size() != param_hvec->RF_PH_deg.size()){
+        BOOST_LOG_TRIVIAL(error) << "RF_FA, RF_PH and RF_us must have the same number of elements " << param_hvec->RF_FA_deg.size() << " vs " << param_hvec->RF_PH_deg.size() << " vs " << param_hvec->RF_us.size();
         return false;
     }
 
-    if(param->dephasing_us.data.size() != param->dephasing_deg.data.size()){
-        BOOST_LOG_TRIVIAL(error) << "DEPHASING and DEPHASING_T must have the same number of elements " << param->dephasing_deg.data.size() << " vs " << param->dephasing_us.data.size();
+    if(param_hvec->dephasing_us.size() != param_hvec->dephasing_deg.size()){
+        BOOST_LOG_TRIVIAL(error) << "DEPHASING and DEPHASING_T must have the same number of elements " << param_hvec->dephasing_deg.size() << " vs " << param_hvec->dephasing_us.size();
         return false;
     }
 
-    if(param->gradient_mTm.data.size() / 3 != param->gradient_us.data.size()){
-        BOOST_LOG_TRIVIAL(error) << "GRADIENT_XYZ and GRADIENT_T must have the same number of elements " << param->gradient_mTm.data.size() << " vs " << param->gradient_us.data.size();
+    if(param_hvec->gradient_mTm.size() / 3 != param_hvec->gradient_us.size()){
+        BOOST_LOG_TRIVIAL(error) << "GRADIENT_XYZ and GRADIENT_T must have the same number of elements " << param_hvec->gradient_mTm.size() << " vs " << param_hvec->gradient_us.size();
         return false;
     }
 
-    if (param->T1_ms.data.size() != param->T2_ms.data.size()){
-        BOOST_LOG_TRIVIAL(error) << "T1 and T2 must have the same number of elements " << param->T1_ms.data.size() << " vs " << param->T2_ms.data.size();
+    if (param_hvec->T1_ms.size() != param_hvec->T2_ms.size()){
+        BOOST_LOG_TRIVIAL(error) << "T1 and T2 must have the same number of elements " << param_hvec->T1_ms.size() << " vs " << param_hvec->T2_ms.size();
         return false;
     }
 
-    if (param->T1_ms.data.size() != param->diffusivity.data.size()){
-        BOOST_LOG_TRIVIAL(error) << "T1 and diffusivity must have the same number of elements " << param->T1_ms.data.size() << " vs " << param->diffusivity.data.size();
+    if (param_hvec->T1_ms.size() != param_hvec->diffusivity.size()){
+        BOOST_LOG_TRIVIAL(error) << "T1 and diffusivity must have the same number of elements " << param_hvec->T1_ms.size() << " vs " << param_hvec->diffusivity.size();
         return false;
     }
 
-    if (param->T1_ms.data.size() * param->T1_ms.data.size() != param->pXY.data.size()){
-        BOOST_LOG_TRIVIAL(error) << "T1 and P_XY must have the same number of elements " << param->T1_ms.data.size() << " vs " << param->pXY.data.size();
+    if (param_hvec->T1_ms.size() * param_hvec->T1_ms.size() != param_hvec->pXY.size()){
+        BOOST_LOG_TRIVIAL(error) << "T1 and P_XY must have the same number of elements " << param_hvec->T1_ms.size() << " vs " << param_hvec->pXY.size();
         return false;
     }
 
@@ -313,7 +315,7 @@ bool config_reader::check()
         BOOST_LOG_TRIVIAL(error) << "WHAT_TO_SCALE must be 0 or 1, but is " << scale_type;
         return false;
     }
-
+    
     return true;
 }
 
