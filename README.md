@@ -48,8 +48,8 @@ docker run --gpus all --rm -it --runtime=nvidia spinwalk bash
 
 #### Dependencies
 
-- A C++ compiler supprting C++ 20
-- CUDA driver (*nvidia-smi* and *nvcc --version* must run in terminal)
+- A C++ compiler supprting C++20
+- CUDA toolkit newer than v12.0 that supports C++20 ([+](https://developer.nvidia.com/blog/cuda-toolkit-12-0-released-for-general-availability/)). Nvidia driver must support your CUDA release ([+](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html)). Check driver and cuda version with *nvidia-smi* and *nvcc --version* in terminal. 
 - Boost libraries ([+](https://www.boost.org/))
 - HDF5 Library ([+](https://www.hdfgroup.org/downloads/hdf5))
 - Threading Building Blocks (TBB). 

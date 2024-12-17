@@ -1,6 +1,7 @@
 
 
 #include <string>
+#include <cstdint>
 
 namespace phantom {
     struct execute_args {
@@ -13,7 +14,7 @@ namespace phantom {
         uint32_t resolution = 0;
         float dchi = 0.0f;
         float oxy_level = 0.0f;
-        int seed = 0;
+        int32_t seed = 0;
         std::string output = "default.h5"; // Default value for name
     };
 

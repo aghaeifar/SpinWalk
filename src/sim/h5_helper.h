@@ -13,11 +13,11 @@
 
 #include <sstream>
 #include <vector>
+#include <fstream>
 #include <highfive/highfive.hpp>
 #include <boost/log/trivial.hpp> 
 
 #include "simulation_parameters.cuh"
-#include "host_device_array.cuh"
 
 namespace sim
 {
@@ -40,7 +40,10 @@ namespace sim
         template <typename T>
         static bool write(std::string filename, std::string dataset_name, std::vector<size_t> dims, const std::vector<T> &data);
         static bool size(std::string filename, std::string dataset_name, std::vector<size_t> &dims);
+    protected:
+        static bool has_write_access(const std::string& path);
     };
+
 
     template <typename T>
     bool h5_helper::read(std::string filename, std::string dataset_name, bool resize_allowed, std::vector<T> &data)
@@ -93,6 +96,12 @@ namespace sim
                 return false;
             }
         }
+
+        if(has_write_access(filename) == false) {
+            BOOST_LOG_TRIVIAL(error) << "write permission error for the file " << filename;
+            return false;
+        }
+
         // if file exists, open it in read-write mode, otherwise (re-)create it
         auto file_mode = std::filesystem::exists(filename) ? HighFive::File::ReadWrite : HighFive::File::Truncate;
         HighFive::File file(filename, file_mode);
@@ -117,6 +126,19 @@ namespace sim
         HighFive::DataSet dataset = file.getDataSet(dataset_name);
         dims = dataset.getDimensions();
         return true;    
+    }
+
+    bool h5_helper::has_write_access(const std::string& path) {
+        try {
+            std::ofstream out(path, std::ios::app);
+            if (out) {
+                out.close();
+                return true;
+            }            
+        } catch (const std::exception& e) {
+            std::cerr << "Error: " << e.what() << '\n';
+        }
+        return false;
     }
 
 }

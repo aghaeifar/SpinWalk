@@ -25,10 +25,12 @@
 // custom headers
 #include "definitions.h"
 #include "sim/monte_carlo.cuh"
-#include "sim/device_helper.cuh"
 #include "phantom/handler.h"
 #include "dMRI/handler.h"
 #include "config/handler.h"
+#ifdef __CUDACC__
+#include "sim/device_helper.cuh"
+#endif
 
 namespace bl = boost::log;
 
