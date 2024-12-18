@@ -22,6 +22,7 @@ jobs:
       id: cuda-toolkit
       with:
         cuda: '12.6.1'
+        method: 'network'
         
     - name: Install dependencies
       run: sudo apt-get update && sudo apt-get install -yq libboost-all-dev libhdf5-dev libtbb-dev 
