@@ -238,6 +238,7 @@ bool cylinder::generate_mask_fieldmap()
                 phi_c = dot_product(perpendicular, B0_prj) / norm(perpendicular); // cos(phi)
                 phi_2c2_1 = 2 * phi_c * phi_c - 1;      // cos(2*phi)
                 // calculate the fieldmap from the vessel 
+                // reference: https://doi.org/10.1016/j.neuroimage.2017.09.015
                 if (distance2 > cyl_rad2)  // outside the cylinder              
                     m_fieldmap[p] += 2*M_PI * (1-m_Y)*m_dChi * (cyl_rad2 / distance2) * phi_2c2_1 * theta_s2;   
                 else // inside the cylinder                

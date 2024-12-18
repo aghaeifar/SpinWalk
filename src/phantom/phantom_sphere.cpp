@@ -159,7 +159,8 @@ bool sphere::generate_mask_fieldmap()
             if (distance2 <=sph_rad2)
                 m_mask[p] = 1;
             if (m_calc_fieldmap)
-            {   // calculate the fieldmap from the vessel 
+            {   // calculate the fieldmap from the sphere 
+                // reference: https://doi.org/10.1002/nbm.1079
                 dp = dot_product(p2p1, B0);   
                 phi_c2 = dp * dp / distance2; // cos^2(phi)            
                 m_fieldmap[p] += distance2>sph_rad2 ? 4*M_PI*(1-m_Y)*m_dChi * sph_rad2*sph_rad/distance2/sqrtf(distance2) * (phi_c2 - 1./3.) : 0.f;
