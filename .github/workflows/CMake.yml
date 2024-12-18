@@ -23,6 +23,7 @@ jobs:
       with:
         cuda: '12.6.1'
         method: 'network'
+        sub-packages: '["nvcc", "cudart", "thrust"]'
         
     - name: Install dependencies
       run: sudo apt-get update && sudo apt-get install -yq libboost-all-dev libhdf5-dev libtbb-dev 
