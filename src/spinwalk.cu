@@ -84,11 +84,11 @@ int main(int argc, char * argv[])
     subcommand_config->add_option("-t,--timestep", timestep_us, "timestep in \u00B5s")->mandatory(true)->check(CLI::PositiveNumber);; 
     subcommand_config->add_option("-o,--output",config_file, "Path to save the configuration file")->mandatory(true);
 
-    auto subcommand_diffgrad = app.add_subcommand("dMRI", "Generate diffusion gradient table");
-    subcommand_diffgrad->add_option("-b,--bvalue", bvalue, "b-value(s) as many as you want. e.g. -b 100 500 1000 5000 (s/mm\u00B2)")->mandatory(true);
-    subcommand_diffgrad->add_option("-v,--bvector", bvector, "Gradient direction: X Y Z, e.g. 0.267 0.534 0.801")->mandatory(true)->expected(3);
-    subcommand_diffgrad->add_option("-d,--delta", bdelta, "start time, \xCE\xB4 and \xCE\x94 in ms, e.g. 10 3 5 ")->mandatory(true)->expected(3);
-    subcommand_diffgrad->add_option("-c,--config", config_file, "input config file to insert PGSE gradients and excitation and refocusing RF")->mandatory(true)->check(CLI::ExistingFile);
+    auto subcommand_diffusion = app.add_subcommand("dwi", "Generate diffusion gradient table");
+    subcommand_diffusion->add_option("-b,--bvalue", bvalue, "b-value(s) as many as you want. e.g. -b 100 500 1000 5000 (s/mm\u00B2)")->mandatory(true);
+    subcommand_diffusion->add_option("-v,--bvector", bvector, "Gradient direction: X Y Z, e.g. 0.267 0.534 0.801")->mandatory(true)->expected(3);
+    subcommand_diffusion->add_option("-d,--delta", bdelta, "start time, \xCE\xB4 and \xCE\x94 in ms, e.g. 10 3 5 ")->mandatory(true)->expected(3);
+    subcommand_diffusion->add_option("-c,--config", config_file, "input config file to insert PGSE gradients and excitation and refocusing RF")->mandatory(true)->check(CLI::ExistingFile);
 
     CLI11_PARSE(app, argc, argv);
     if(app.count_all() == 1){
@@ -113,7 +113,7 @@ int main(int argc, char * argv[])
     std::cout << "Log file location: " << std::filesystem::current_path() / log_filename << '\n';
 
     // ========== generate diffusion gradients ==========
-    if (subcommand_diffgrad->parsed())
+    if (subcommand_diffusion->parsed())
         if (dMRI::handler::execute({.start_ms=bdelta[0], .delta_ms=bdelta[1], .DELTA_ms=bdelta[2], .dir=bvector, .b_value=bvalue, .output=config_file}) == false){
             std::cout << ERR_MSG << "Diffusion gradient generation failed. See the log file " << log_filename <<", Aborting...!" << "\n";
             return 1;

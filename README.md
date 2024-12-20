@@ -60,16 +60,16 @@ We recommend using the provided Dockerfile, which automates the installation of 
 
 ```shell
 git clone https://github.com/aghaeifar/SpinWalk
-cd containers
+cd SpinWalk/containers
 docker build --no-cache -t spinwalk ..
 docker run --gpus all --rm -it --runtime=nvidia spinwalk bash
 ```
 #### CMake
 
-**Dependencies**
+**Dependencies:**
 
 - A C++ compiler that supports C++20
-- CUDA toolkit version 12.0 or later that supports C++20 ([+](https://developer.nvidia.com/blog/cuda-toolkit-12-0-released-for-general-availability/)). Your Nvidia driver must support the corresponding CUDA version ([+](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html)). Check your driver and CUDA versions with *nvidia-smi* and *nvcc --version* in the terminal.
+- CUDA toolkit version 12.0 or later that supports C++20 ([+](https://developer.nvidia.com/blog/cuda-toolkit-12-0-released-for-general-availability/)). Your Nvidia driver must support the corresponding CUDA version ([+](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html#id5)). Check your driver and CUDA versions with *nvidia-smi* and *nvcc --version* in the terminal.
 - Boost libraries ([+](https://www.boost.org/))
 - HDF5 library ([+](https://www.hdfgroup.org/downloads/hdf5))
 - Threading Building Blocks (TBB)
@@ -82,6 +82,7 @@ git clone https://github.com/aghaeifar/SpinWalk.git
 cd SpinWalk
 cmake -B ./build
 cmake --build ./build --config Release
+sudo cmake --install ./build
 ```
 ---
 
@@ -102,7 +103,14 @@ spinwalk sim -c config1.ini config2.ini ...
 ---
 ### Configuration files
 
-Configruation file is a text based [ini file](https://en.wikipedia.org/wiki/INI_file) used to provide simulation parameters for simulator. Simulator can accept more than one configuration to simulation several configurations. A configuration file can inherit from another configuration file to avoid writing repetitive simulation parmeters. All the possible parameters are provided in [config_default.ini](./config/config_default.ini) with definition and expected unit.
+The configuration file is a text-based [INI file](https://en.wikipedia.org/wiki/INI_file) used to specify simulation parameters for SpinWalk. SpinWalk can process multiple configuration files to simulate various setups. A configuration file can inherit parameters from another configuration file to avoid duplicating repetitive simulation settings.  
+
+All possible parameters are documented in [config_default.ini](./config/config_default.ini), along with their definitions and expected units.  
+
+- The `config` subcommand can be used to generate configuration files for some popular sequences. These auto-generated files may require further modifications to suit specific purposes. 
+- The `dwi` subcommand allows adding diffusion gradients to an existing configuration file.  
+
+For a demonstration, refer to the [free diffusion](./demo/spinwalk_dwi.ipynb) example.  
 
 ---
 ### Input/Output file format
