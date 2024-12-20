@@ -42,7 +42,7 @@ SpinWalk is a Monte Carlo diffusion simulator. Spinwalk simulates spins (particl
 ---
 ### Demo
 
-Jupyter notebooks that demonstrate the basic functionality of the SpinWalk for [BOLD fMRI contrast](./demo/spinwalk_example.ipynb) and [free diffusion](./demo/spinwalk_dwi.ipynb) simulation can be found in [**demo**]([/demo](./demo)) folder
+Jupyter notebooks that demonstrate the basic functionality of the SpinWalk for [BOLD fMRI contrast](./demo/spinwalk_example.ipynb) and [free diffusion](./demo/spinwalk_dwi.ipynb) simulation can be found in [demo](./demo) folder
 
 Here are example plots obtained from SpinWalk where show BOLD sensitivity as a function of vessel size for Gradient Echo (GRE) and Spin Echo (SE) seqeuences. Some [literature](#Literature) are provided as reference to get a better feeling of what are intended to get from this kind of simulations.
 
