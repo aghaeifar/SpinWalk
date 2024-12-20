@@ -108,9 +108,7 @@ The configuration file is a text-based [INI file](https://en.wikipedia.org/wiki/
 All possible parameters are documented in [config_default.ini](./config/config_default.ini), along with their definitions and expected units.  
 
 - The `config` subcommand can be used to generate configuration files for some popular sequences. These auto-generated files may require further modifications to suit specific purposes. 
-- The `dwi` subcommand allows adding diffusion gradients to an existing configuration file.  
-
-For a demonstration, refer to the [free diffusion](./demo/spinwalk_dwi.ipynb) example.  
+- The `dwi` subcommand allows adding diffusion gradients to an existing configuration file. For a demonstration, refer to the [free diffusion](./demo/spinwalk_dwi.ipynb) example.  
 
 ---
 ### Input/Output file format
