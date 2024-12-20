@@ -166,7 +166,7 @@ h5write(filename, '/fov', fov);
 
 Multiple phantom files can be defined in the configuration file. Spinwalk will simulate them sequentially.
 
-SpinWalk can also generate a digital phantom populated with cylinders or spheres. Details about the parameters are available in the help menu (execute *spinwalk -h*).
+SpinWalk `phantom` subcommand can also generate a digital phantom populated with cylinders or spheres. Details about the parameters are available in the help menu (execute *spinwalk phantom -h*).
 
 #### M0 and XYZ0 [optional]
 
@@ -191,7 +191,7 @@ The simulator generates a single output for each phantom. The output contains:
 - `M` : 4D single-precision floating-point array indicating the magnetization of spins at echo time(s). The dimentions are [scales, spins, echos, xyz (3)]
 - `T` : 4D 8-bit unsigned integer array indicating the tissue or object type where spins are located at the time of the echo. The dimentions are [scales, spins, echos, 1]
 - `XYZ` : 4D single-precision floating-point array indicating thethe spatial positions for either the entire random walk or just the final position. The dimentions are [scales, spins, steps, xyz (3)]
-- `scales` : 1D double-precision floating-point array indicating scales used to scale the length/FoV of sample.
+- `scales` : 1D double-precision floating-point array indicating scales used to scale the length/FoV of sample or gradients.
   
 The folder to save outputs can be specified in the configuration file. the filename pattern is *{seqname}_{phantom_file_name}.h5*, where *seqname* and *phantom_file_name* are both defined by user in the configuration file.
 
@@ -205,6 +205,9 @@ scales = h5read(filename, '/scales');
 T = h5read(filename, '/T');  
 T = permute(T, 4:-1:1);
 ```
+
+Look at the provided demos for Python scripts.
+
 ## Literature
 
 There are many nice papers published about simulation of BOLD signal in vessels network. A few are listed here for reference:
