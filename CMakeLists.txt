@@ -41,13 +41,13 @@ endif()
 # Add Boost and CUDA include directories
 include_directories(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ./include ./src ./src/shapes)
 # Add subfolders
-add_subdirectory(./src/dMRI)
+add_subdirectory(./src/dwi)
 add_subdirectory(./src/phantom)
 add_subdirectory(./src/config)
 add_subdirectory(./src/sim)
 
 # Add the executable
-set(SOURCES ./src/spinwalk.cu ${SUBCOMMAND_PHANTOM} ${SUBCOMMAND_SIM} ${SUBCOMMAND_GRADIENT} ${SUBCOMMAND_CONFIG})
+set(SOURCES ./src/spinwalk.cu ${SUBCOMMAND_PHANTOM} ${SUBCOMMAND_SIM} ${SUBCOMMAND_DWI} ${SUBCOMMAND_CONFIG})
 
 if(CMAKE_CUDA_COMPILER)
     add_executable(${project} ${SOURCES})
