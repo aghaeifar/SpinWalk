@@ -21,32 +21,49 @@
 
 </div>
 
+
+SpinWalk is a Monte Carlo diffusion simulator. Spinwalk simulates spins (particles) random walk under a specific MR sequence within a digital phantom mimicing e.g., microvascular network, cells, axons, etc. 
+
 ---
+### Key features
+- runs in GPU (massively parallel) or CPU
+- off-resonance: local field inhomogeneity because of susceptibility variation is accepted
+- T1 and T2 relxation times: Each substrate can have own relaxation defined
+- permeability: permeability between individual substrate can be defined with a probablity value
+- RF pulses: optinonal number of RF (with magnitude and phase)
+- Gradients: Gradient waveform in mT/m for each axis (X, Y, Z) can be defined
+- Recording trajectory of random walks in 3D
+- simulating steady state condition with given phase cycling and dummy scans
+- Boundry condition for crossing FoV
+- predefined or random spins placement 
+- predefined or equlibrium for initial spins magnetization
+- FoV can be internally scaled, allows simulating range of vessel size for BOLD fMRI contrast
 
-This program is designed to simulate the behavior of spins under a specific MR sequence within a microvascular network or digitally generated phantom. Breifly, the susceptibility variation between blood and tissue leads to local field inhomogeneity which accordingly can be used to generate an MR contrast. The program tries to perform a Monte-Carlo simulation over range of spins which are randomly or regularly distributed and diffuse in presence of user defined magnetic field. SpinWalk is a versatile Monte Carlo simulator. While its primary goal is to simulate BOLD fMRI, it can also be utilized for a wide range of diffusion applications.
+---
+### Demo
 
-Here are example plots obtained from SpinWalk where show BOLD sensitivity as a function of vessel size for Gradient Echo (GRE) and Spin Echo (SE) seqeuences.
+Jupyter notebooks that demonstrate the basic functionality of the SpinWalk for [BOLD fMRI contrast](./demo/spinwalk_example.ipynb) and [free diffusion](./demo/spinwalk_dwi.ipynb) simulation can be found in [**demo**]([/demo](./demo)) folder
+
+Here are example plots obtained from SpinWalk where show BOLD sensitivity as a function of vessel size for Gradient Echo (GRE) and Spin Echo (SE) seqeuences. Some [literature](#Literature) are provided as reference to get a better feeling of what are intended to get from this kind of simulations.
 
 ![](./docs/img/gre_se.jpg)
 
-Some [literature](#Literature) are provided as reference to get a better feeling of what are intended to get from this kind of simulations.
-
-Simulator is written in C++ and utilizes CUDA to run in GPU. Therefore, it is possible to run a simulation within a short period of time provided that a good GPU presents. Simulator can detect all GPU cards, if there is more than one, and can distribute the task to run in parallel in multiple GPUs. This is helpful if you wan to run the simulator in HPC cluster with mutliple GPUs available in a node.
-
-
-## How to build
+---
+### How to build
 You can either use the supplied Dockerfile for a consistent build that includes all dependencies, or install the dependencies separately and compile using CMake.
 
-### Docker 
-We suggest utilizing the provided Dockerfile, which automates the installation of all dependencies, as well as the cloning and building of the program. Download the [Dockerfile](./Dockerfile) to your current directory and then execute the following commands:
+#### Docker 
+We suggest utilizing the provided Dockerfile, which automates the installation of all dependencies, as well as the cloning and building of the program. Clone SpinWalk and build using the provided [Dockerfile](./containers/Dockerfile) with:
 
-```
-docker build --no-cache -t spinwalk .
+```shell
+git clone https://github.com/aghaeifar/SpinWalk
+cd containers
+docker build --no-cache -t spinwalk ..
 docker run --gpus all --rm -it --runtime=nvidia spinwalk bash
 ```
-### CMake
+#### CMake
 
-#### Dependencies
+**Dependencies**
 
 - A C++ compiler supprting C++20
 - CUDA toolkit newer than v12.0 that supports C++20 ([+](https://developer.nvidia.com/blog/cuda-toolkit-12-0-released-for-general-availability/)). Nvidia driver must support your CUDA release ([+](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html)). Check driver and cuda version with *nvidia-smi* and *nvcc --version* in terminal. 
@@ -56,35 +73,36 @@ docker run --gpus all --rm -it --runtime=nvidia spinwalk bash
   
 If you prefer to install the program without using Docker, follow these steps (tested in Ubuntu 22.04):
 
-```
+```shell
 sudo apt-get update && apt-get install -y libboost-all-dev libhdf5-dev libtbb-dev
 git clone https://github.com/aghaeifar/SpinWalk.git
 cd SpinWalk
 cmake -B ./build
 cmake --build ./build --config Release
 ```
+---
 
-## Quick test after build
-After building the program, simply launch `spinwalk` in the terminal to view the help menu with all available options. If a GPU is avaialbe and CUDA is installed, launch `spinwalk -g` to display GPU and driver version.
+### How to simulate
 
-## How to simulate
+After building the program, simply launch `spinwalk` in the terminal to view the help menu with all available options. If a GPU is avaialbe and CUDA is installed, launch `spinwalk -g` to display GPU and driver version. SpinWalk has four subcommands. Subcommand `sim` is used for random walk simulations. The settings for simulation is provided through a configuration file. An example could be as:
 
-```
+```shell
 spinwalk sim -c my_config.ini 
 ```
 
 Several configuration files can be simulated sequentially:
 
-```
+```shell
 spinwalk sim -c config1.ini config2.ini ...
 ```
 
-
-## Configuration files
+---
+### Configuration files
 
 Configruation file is a text based [ini file](https://en.wikipedia.org/wiki/INI_file) used to provide simulation parameters for simulator. Simulator can accept more than one configuration to simulation several configurations. A configuration file can inherit from another configuration file to avoid writing repetitive simulation parmeters. All the possible parameters are provided in [config_default.ini](./config/config_default.ini) with definition and expected unit.
 
-## Input/Output file format
+---
+### Input/Output file format
 Spinwalk processes three distinct input files and produces a single output file. All files are stored on disk in _Hierarchical Data Format version 5_ ([HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format)) format. Reading and writing HDF5 file is natively supported by [MATLAB](https://www.mathworks.com/help/matlab/hdf5-files.html). Pythonic interface to work with HDF5 files is also avaialbe through [H5py](https://pypi.org/project/h5py/) package. Input files can be specified within the [FILES] section of the configuration file, while output filename is automatically generated and is stored in the output folder defined under the same [FILES] section in the configuration file.
 
 ### Inputs

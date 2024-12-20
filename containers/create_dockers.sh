@@ -1,3 +1,5 @@
+#!/bin/bash
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 pushd "$SCRIPT_DIR" > /dev/null
 
@@ -13,7 +15,7 @@ for VERSION in "${CUDA_VERSIONS[@]}"; do
         echo "Image $IMAGE_NAME already exists. Deleting it..."
         docker rmi -f "$IMAGE_NAME"
     fi
-    docker build  --no-cache -f ../Dockerfile -t "$IMAGE_NAME" --build-arg CUDA_VERSION=$VERSION ..
+    docker build  --no-cache -f ./Dockerfile -t "$IMAGE_NAME" --build-arg CUDA_VERSION=$VERSION ..
 done
 
 
@@ -23,4 +25,4 @@ if docker image inspect "$IMAGE_NAME" > /dev/null 2>&1; then
     echo "Image $IMAGE_NAME already exists. Deleting it..."
     docker rmi -f "$IMAGE_NAME"
 fi
-docker build --no-cache -f ../Dockerfile_CPU -t "$IMAGE_NAME" ..
+docker build --no-cache -f ./Dockerfile_CPU -t "$IMAGE_NAME" ..

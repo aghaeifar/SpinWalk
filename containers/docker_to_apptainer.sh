@@ -1,5 +1,8 @@
 #!/bin/bash
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+pushd "$SCRIPT_DIR" > /dev/null
+
 # Exit immediately if a command exits with a non-zero status
 set -e
 # Get a list of Docker images starting with "spinwalk"
