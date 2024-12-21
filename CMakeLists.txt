@@ -51,12 +51,12 @@ add_subdirectory(./src/sim)
 
  # Add the sources files
 set(SOURCE_MODULES ${SUBCOMMAND_PHANTOM} ${SUBCOMMAND_SIM} ${SUBCOMMAND_DWI} ${SUBCOMMAND_CONFIG})
-set(SOURCE_MAIN ./src/spinwalk.cpp)
+set(SOURCE_MAIN ./src/spinwalk.cu)
 
 # change extension of the files if CUDA is not found
 if(NOT  CMAKE_CUDA_COMPILER) 
     set(RENAMED_SOURCES)
-    foreach(OLD_FILE ${SOURCES})
+    foreach(OLD_FILE ${SOURCE_MODULES})
         # Get the file name without extension
         get_filename_component(DIR ${OLD_FILE} DIRECTORY)
         get_filename_component(FILE_NAME_WE ${OLD_FILE} NAME_WE)
@@ -67,32 +67,37 @@ if(NOT  CMAKE_CUDA_COMPILER)
         list(APPEND RENAMED_SOURCES ${NEW_FILE})
     endforeach()
     set(SOURCE_MODULES ${RENAMED_SOURCES})
+
+    file(COPY_FILE ./src/spinwalk.cu ./src/spinwalk.cpp)
+    set(SOURCE_MAIN ./src/spinwalk.cpp)
 endif()
 
 # Add the executable
-add_library (${project_lib} ${SOURCE_MODULES})
-add_executable(${project} ${SOURCE_MAIN} ${SOURCE_MODULES})
+add_library(${project_lib} ${SOURCE_MODULES})
+add_executable(${project} ${SOURCE_MAIN})
 
 # Add the libraries
 if(CMAKE_CUDA_COMPILER)
-    target_link_libraries(${project} PRIVATE ${CUDA_LIBRARIES})
+    target_link_libraries(${project_lib} ${CUDA_LIBRARIES})
 endif()
 if(OpenMP_CXX_FOUND)
     message(STATUS "Found OpenMP, adding to target link libraries.")
-    target_link_libraries(${project} PRIVATE OpenMP::OpenMP_CXX)
+    target_link_libraries(${project_lib} OpenMP::OpenMP_CXX)
 else()
     message(STATUS "OpenMP not found, skipping.")
 endif()
-target_link_libraries(${project} PRIVATE ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES} TBB::tbb)
+target_link_libraries(${project_lib} ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES} TBB::tbb)
+target_link_libraries(${project} PRIVATE ${project_lib})
 
 # Set the output name
-set_target_properties(${project_lib} PROPERTIES OUTPUT_NAME "spinwalk")
 set_target_properties(${project} PROPERTIES OUTPUT_NAME "spinwalk")
+set_target_properties(${project_lib} PROPERTIES OUTPUT_NAME "spinwalk")
+
 
 # Install the executable
 if (UNIX)
-    install(TARGETS ${project_lib} DESTINATION lib) 
     install(TARGETS ${project} DESTINATION bin) 
+    install(TARGETS ${project_lib} DESTINATION lib) 
 endif()
 
 # cmake ..

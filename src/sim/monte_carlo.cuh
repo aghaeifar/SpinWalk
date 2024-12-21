@@ -52,7 +52,6 @@ class monte_carlo {
         thrust::device_vector<uint8_t>    d_mask;
 #endif
 
-
 };
 
 

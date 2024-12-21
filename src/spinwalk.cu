@@ -132,6 +132,7 @@ int main(int argc, char * argv[])
         return 0;
 
     std::cout << "Running simulation for " << config_files.size() << " config(s)..." << "\n\n";
+    
     sim::monte_carlo mc(use_cpu, device_id); 
     for(const auto& config_file : config_files){
         std::cout << "<" << std::filesystem::path(config_file).filename().string() << ">\n";       
@@ -139,6 +140,7 @@ int main(int argc, char * argv[])
             std::cout << ERR_MSG << "Simulation failed. See the log file " << log_filename <<", Aborting...!" << "\n";
             return 1;
         }     
-    }
+    }    
+    std::cout << "Simulation completed successfully. See the log file " << log_filename << "\n";
     return 0;
 }
