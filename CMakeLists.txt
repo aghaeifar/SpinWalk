@@ -3,6 +3,7 @@ message(STATUS "CMake version: ${CMAKE_VERSION}")
 include(CheckLanguage)
 
 set(project "SpinWalk")
+set(project_lib "SpinWalkLib")
 project(${project})
 
 # Find HDF5
@@ -41,7 +42,7 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
 endif()
 
 # Add Boost and CUDA include directories
-include_directories(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ./include ./src ./src/shapes)
+include_directories(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ./include ./src)
 # Add subfolders
 add_subdirectory(./src/dwi)
 add_subdirectory(./src/phantom)
@@ -49,7 +50,10 @@ add_subdirectory(./src/config)
 add_subdirectory(./src/sim)
 
  # Add the sources files
-set(SOURCES ./src/spinwalk.cu ${SUBCOMMAND_PHANTOM} ${SUBCOMMAND_SIM} ${SUBCOMMAND_DWI} ${SUBCOMMAND_CONFIG})
+set(SOURCE_MODULES ${SUBCOMMAND_PHANTOM} ${SUBCOMMAND_SIM} ${SUBCOMMAND_DWI} ${SUBCOMMAND_CONFIG})
+set(SOURCE_MAIN ./src/spinwalk.cpp)
+
+# change extension of the files if CUDA is not found
 if(NOT  CMAKE_CUDA_COMPILER) 
     set(RENAMED_SOURCES)
     foreach(OLD_FILE ${SOURCES})
@@ -62,11 +66,12 @@ if(NOT  CMAKE_CUDA_COMPILER)
         file(COPY_FILE ${OLD_FILE} ${NEW_FILE})
         list(APPEND RENAMED_SOURCES ${NEW_FILE})
     endforeach()
-    set(SOURCES ${RENAMED_SOURCES})
+    set(SOURCE_MODULES ${RENAMED_SOURCES})
 endif()
 
 # Add the executable
-add_executable(${project} ${SOURCES})
+add_library (${project_lib} ${SOURCE_MODULES})
+add_executable(${project} ${SOURCE_MAIN} ${SOURCE_MODULES})
 
 # Add the libraries
 if(CMAKE_CUDA_COMPILER)
@@ -81,10 +86,12 @@ endif()
 target_link_libraries(${project} PRIVATE ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES} TBB::tbb)
 
 # Set the output name
+set_target_properties(${project_lib} PROPERTIES OUTPUT_NAME "spinwalk")
 set_target_properties(${project} PROPERTIES OUTPUT_NAME "spinwalk")
 
 # Install the executable
 if (UNIX)
+    install(TARGETS ${project_lib} DESTINATION lib) 
     install(TARGETS ${project} DESTINATION bin) 
 endif()
 

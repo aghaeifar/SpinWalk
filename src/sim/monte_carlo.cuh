@@ -13,13 +13,10 @@ namespace sim {
 
 class monte_carlo {
     public:
-        monte_carlo();
+        monte_carlo(bool gpu_disabled=false, int32_t device_id=0);
         virtual ~monte_carlo();
         virtual bool run(std::string config_filename);
         virtual void save(std::string filename);
-#ifdef __CUDACC__
-        void set_gpu_disabled(bool disabled){gpu_disabled = disabled;}
-#endif    
 
     protected:
         virtual void allocate_memory();
@@ -42,6 +39,7 @@ class monte_carlo {
         parameters              param;
         parameters_hvec         param_hvec;
         parameters_uvec         param_uvec;
+        bool gpu_disabled;
         
 #ifdef __CUDACC__
         parameters_dvec         param_dvec;
@@ -52,9 +50,8 @@ class monte_carlo {
         thrust::device_vector<float>      d_M1;        // memory layout(row-major): [n_fov_scale x n_spins x n_TE x 3]
         thrust::device_vector<uint8_t>    d_T;         // memory layout(row-major): [n_fov_scale x n_spins x n_TE x 1]
         thrust::device_vector<uint8_t>    d_mask;
-        bool gpu_disabled;
-        int32_t device_count;
 #endif
+
 
 };
 

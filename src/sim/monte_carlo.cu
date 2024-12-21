@@ -19,6 +19,7 @@
 #ifdef __CUDACC__
 #include "device_helper.cuh"
 #include <cuda_runtime.h>
+#include "helper_cuda.h"
 #endif
 
 
@@ -29,15 +30,28 @@ namespace bl = boost::log;
 namespace sim
 {
 
-monte_carlo::monte_carlo() 
+monte_carlo::monte_carlo(bool gpu_disabled, int32_t device_id)
 {
-    // param  = new simulation_parameters();
-    // config = new config_reader();
+    this->gpu_disabled = true;
 #ifdef __CUDACC__
-    gpu_disabled  = false;
-    checkCudaErrors(cudaGetDeviceCount(&device_count));
-    BOOST_LOG_TRIVIAL(info) << "Number of available GPU(s): " << device_count; 
-#endif    
+    this->gpu_disabled  = gpu_disabled;
+    if(gpu_disabled == false){
+        if(sim::check_CUDA() == false){
+            std::cout << WARN_MSG << "No GPU Device found! switching to CPU mode." << std::endl;
+            this->gpu_disabled = gpu_disabled = true;
+        }
+    }
+    if(gpu_disabled == false){
+        uint32_t device_count = sim::get_device_count();
+        if (device_id >= device_count){
+            std::cout << ERR_MSG << "Device ID " << device_id << " is not available! Number of available GPU(s) is " << device_count << " ,switching to CPU mode!" << std::endl;
+            this->gpu_disabled = gpu_disabled = true;
+        } else {
+            BOOST_LOG_TRIVIAL(info) << "Number of available GPU(s): " << device_count; 
+            cudaSetDevice(device_id);
+        }
+    }
+#endif  
 }
 
 monte_carlo::~monte_carlo()
