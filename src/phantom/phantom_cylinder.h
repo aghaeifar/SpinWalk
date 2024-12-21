@@ -19,7 +19,7 @@ class cylinder : public phantom_base
 {
     public:
     cylinder();
-    cylinder(float fov_um, size_t resolution, float dChi, float Y, float radius_um = 50, float BVF = 10., float orientation = -1.0f, int32_t seed=-1, std::string filename = "shape.h5");
+    cylinder(float fov_um, size_t resolution, float dChi, float Y, float radius_um = 50, float volume_fraction = 10., float orientation = -1.0f, int32_t seed=-1, std::string filename = "shape.h5");
     ~cylinder();
 
     virtual bool run() override;

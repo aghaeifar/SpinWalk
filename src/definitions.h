@@ -2,8 +2,8 @@
 #define DEFINITIONS_H
 
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 17
-#define VERSION_PATCH 2
+#define VERSION_MINOR 18
+#define VERSION_PATCH 0
 
 // Helper macros to stringify values
 #define STRINGIFY_HELPER(x) #x

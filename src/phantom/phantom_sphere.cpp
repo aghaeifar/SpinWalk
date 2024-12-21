@@ -19,13 +19,49 @@
 // -------------------------------------------------------------------------- //
 namespace phantom
 {
+
+bool check_sphere_overlap(const std::vector<std::vector<float>>& m_sphere_points, const std::vector<float>& m_sphere_radii, const float* sph_pnt, float& radius, bool is_random_radius) {
+    int c = 0;
+    bool stop = false;
+
+    #pragma omp parallel for shared(stop, radius)
+    for (c = 0; c < m_sphere_radii.size(); c++) {
+        if (stop) continue; // Skip computation if condition already met.
+
+        float p2p1[3];
+        subtract(sph_pnt, m_sphere_points[c].data(), p2p1);
+        float distance = norm(p2p1);
+        // Check the conditions
+        if (distance <= m_sphere_radii[c] || distance <= radius) {
+            #pragma omp critical
+            {
+                stop = true; // Signal all threads to stop further checks.
+            }
+        } else if (distance < m_sphere_radii[c] + radius) {
+            if (!is_random_radius) {
+                #pragma omp critical
+                {
+                    stop = true; // Signal all threads to stop further checks.
+                }
+            } else {
+                #pragma omp critical
+                {
+                    if (!stop) 
+                        radius = distance - m_sphere_radii[c]; // Adjust radius.
+                }
+            }
+        }
+    }
+    return stop; // Return whether an overlap condition was found.
+}
+
 sphere::sphere()
 {
     m_radius = 0;
 }
 
-sphere::sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um, float BVF, int32_t seed, std::string filename)
-: phantom_base(fov_um, resolution, dChi, Y, BVF, seed, filename)
+sphere::sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um, float volume_fraction, int32_t seed, std::string filename)
+: phantom_base(fov_um, resolution, dChi, Y, volume_fraction, seed, filename)
 {
     set_sphere_parameters(radius_um);
 }
@@ -39,6 +75,7 @@ void sphere::set_sphere_parameters(float radius)
     m_radius = radius;
 }
 
+
 bool sphere::generate_shapes()
 {
      if(2*m_radius>=m_fov)
@@ -46,15 +83,14 @@ bool sphere::generate_shapes()
         BOOST_LOG_TRIVIAL(error) << "Error: The radius of the cylinder is too large for the given FOV!\n";
         return false;
     }
-    BOOST_LOG_TRIVIAL(info) << "Generating coordinates...for target BVF = " << m_BVF << "% ...\n";    
+    BOOST_LOG_TRIVIAL(info) << "Generating coordinates...for target BVF = " << m_volume_fraction << "% ...\n";    
     bool is_random_radius = m_radius < 0;
     float max_radius    = m_radius>0 ? m_radius:-m_radius;
     m_sphere_points.clear();
     m_sphere_radii.clear();
     float sph_pnt[3], radius ;
 
-    // srandom engine
-    std::mt19937 gen(m_seed); // Mersenne Twister generator
+    std::minstd_rand gen(m_seed);
     std::uniform_real_distribution<float> dist(0.f, 1.f); 
       
     float distance, vol_sph = 0, vol_tol = m_fov*m_fov*m_fov;
@@ -67,28 +103,13 @@ bool sphere::generate_shapes()
         for (size_t i = 0; i < 3; i++) // generate a random point for a sphere which fit in the FOV
             sph_pnt[i] = dist(gen) * m_fov;        
         // check if sphere coordinate is ok
-        size_t c;
-        for (c=0; c<m_sphere_radii.size(); c++) {   
-            float p2p1[3];
-            subtract(sph_pnt, &m_sphere_points[3*c], p2p1);
-            distance = norm(p2p1);
-            // if the sphere is inside another sphere, generate a new sphere
-            if(distance <= m_sphere_radii[c] ||  distance <= radius)
-                break;
-            // adjust the radius of the sphere to avoid overlap
-            if (distance < m_sphere_radii[c] + radius) {
-                if (!is_random_radius)
-                    break;            
-                radius = distance - m_sphere_radii[c];
-            }
-        }
-        if (c < m_sphere_radii.size())
-            continue;
+        if (check_sphere_overlap(m_sphere_points, m_sphere_radii, sph_pnt, radius, is_random_radius)) 
+            continue;   
 
         vol_sph += 4*M_PI/3 * radius*radius*radius;
-        m_sphere_points.insert(m_sphere_points.end(), sph_pnt, sph_pnt+3);
+        m_sphere_points.push_back({sph_pnt[0], sph_pnt[1], sph_pnt[2]});
         m_sphere_radii.push_back(radius);  
-        progress = 0.95 * 100*(100.*vol_sph/vol_tol/m_BVF); // 0.95 is a factor to compensate for spheres in the boundary   
+        progress = 0.95 * 100*(100.*vol_sph/vol_tol/m_volume_fraction); // 0.95 is a factor to compensate for spheres in the boundary   
     }
     bar->done();
 
@@ -117,7 +138,7 @@ bool sphere::generate_mask_fieldmap()
     auto start = std::chrono::high_resolution_clock::now();
     for (c = 0; c < m_sphere_radii.size(); c++)
     {
-        float *sph_center = &m_sphere_points[3*c];
+        float *sph_center = m_sphere_points[c].data();
         float sph_rad   = m_sphere_radii[c];
         float sph_rad2  = sph_rad*sph_rad;
         sph_rad_vox = std::ceil(sph_rad / v_size)+1;
@@ -169,8 +190,8 @@ bool sphere::generate_mask_fieldmap()
     } 
     bar->done();
 
-    m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
-    BOOST_LOG_TRIVIAL(info) << "Actual Volume Fraction = " << m_BVF << "% ...\n";   
+    m_volume_fraction = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
+    BOOST_LOG_TRIVIAL(info) << "Actual Volume Fraction = " << m_volume_fraction << "% ...\n";   
     auto end = std::chrono::high_resolution_clock::now();
     BOOST_LOG_TRIVIAL(info) << "Spheres generated successfully! " << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
     return true;
@@ -181,7 +202,7 @@ std::ostream& operator<<(std::ostream& os, const sphere& obj)
 {
     os << static_cast<const phantom_base&>(obj) 
        << "  Radius: " << obj.m_radius << " \xC2\xB5m\n"
-       << "  Volume Fraction: " << obj.m_BVF << "\n";
+       << "  Volume Fraction: " << obj.m_volume_fraction << "\n";
     return os;
 }
 

@@ -28,6 +28,8 @@ else()
     message("CUDA not found. Compiling without GPU support.")
 endif()
 
+find_package(OpenMP)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_compile_definitions(MINI_CASE_SENSITIVE)
@@ -46,13 +48,9 @@ add_subdirectory(./src/phantom)
 add_subdirectory(./src/config)
 add_subdirectory(./src/sim)
 
-# Add the executable
+ # Add the sources files
 set(SOURCES ./src/spinwalk.cu ${SUBCOMMAND_PHANTOM} ${SUBCOMMAND_SIM} ${SUBCOMMAND_DWI} ${SUBCOMMAND_CONFIG})
-
-if(CMAKE_CUDA_COMPILER)
-    add_executable(${project} ${SOURCES})
-    target_link_libraries(${project} ${CUDA_LIBRARIES} ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES} TBB::tbb)
-else()    
+if(NOT  CMAKE_CUDA_COMPILER) 
     set(RENAMED_SOURCES)
     foreach(OLD_FILE ${SOURCES})
         # Get the file name without extension
@@ -64,12 +62,28 @@ else()
         file(COPY_FILE ${OLD_FILE} ${NEW_FILE})
         list(APPEND RENAMED_SOURCES ${NEW_FILE})
     endforeach()
-    add_executable(${project} ${RENAMED_SOURCES})
-    target_link_libraries(${project} ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES} TBB::tbb)
+    set(SOURCES ${RENAMED_SOURCES})
 endif()
 
+# Add the executable
+add_executable(${project} ${SOURCES})
+
+# Add the libraries
+if(CMAKE_CUDA_COMPILER)
+    target_link_libraries(${project} PRIVATE ${CUDA_LIBRARIES})
+endif()
+if(OpenMP_CXX_FOUND)
+    message(STATUS "Found OpenMP, adding to target link libraries.")
+    target_link_libraries(${project} PRIVATE OpenMP::OpenMP_CXX)
+else()
+    message(STATUS "OpenMP not found, skipping.")
+endif()
+target_link_libraries(${project} PRIVATE ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES} TBB::tbb)
+
+# Set the output name
 set_target_properties(${project} PROPERTIES OUTPUT_NAME "spinwalk")
 
+# Install the executable
 if (UNIX)
     install(TARGETS ${project} DESTINATION bin) 
 endif()

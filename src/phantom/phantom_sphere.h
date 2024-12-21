@@ -19,7 +19,7 @@ class sphere : public phantom_base
 {
     public:
     sphere();
-    sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um = 50, float BVF = 10.0, int32_t seed = -1, std::string filename = "shape.h5");
+    sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um = 50, float volume_fraction = 10.0, int32_t seed = -1, std::string filename = "shape.h5");
     virtual ~sphere();
 
     virtual bool run() override;
@@ -30,7 +30,7 @@ class sphere : public phantom_base
     friend std::ostream& operator<<(std::ostream& os, const sphere& obj);
 
     private: 
-    std::vector<float> m_sphere_points;
+    std::vector<std::vector<float>> m_sphere_points;
     std::vector<float> m_sphere_radii;
     float m_radius;
 };
