@@ -64,7 +64,7 @@ jobs:
         name: built-targets-tests
 
     - name: change permission
-      run: chmod +x ${{github.workspace}}/spinwalk_test && 
+      run: chmod +x ${{github.workspace}}/spinwalk_test
     
     - name: test phantom creation
       run: ${{github.workspace}}/spinwalk_test --run_test=test_phantom_creation
