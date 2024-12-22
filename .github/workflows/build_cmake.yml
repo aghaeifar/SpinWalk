@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
   
     steps:
+
     - uses: Jimver/cuda-toolkit@v0.2.19
       id: cuda-toolkit
       with:
@@ -26,7 +27,7 @@ jobs:
     - name: Install dependencies
       run: sudo apt-get update && sudo apt-get install -yq libboost-all-dev libhdf5-dev libtbb-dev 
       
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Echo settings
       run: nvcc -V
@@ -41,7 +42,7 @@ jobs:
 
     # Upload the build artifact (e.g., compiled executables)
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: built-targets
         path: ${{github.workspace}}/build/tests 
@@ -52,14 +53,15 @@ jobs:
     needs: build  # This job depends on the successful completion of the "build" job
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Download artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: built-targets 
 
     - name: Run Unit Tests
       run: |
+        ls ${{github.workspace}}
         cd ${{github.workspace}}/build/tests
         ./spinwalk_test
