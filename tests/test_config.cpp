@@ -6,6 +6,7 @@
 #include "../src/config/config_generator.h"
 #include "../include/ini.h"
 
+BOOST_AUTO_TEST_SUITE(test_config_creation)
 
 BOOST_AUTO_TEST_CASE(config_creation) {
     boost::log::core::get()->set_logging_enabled(false);
@@ -32,3 +33,5 @@ BOOST_AUTO_TEST_CASE(config_creation) {
     BOOST_CHECK(!std::filesystem::exists(temp_file));
     BOOST_CHECK(!std::filesystem::exists(temp_file_parent));
 }
+
+BOOST_AUTO_TEST_SUITE_END()
