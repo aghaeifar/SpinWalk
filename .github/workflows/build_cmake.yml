@@ -44,7 +44,7 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: built-targets
+        name: built-targets-tests
         path: ${{github.workspace}}/build/tests 
 
   # Separate Test Job
@@ -58,9 +58,7 @@ jobs:
     - name: Download artifact
       uses: actions/download-artifact@v4
       with:
-        name: built-targets 
+        name: built-targets-tests
 
     - name: Run Unit Tests
-      run: |
-        cd ${{github.workspace}}
-        ./spinwalk_test
+      run: chmod +x ${{github.workspace}}/spinwalk_test && ${{github.workspace}}/spinwalk_test
