@@ -62,6 +62,5 @@ jobs:
 
     - name: Run Unit Tests
       run: |
-        ls ${{github.workspace}}
-        cd ${{github.workspace}}/build/tests
+        cd ${{github.workspace}}
         ./spinwalk_test
