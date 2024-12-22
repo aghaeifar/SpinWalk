@@ -285,7 +285,7 @@ std::ostream& operator<<(std::ostream& os, const cylinder& obj)
 
 // -------------------------------------------------------------------------- //
 
-bool cylinder::run()
+bool cylinder::run(bool write_to_disk)
 {
     BOOST_LOG_TRIVIAL(info) << *this << std::endl;
     if(create_grid() == false)
@@ -294,8 +294,9 @@ bool cylinder::run()
         return false;
     if(generate_mask_fieldmap() == false)
         return false;
-    if(save() == false)
-        return false;
+    if(write_to_disk)
+        if(save() == false)
+            return false;
     return true;
 }
 

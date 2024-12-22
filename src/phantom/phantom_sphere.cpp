@@ -208,7 +208,7 @@ std::ostream& operator<<(std::ostream& os, const sphere& obj)
 
 // -------------------------------------------------------------------------- //
 
-bool sphere::run()
+bool sphere::run(bool write_to_disk)
 {
     BOOST_LOG_TRIVIAL(info) << *this << std::endl;
     if(create_grid() == false)
@@ -217,8 +217,9 @@ bool sphere::run()
         return false;
     if(generate_mask_fieldmap() == false)
         return false;
-    if(save() == false)
-        return false;
+    if(write_to_disk)
+        if(save() == false)
+            return false;
     return true;
 }
 

@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.24)
 message(STATUS "CMake version: ${CMAKE_VERSION}")
 include(CheckLanguage)
 
-set(project "SpinWalk")
-set(project_lib "SpinWalkLib")
-project(${project})
+set(project_exe "SpinWalk_exe")
+set(project_lib "SpinWalk_lib")
+project(${project_exe})
 
 # Find HDF5
 find_package(HDF5 REQUIRED COMPONENTS CXX)
@@ -16,7 +16,7 @@ find_package(TBB REQUIRED)
 if(CMAKE_VERSION VERSION_GREATER "3.30")
     cmake_policy(SET CMP0167 NEW)
 endif()
-find_package(Boost COMPONENTS log log_setup REQUIRED)
+find_package(Boost REQUIRED COMPONENTS log log_setup)
 
 check_language(CUDA)
 # Check for CUDA-capable GPU
@@ -43,11 +43,11 @@ endif()
 
 # Add Boost and CUDA include directories
 include_directories(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS} ./include ./src)
-# Add subfolders
-add_subdirectory(./src/dwi)
-add_subdirectory(./src/phantom)
-add_subdirectory(./src/config)
-add_subdirectory(./src/sim)
+# Add modules directory
+add_subdirectory(src/dwi)
+add_subdirectory(src/phantom)
+add_subdirectory(src/config)
+add_subdirectory(src/sim)
 
  # Add the sources files
 set(SOURCE_MODULES ${SUBCOMMAND_PHANTOM} ${SUBCOMMAND_SIM} ${SUBCOMMAND_DWI} ${SUBCOMMAND_CONFIG})
@@ -74,7 +74,7 @@ endif()
 
 # Add the executable
 add_library(${project_lib} ${SOURCE_MODULES})
-add_executable(${project} ${SOURCE_MAIN})
+add_executable(${project_exe} ${SOURCE_MAIN})
 
 # Add the libraries
 if(CMAKE_CUDA_COMPILER)
@@ -87,18 +87,21 @@ else()
     message(STATUS "OpenMP not found, skipping.")
 endif()
 target_link_libraries(${project_lib} ${Boost_LIBRARIES} ${HDF5_CXX_LIBRARIES} TBB::tbb)
-target_link_libraries(${project} PRIVATE ${project_lib})
+target_link_libraries(${project_exe} PRIVATE ${project_lib})
 
 # Set the output name
-set_target_properties(${project} PROPERTIES OUTPUT_NAME "spinwalk")
+set_target_properties(${project_exe} PROPERTIES OUTPUT_NAME "spinwalk")
 set_target_properties(${project_lib} PROPERTIES OUTPUT_NAME "spinwalk")
 
 
 # Install the executable
 if (UNIX)
-    install(TARGETS ${project} DESTINATION bin) 
+    install(TARGETS ${project_exe} DESTINATION bin) 
     install(TARGETS ${project_lib} DESTINATION lib) 
 endif()
+
+# Add the tests directory
+add_subdirectory(tests)
 
 # cmake ..
 # cmake --build . --config Release

@@ -30,7 +30,7 @@ class phantom_base
         void set_space(float fov_um, size_t resolution);
         void set_parameters(float dChi, float Y, float volume_fraction = 10.0); 
         void set_filename(std::string filename = "shape.h5");      
-        virtual bool run(){return true;}; 
+        virtual bool run(bool write_to_disk) = 0; 
         virtual bool save() const;
         virtual bool create_grid();
         virtual bool generate_shapes() = 0;

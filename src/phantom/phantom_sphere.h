@@ -22,7 +22,7 @@ class sphere : public phantom_base
     sphere(float fov_um, size_t resolution, float dChi, float Y, float radius_um = 50, float volume_fraction = 10.0, int32_t seed = -1, std::string filename = "shape.h5");
     virtual ~sphere();
 
-    virtual bool run() override;
+    virtual bool run(bool write_to_disk) override;
     virtual void set_sphere_parameters(float radius_um = 50);    
     virtual bool generate_shapes();
     virtual bool generate_mask_fieldmap();
