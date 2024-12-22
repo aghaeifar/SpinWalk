@@ -55,6 +55,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -yq libboost-all-dev libhdf5-dev libtbb-dev 
+      
     - name: Download artifact
       uses: actions/download-artifact@v4
       with:
