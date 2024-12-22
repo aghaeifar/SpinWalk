@@ -20,14 +20,51 @@
 
 namespace phantom
 {
+
+bool check_cylinder_overlap(const std::vector<std::vector<float>>& m_cylinder_points, const std::vector<float>& m_cylinder_radii, const float* cyl_pnt, float& radius, bool is_random_radius) {
+    int c = 0;
+    bool stop = false;
+
+    #pragma omp parallel for shared(stop, radius)
+    for (c = 0; c < m_cylinder_radii.size(); c++) {
+        if (stop) continue; // Skip computation if condition already met.
+
+        float p2p1[3];
+        subtract(cyl_pnt, m_cylinder_points[c].data(), p2p1);
+        float distance = sqrtf(p2p1[0]*p2p1[0] + p2p1[1]*p2p1[1]);;
+        // Check the conditions
+        if (distance <= m_cylinder_radii[c] || distance <= radius) {
+            #pragma omp critical
+            {
+                stop = true; // Signal all threads to stop further checks.
+            }
+        } else if (distance < m_cylinder_radii[c] + radius) {
+            if (!is_random_radius) {
+                #pragma omp critical
+                {
+                    stop = true; // Signal all threads to stop further checks.
+                }
+            } else {
+                #pragma omp critical
+                {
+                    if (!stop) 
+                        radius = distance - m_cylinder_radii[c]; // Adjust radius.
+                }
+            }
+        }
+    }
+    return stop; // Return whether an overlap condition was found.
+}
+
+
 cylinder::cylinder()
 {
     m_radius = 0;
     m_orientation = 0;
 }
 
-cylinder::cylinder(float fov_um, size_t resolution, float dChi, float Y, float radius_um, float BVF, float orientation, int32_t seed, std::string filename)
-: phantom_base(fov_um, resolution, dChi, Y, BVF, seed, filename)
+cylinder::cylinder(float fov_um, size_t resolution, float dChi, float Y, float radius_um, float volume_fraction, float orientation, int32_t seed, std::string filename)
+: phantom_base(fov_um, resolution, dChi, Y, volume_fraction, seed, filename)
 {
     set_cylinder_parameters(radius_um, orientation);
 }
@@ -52,7 +89,7 @@ bool cylinder::generate_shapes()
         BOOST_LOG_TRIVIAL(error) << "Error: The radius of the cylinder is too large for the given FOV!\n";
         return false;
     }
-    BOOST_LOG_TRIVIAL(info) << "Generating coordinates...for target BVF = " << m_BVF << "% ...\n"; 
+    BOOST_LOG_TRIVIAL(info) << "Generating coordinates...for target BVF = " << m_volume_fraction << "% ...\n"; 
     bool is_random_radius = m_radius < 0;
     float max_radius    = m_radius>0 ? m_radius:-m_radius;
     m_cylinder_points.clear();
@@ -69,37 +106,20 @@ bool cylinder::generate_shapes()
     while(progress < 100)
     {
         cyl_rad = is_random_radius ? dist(gen) * max_radius : max_radius;
-        for (size_t i = 0; i < 3; i++) // generate a random point for a sphere which fit in the FOV
+        for (size_t i = 0; i < 3; i++) // generate a random point for a cylinder which fit in the FOV
             cyl_pnt[i] = dist(gen) * (m_fov+2*cyl_rad) - cyl_rad;   
         
-        // check if sphere coordinate is ok
-        size_t c;
-        for (c=0; c<m_cylinder_radii.size(); c++)
-        {   
-            float p2p1[3];
-            subtract(cyl_pnt, m_cylinder_points[c].data(), p2p1);
-            distance = sqrtf(p2p1[0]*p2p1[0] + p2p1[1]*p2p1[1]);
-            // if the sphere is inside another sphere, generate a new sphere
-            if(distance <= m_cylinder_radii[c] ||  distance <= cyl_rad)
-                break;
-            // adjust the radius of the sphere to avoid overlap
-            if (distance < m_cylinder_radii[c] + cyl_rad)
-            {
-                if (!is_random_radius)
-                    break;            
-                cyl_rad = distance - m_cylinder_radii[c];
-            }
-        }
-        if (c < m_cylinder_radii.size())
-            continue;
+        // check if cylinder coordinate is ok
+        if (check_cylinder_overlap(m_cylinder_points, m_cylinder_radii, cyl_pnt, cyl_rad, is_random_radius)) 
+            continue;   
 
         vol_cyl = calculate_volume(cyl_pnt, cyl_rad);
         // if the total volume of the cylinders is more than the target BVF or the cylinder is outside of volume, skip this cylinder
-        if (100*(vol_cyl + vol_cyl_total) / vol_tol > 1.02*m_BVF || vol_cyl < 0)
+        if (100*(vol_cyl + vol_cyl_total) / vol_tol > 1.02*m_volume_fraction || vol_cyl < 0)
             continue;
 
         vol_cyl_total += vol_cyl;
-        progress = 100*(100.*vol_cyl_total/vol_tol/m_BVF);
+        progress = 100*(100.*vol_cyl_total/vol_tol/m_volume_fraction);
         m_cylinder_points.push_back({cyl_pnt[0], cyl_pnt[1], cyl_pnt[2]});
         m_cylinder_radii.push_back(cyl_rad);     
     }
@@ -125,7 +145,7 @@ float cylinder::calculate_volume(float *cyl_pnt, float cyl_rad)
     if (intersect == false)
         return M_PI * cyl_rad*cyl_rad * m_fov;    
 
-    // find the bounding box of the sphere
+    // find the bounding box of the cylinder
     float v_size = m_fov / m_resolution;
     float cyl_rad2  = cyl_rad*cyl_rad;
     size_t res1 = m_resolution;
@@ -198,7 +218,7 @@ bool cylinder::generate_mask_fieldmap()
         cyl_pnt_vox[1] = int32_t(cyl_pnt[1]/v_size);
         cyl_pnt_vox[2] = int32_t(cyl_pnt[2]/v_size);
 
-        // find the bounding box of the sphere
+        // find the bounding box of the cylinder
         z_min = 0;
         z_max = m_resolution;
         if (m_calc_fieldmap)
@@ -247,8 +267,8 @@ bool cylinder::generate_mask_fieldmap()
         }        
     } 
     bar->done();    
-    m_BVF = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
-    BOOST_LOG_TRIVIAL(info) << "Actual Volume Fraction = " << m_BVF << "% ...\n";   
+    m_volume_fraction = std::accumulate(m_mask.begin(), m_mask.end(), 0) * 100.0 / m_mask.size();
+    BOOST_LOG_TRIVIAL(info) << "Actual Volume Fraction = " << m_volume_fraction << "% ...\n";   
     auto end = std::chrono::high_resolution_clock::now();
     BOOST_LOG_TRIVIAL(info) << "Cylinders generated successfully! " << "Elapsed Time: " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count() << " s\n";
     return true;
@@ -258,14 +278,14 @@ std::ostream& operator<<(std::ostream& os, const cylinder& obj)
 {
     os << static_cast<const phantom_base&>(obj) 
        << "  Radius: " << obj.m_radius << " \xC2\xB5m\n"
-       << "  Volume Fraction: " << obj.m_BVF << "\n"
+       << "  Volume Fraction: " << obj.m_volume_fraction << "\n"
        << "  Orientation: " << obj.m_orientation << " rad\n";
     return os;
 }
 
 // -------------------------------------------------------------------------- //
 
-bool cylinder::run()
+bool cylinder::run(bool write_to_disk)
 {
     BOOST_LOG_TRIVIAL(info) << *this << std::endl;
     if(create_grid() == false)
@@ -274,8 +294,9 @@ bool cylinder::run()
         return false;
     if(generate_mask_fieldmap() == false)
         return false;
-    if(save() == false)
-        return false;
+    if(write_to_disk)
+        if(save() == false)
+            return false;
     return true;
 }
 

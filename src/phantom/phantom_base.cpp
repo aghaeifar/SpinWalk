@@ -23,7 +23,7 @@ phantom_base::phantom_base()
     m_fov = 0;
     m_resolution = 0;
     m_seed = std::random_device{}();
-    set_blood_parameters(0.273e-6 * 0.4, 0, 10.0);
+    set_parameters(0.273e-6 * 0.4, 0, 10.0);
     set_filename(); 
 }
 
@@ -31,7 +31,7 @@ phantom_base::phantom_base(float fov_um, size_t resolution, float dChi, float Y,
 :phantom_base()
 {
     set_space(fov_um, resolution);
-    set_blood_parameters(dChi, Y, BVF);
+    set_parameters(dChi, Y, BVF);
     set_filename(filename);
     if(seed >= 0)
         m_seed = seed;
@@ -47,11 +47,11 @@ void phantom_base::set_space(float fov_um, size_t resolution)
     this->m_resolution = resolution;
 }
 
-void phantom_base::set_blood_parameters(float dChi, float Y, float BVF)
+void phantom_base::set_parameters(float dChi, float Y, float volume_fraction)
 {
     this->m_dChi = dChi;
     this->m_Y = Y;
-    this->m_BVF = BVF;
+    this->m_volume_fraction = volume_fraction;
     m_calc_fieldmap = Y >= 0;
 }
 
@@ -92,7 +92,7 @@ bool phantom_base::save() const
     // blood volume fraction
     std::vector<size_t> dims_1(1, 1);
     HighFive::DataSet dataset_BVF = file.createDataSet<float>("bvf", HighFive::DataSpace(dims_1));
-    dataset_BVF.write_raw(&m_BVF);
+    dataset_BVF.write_raw(&m_volume_fraction);
 
     return true;
 }

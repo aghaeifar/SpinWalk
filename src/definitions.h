@@ -2,7 +2,7 @@
 #define DEFINITIONS_H
 
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 17
+#define VERSION_MINOR 18
 #define VERSION_PATCH 2
 
 // Helper macros to stringify values
@@ -12,6 +12,7 @@
 #define SPINWALK_VERSION STRINGIFY(VERSION_MAJOR) "." STRINGIFY(VERSION_MINOR) "." STRINGIFY(VERSION_PATCH)
 
 #define ERR_MSG  "\033[1;31mError:\033[0m "
+#define WARN_MSG "\033[1;33mWarning:\033[0m "
 
 // #define MINI_CASE_SENSITIVE
 

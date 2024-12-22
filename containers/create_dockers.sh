@@ -4,6 +4,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 pushd "$SCRIPT_DIR" > /dev/null
 
 # docker system prune -a --volumes --force
+docker system prune --force
 
 CUDA_VERSIONS=("12.0.0" "12.2.0" "12.6.3")
 

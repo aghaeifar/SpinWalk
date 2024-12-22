@@ -28,9 +28,7 @@
 #include "phantom/handler.h"
 #include "dwi/handler.h"
 #include "config/handler.h"
-#ifdef __CUDACC__
 #include "sim/device_helper.cuh"
-#endif
 
 namespace bl = boost::log;
 
@@ -52,17 +50,13 @@ int main(int argc, char * argv[])
     app.get_formatter()->column_width(40);
     app.get_formatter()->label("REQUIRED", "");
     app.set_version_flag("-v,--version", SPINWALK_VERSION);
-#ifdef __CUDACC__
     auto callback_gpu_info = [](int count){sim::print_device_info();  exit(0);};
     app.add_flag("-g,--gpu_info", callback_gpu_info, "Print GPU information");
-#endif
 
     auto subcommand_sim = app.add_subcommand("sim", "Run Monte-Carlo simulation");
     subcommand_sim->add_option("-c,--configs", config_files, "Config. files as many as you want. e.g. -c config1.ini config2.ini ... configN.ini")->mandatory(true)->check(CLI::ExistingFile);
-#ifdef __CUDACC__
     subcommand_sim->add_flag("-p,--use_cpu", use_cpu, "Only run on CPU (default: GPU)");
     subcommand_sim->add_option("-d,--device", device_id, "Select GPU device (if there are multiple GPUs)");
-#endif
 
     auto subcommand_phantom = app.add_subcommand("phantom", "Generate numerical phantom");
     subcommand_phantom->add_flag("-c,--cylinder", arg_cyl, "Fill phantom with cylinders");
@@ -137,30 +131,16 @@ int main(int argc, char * argv[])
     if (config_files.size() == 0)
         return 0;
 
-#ifdef __CUDACC__    
-    if(use_cpu == false){
-        if(sim::check_CUDA() == false)
-            return 0;
-
-        if (device_id >= sim::get_device_count()){
-            std::cout << ERR_MSG << "Device ID " << device_id << " is not available! Aborting...!" << std::endl;
-            return 1;
-        }
-        cudaSetDevice(device_id);
-    }
-#endif
-
     std::cout << "Running simulation for " << config_files.size() << " config(s)..." << "\n\n";
-    sim::monte_carlo mc;
-#ifdef __CUDACC__
-    mc.set_gpu_disabled(use_cpu);
-#endif    
+    
+    sim::monte_carlo mc(use_cpu, device_id); 
     for(const auto& config_file : config_files){
         std::cout << "<" << std::filesystem::path(config_file).filename().string() << ">\n";       
         if(mc.run(config_file) == false){
             std::cout << ERR_MSG << "Simulation failed. See the log file " << log_filename <<", Aborting...!" << "\n";
             return 1;
         }     
-    }
+    }    
+    std::cout << "Simulation completed successfully. See the log file " << log_filename << "\n";
     return 0;
 }
