@@ -4,6 +4,7 @@
 
 #include "../src/sim/kernels.cuh"
 
+BOOST_AUTO_TEST_SUITE(test_kernel)
 
 BOOST_AUTO_TEST_CASE(test_sub2ind_3d_row_major) {
     int64_t x = 1, y = 2, z = 3;
@@ -78,3 +79,5 @@ BOOST_AUTO_TEST_CASE(test_relax) {
     BOOST_TEST(std::abs(m1[1] - m0[1] * e2) <  1e-5);
     BOOST_TEST(std::abs(m1[2] - (1.0f + e1 * (m0[2] - 1.0f))) <  1e-5);
 }
+
+BOOST_AUTO_TEST_SUITE_END()
