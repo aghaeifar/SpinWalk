@@ -1,4 +1,5 @@
-
+#ifndef CONFIG_HANDLER_H
+#define CONFIG_HANDLER_H
 
 #include <string>
 #include <vector>
@@ -18,3 +19,5 @@ namespace config {
         static bool execute(const execute_args& args);
     };
 }
+
+#endif // CONFIG_HANDLER_H

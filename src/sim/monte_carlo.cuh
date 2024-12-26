@@ -6,8 +6,6 @@
 #include "config_reader.h"
 #include "simulation_parameters.cuh"
 
-// struct simulation_parameters;
-
 namespace sim {
 // class config_reader;
 

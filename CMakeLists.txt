@@ -67,9 +67,6 @@ if(NOT  CMAKE_CUDA_COMPILER)
         list(APPEND RENAMED_SOURCES ${NEW_FILE})
     endforeach()
     set(SOURCE_MODULES ${RENAMED_SOURCES})
-
-    # file(COPY_FILE ./src/spinwalk.cu ./src/spinwalk.cpp)
-    # set(SOURCE_MAIN ./src/spinwalk.cpp)
 endif()
 
 # Add the executable

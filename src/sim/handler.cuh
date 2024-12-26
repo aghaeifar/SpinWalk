@@ -1,4 +1,6 @@
 
+#ifndef SIM_HANDLER_H
+#define SIM_HANDLER_H
 
 #include <string>
 #include <vector>
@@ -16,3 +18,5 @@ namespace sim {
         static bool execute(const execute_args& args);
     };
 }
+
+#endif // SIM_HANDLER_H

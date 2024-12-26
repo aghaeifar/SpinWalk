@@ -1,11 +1,11 @@
 
 /* --------------------------------------------------------------------------
  * Project: SpinWalk
- * File: file_utils.h
+ * File: h5_helper.h
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
- * Descrip  : simulating BOLD in microvascular network
+ * Descrip  : 
  * -------------------------------------------------------------------------- */
 
 #ifndef __H5_HELPER_H__

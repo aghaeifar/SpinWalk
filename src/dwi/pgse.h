@@ -1,4 +1,6 @@
 
+#ifndef PGSE_H
+#define PGSE_H
 
 #include <string>
 #include <vector>
@@ -26,3 +28,5 @@ private:
 };
 
 }
+
+#endif // PGSE_H

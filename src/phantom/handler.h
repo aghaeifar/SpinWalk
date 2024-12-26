@@ -1,4 +1,6 @@
 
+#ifndef PHANTOM_HANDLER_H
+#define PHANTOM_HANDLER_H
 
 #include <string>
 #include <cstdint>
@@ -23,3 +25,5 @@ namespace phantom {
         static bool execute(const execute_args& args);
     };
 }
+
+#endif // PHANTOM_HANDLER_H
