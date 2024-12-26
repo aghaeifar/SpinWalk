@@ -51,7 +51,7 @@ add_subdirectory(src/sim)
 
  # Add the sources files
 set(SOURCE_MODULES ${SUBCOMMAND_PHANTOM} ${SUBCOMMAND_SIM} ${SUBCOMMAND_DWI} ${SUBCOMMAND_CONFIG})
-set(SOURCE_MAIN ./src/spinwalk.cu)
+set(SOURCE_MAIN ./src/spinwalk.cpp)
 
 # change extension of the files if CUDA is not found
 if(NOT  CMAKE_CUDA_COMPILER) 
@@ -67,9 +67,6 @@ if(NOT  CMAKE_CUDA_COMPILER)
         list(APPEND RENAMED_SOURCES ${NEW_FILE})
     endforeach()
     set(SOURCE_MODULES ${RENAMED_SOURCES})
-
-    file(COPY_FILE ./src/spinwalk.cu ./src/spinwalk.cpp)
-    set(SOURCE_MAIN ./src/spinwalk.cpp)
 endif()
 
 # Add the executable

@@ -1,10 +1,10 @@
 /* --------------------------------------------------------------------------
  * Project: SpinWalk
- * File: kernels.cuh
+ * File: kernels.cu
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
- * Descrip  : simulating BOLD in microvascular network
+ * Descrip  : 
  * -------------------------------------------------------------------------- */
 
 #include <cinttypes>
@@ -20,12 +20,8 @@
 #include <thrust/device_vector.h>
 #include <thrust/extrema.h>
 #endif
-//---------------------------------------------------------------------------------------------
-//
-//---------------------------------------------------------------------------------------------
+
 #define ABS(x) ((x) < 0 ? -(x) : (x))
-
-
 
 namespace sim {
 

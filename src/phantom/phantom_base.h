@@ -5,7 +5,7 @@
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
- * Descrip  : simulating BOLD in microvascular network
+ * Descrip  : 
  * -------------------------------------------------------------------------- */
 
 #ifndef PHANTOM_BASE_H

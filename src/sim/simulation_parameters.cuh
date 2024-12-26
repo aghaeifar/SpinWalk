@@ -1,10 +1,10 @@
 /* --------------------------------------------------------------------------
  * Project: Microvascular
- * File: miscellaneous.h
+ * File: simulation_parameters.cuh
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
- * Descrip  : simulating BOLD in microvascular network
+ * Descrip  : 
  * -------------------------------------------------------------------------- */
 
 #ifndef __SIMULATION_PARAMETERS_H__

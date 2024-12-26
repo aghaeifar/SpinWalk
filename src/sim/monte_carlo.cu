@@ -56,8 +56,6 @@ monte_carlo::monte_carlo(bool gpu_disabled, int32_t device_id)
 
 monte_carlo::~monte_carlo()
 {
-    // if(param)  delete param;
-    // if(config) delete config;
 }
 
 void monte_carlo::allocate_memory()

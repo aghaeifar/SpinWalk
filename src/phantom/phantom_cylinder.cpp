@@ -1,7 +1,7 @@
 
 /* --------------------------------------------------------------------------
  * Project: SpinWalk
- * File: arbitrary_gradient.h
+ * File: phantom_cylinder.cpp
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 15.05.2024

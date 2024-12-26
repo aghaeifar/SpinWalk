@@ -1,4 +1,5 @@
-
+#ifndef DWI_HANDLER_H
+#define DWI_HANDLER_H
 
 #include <string>
 #include <vector>
@@ -19,3 +20,5 @@ namespace dMRI {
         static bool execute(const execute_args& args);
     };
 }
+
+#endif // DWI_HANDLER_H

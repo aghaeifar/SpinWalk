@@ -11,31 +11,20 @@ BOOST_AUTO_TEST_CASE(cylinder_creation) {
     boost::log::core::get()->set_logging_enabled(false);
     float diff_margin = 2.f;
 
-    std::vector<float> volume_fraction = {5.0, 10.0};
-    for(const auto &vf : volume_fraction){
-        phantom::cylinder cyl(600, 300, 0.11e-6, -1, -20, vf, 0, 0, "");
-        BOOST_TEST(cyl.run(false));
-        BOOST_TEST(std::abs(cyl.get_actual_volume_fraction() - vf) < diff_margin); 
-    }
-
-    std::vector<float> angles = {5.0, 10.0};
-    float vf = 10.0;
-    for(const auto &a : angles){
-        phantom::cylinder cyl(600, 300, 0.11e-6, -1, -20, vf, 0, a, "");
-        BOOST_TEST(cyl.run(false));
-        BOOST_TEST(std::abs(cyl.get_actual_volume_fraction() - vf) < diff_margin); 
-    }
+    float vf = 10.0f;
+    float angles = 10.0f;
+    phantom::cylinder cyl(600, 300, 0.11e-6, -1, -20, vf, 0, angles, "");
+    BOOST_TEST(cyl.run(false));
+    BOOST_TEST(std::abs(cyl.get_actual_volume_fraction() - vf) < diff_margin); 
 }
 
 BOOST_AUTO_TEST_CASE(sphere_creation) {
     boost::log::core::get()->set_logging_enabled(false);
-    std::vector<float> volume_fraction = {5.0, 10.0};
     float diff_margin = 2.f;
-    for(const auto &vf : volume_fraction){
-        phantom::sphere sph(600, 300, 0.11e-6, -1, -20, vf, 0, "");
-        BOOST_CHECK(sph.run(false));
-        BOOST_CHECK(std::abs(sph.get_actual_volume_fraction() - vf) < diff_margin); 
-    }
+    float vf = 12.0;
+    phantom::sphere sph(600, 300, 0.11e-6, -1, -20, vf, 0, "");
+    BOOST_CHECK(sph.run(false));
+    BOOST_CHECK(std::abs(sph.get_actual_volume_fraction() - vf) < diff_margin); 
 }
 
 

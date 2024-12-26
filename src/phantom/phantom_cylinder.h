@@ -1,11 +1,11 @@
 
 /* --------------------------------------------------------------------------
  * Project: SpinWalk
- * File: file_utils.cpp
+ * File: phantom_cylinder.h
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
- * Descrip  : simulating BOLD in microvascular network
+ * Descrip  : 
  * -------------------------------------------------------------------------- */
 
 #ifndef CYLINDER_H

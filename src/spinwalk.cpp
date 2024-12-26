@@ -1,15 +1,11 @@
 /* --------------------------------------------------------------------------
  * Project: SpinWalk
- * File: spinwalk.cu
+ * File: spinwalk.cpp
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
- * Descrip  : Monte Carlo simulation of the spin dynamics in the presence of off-resonance fields.
+ * Descrip  : 
  * -------------------------------------------------------------------------- */
-
-// compile(lin) :  nvcc ./src/spinwalk.cu ./src/kernels.cu -I ./include/ -Xptxas -v -O3  -arch=compute_75 -code=sm_75  -Xcompiler -fopenmp -o spinwalk
-// compile(win) :  nvcc ./src/spinwalk.cu ./src/kernels.cu -I ./include/ -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler /openmp -std=c++17 -o spinwalk
-
 // standard libraries
 #include <iomanip>
 #include <filesystem>
@@ -24,10 +20,10 @@
 
 // custom headers
 #include "definitions.h"
-#include "sim/monte_carlo.cuh"
 #include "phantom/handler.h"
 #include "dwi/handler.h"
 #include "config/handler.h"
+#include "sim/handler.cuh"
 #include "sim/device_helper.cuh"
 
 namespace bl = boost::log;
@@ -40,7 +36,7 @@ int main(int argc, char * argv[])
     float arg_radius=50.f, arg_fov=1000.f, arg_dchi=0.11e-6, arg_oxy_level=0.75, arg_ori=90.f, arg_vol_fra=4.f;
     uint32_t arg_res=500, device_id=0, TE_us=1000, timestep_us=10;
     int32_t arg_seed = -1;
-    std::vector<std::string>  config_files, phantom_files;
+    std::vector<std::string> config_files, phantom_files;
     std::vector<uint32_t> bdelta;
     std::vector<float> bvector;
     std::vector<double> bvalue;
@@ -127,20 +123,13 @@ int main(int argc, char * argv[])
             return 1;
         }
   
-    // ========== loop over configs and simulate ==========
-    if (config_files.size() == 0)
-        return 0;
-
-    std::cout << "Running simulation for " << config_files.size() << " config(s)..." << "\n\n";
-    
-    sim::monte_carlo mc(use_cpu, device_id); 
-    for(const auto& config_file : config_files){
-        std::cout << "<" << std::filesystem::path(config_file).filename().string() << ">\n";       
-        if(mc.run(config_file) == false){
+    // ========== Monte-Carlo simulation ==========
+    if(subcommand_sim->parsed()){
+         if (sim::handler::execute({.use_cpu=use_cpu, .device_id=device_id, .config_files=config_files}) == false){
             std::cout << ERR_MSG << "Simulation failed. See the log file " << log_filename <<", Aborting...!" << "\n";
-            return 1;
-        }     
-    }    
-    std::cout << "Simulation completed successfully. See the log file " << log_filename << "\n";
+            return 1;    
+         }    
+    }
+
     return 0;
 }

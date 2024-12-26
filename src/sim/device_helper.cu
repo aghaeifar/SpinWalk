@@ -1,7 +1,4 @@
 
-#ifndef DEVICE_HELPER_CUH
-#define DEVICE_HELPER_CUH
-
 #include <iostream>
 #include <boost/log/trivial.hpp>
 #include "device_helper.cuh"
@@ -104,4 +101,3 @@ bool check_memory_size(size_t required_size_MB)
 }
 
 } // namespace sim
-#endif // DEVICE_HELPER_CUH
