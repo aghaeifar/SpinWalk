@@ -1,15 +1,11 @@
 /* --------------------------------------------------------------------------
  * Project: SpinWalk
- * File: spinwalk.cu
+ * File: spinwalk.cpp
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023
- * Descrip  : Monte Carlo simulation of the spin dynamics in the presence of off-resonance fields.
+ * Descrip  : 
  * -------------------------------------------------------------------------- */
-
-// compile(lin) :  nvcc ./src/spinwalk.cu ./src/kernels.cu -I ./include/ -Xptxas -v -O3  -arch=compute_75 -code=sm_75  -Xcompiler -fopenmp -o spinwalk
-// compile(win) :  nvcc ./src/spinwalk.cu ./src/kernels.cu -I ./include/ -Xptxas -v -O3  -arch=compute_86 -code=sm_86  -Xcompiler /openmp -std=c++17 -o spinwalk
-
 // standard libraries
 #include <iomanip>
 #include <filesystem>
