@@ -1,10 +1,18 @@
 #include <cmath>
+
 #include <boost/test/unit_test.hpp>
-#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp> 
 
 #include "../src/sim/kernels.cuh"
 
-BOOST_AUTO_TEST_SUITE(test_kernel)
+
+struct welcome_msg_test_kernel {
+    welcome_msg_test_kernel() { 
+        BOOST_LOG_TRIVIAL(info) << "--------- test_kernel ---------";
+    }
+};
+
+BOOST_FIXTURE_TEST_SUITE(test_kernel, welcome_msg_test_kernel)
 
 BOOST_AUTO_TEST_CASE(test_sub2ind_3d_row_major) {
     int64_t x = 1, y = 2, z = 3;
