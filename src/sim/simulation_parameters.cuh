@@ -144,8 +144,8 @@ typedef struct parameters
     bool enCrossFOV, enRecordTrajectory, fieldmap_exist;
 
     parameters() :
-        TR_us(40e3),
-        timestep_us(20),
+        TR_us(-1),
+        timestep_us(-1),
         phase_cycling(0.),
         enCrossFOV(true),
         enRecordTrajectory(false),

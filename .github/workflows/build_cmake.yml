@@ -67,10 +67,13 @@ jobs:
       run: chmod +x ${{github.workspace}}/spinwalk_test
     
     - name: test phantom creation
-      run: ${{github.workspace}}/spinwalk_test --run_test=test_phantom_creation
+      run: ${{github.workspace}}/spinwalk_test --run_test=test_phantom_module
 
     - name: test config creation
-      run: ${{github.workspace}}/spinwalk_test --run_test=test_config_creation
+      run: ${{github.workspace}}/spinwalk_test --run_test=test_config_module
 
     - name: test kernel
-      run: ${{github.workspace}}/spinwalk_test --run_test=test_kernel
+      run: ${{github.workspace}}/spinwalk_test --run_test=test_kernel  
+    
+    - name: test sim
+      run: ${{github.workspace}}/spinwalk_test --run_test=test_sim_module

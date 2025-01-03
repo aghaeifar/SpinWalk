@@ -208,6 +208,37 @@ T = permute(T, 4:-1:1);
 
 Look at the provided demos for Python scripts.
 
+## Alternative Projects
+
+If you're exploring solutions in this space, here are some alternative projects you might find useful:
+
+1. **[MC/DC Simulator](https://github.com/jonhrafe/MCDC_Simulator_public)**  
+   A C++ open-source Diffusion-Weighted MRI Monte Carlo and Collision Simulator.
+
+2. **[MCMRSimulator.jl](https://git.fmrib.ox.ac.uk/ndcn0236/mcmrsimulator.jl)**  
+   A Monte Carlo simulator written in Julia to model the effect of microstructure on the MRI signal evolution
+
+3. **[Disimpy](https://github.com/kerkelae/disimpy)**  
+   Massively parallel Monte Carlo diffusion MR simulator written in Python.
+
+While these tools are excellent in their own right, **SpinWalk** focuses on versatile sequence design and the inclusion of off-resonance effects, making it particularly suitable for modeling MR-signal formation in inhomogeneous tissue.
+
+## Feature Requests
+
+We welcome your ideas and suggestions for improving SpinWalk! If you have a feature in mind that you'd like to see implemented, please let us know. Here's how you can submit a feature request:
+
+1. **Check Existing Issues**: Before submitting a request, take a look at the [Issues](https://github.com/aghaeifar/SpinWalk/issues) page to see if someone else has already suggested it. If so, feel free to add your thoughts or upvote the existing issue.
+
+2. **Open a New Issue**: If your idea is new, create a [new issue](https://github.com/aghaeifar/SpinWalk/issues/new). Please include:
+   - A clear and concise description of the feature.
+   - Why you think this feature would be useful.
+   - Any additional context or examples, if applicable.
+
+3. **Stay Involved**: We may ask follow-up questions or request feedback during implementation, so stay tuned for updates on your request.
+
+Your contributions help make SpinWalk better—thank you for your support!
+
+
 ## Literature
 
 There are many nice papers published about simulation of BOLD signal in vessels network. A few are listed here for reference:

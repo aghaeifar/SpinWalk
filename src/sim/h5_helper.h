@@ -79,7 +79,7 @@ namespace sim
         for (const auto& elem : dims)
             oss << elem << " ";
 
-        BOOST_LOG_TRIVIAL(info) << "Saving " << dataset_name << " with size = [" << oss.str() << "] to: " << std::filesystem::absolute(filename);
+        BOOST_LOG_TRIVIAL(info) << "Saving " << dataset_name << " with size = [" << oss.str() << "] and " << data.size() << " elements to: " << std::filesystem::absolute(filename);
         if(data.size() != product(dims))
         {
             BOOST_LOG_TRIVIAL(error) << "data size does not match the size of the dataset: " << data.size() << " vs " << product(dims);
@@ -109,7 +109,7 @@ namespace sim
         if (file.exist(dataset_name))
             file.unlink(dataset_name);
 
-        HighFive::DataSet dataset = file.createDataSet<float>(dataset_name, HighFive::DataSpace(dims));
+        HighFive::DataSet dataset = file.createDataSet<T>(dataset_name, HighFive::DataSpace(dims));
         dataset.write_raw(data.data());
         return true;
     }

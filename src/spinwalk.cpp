@@ -68,7 +68,7 @@ int main(int argc, char * argv[])
     subcommand_phantom->add_option("-o,--output", arg_output, "Path to save phantom (h5 format)")->mandatory(true);
 
     auto subcommand_config = app.add_subcommand("config", "Generate configuration file");
-    subcommand_config->add_option("-s,--seq_name", arg_seqname, "Sequence name: GRE, SE, bSSFP, default")->mandatory(true); 
+    subcommand_config->add_option("-s,--seq_name", arg_seqname, "Sequence name: GRE, SE, and bSSFP")->mandatory(true); 
     subcommand_config->add_option("-p,--phantoms", phantom_files, "Path to phantom files as many as you want. e.g. -p phantom1.h5 phantom2.h5 ... phantomN.h5")->mandatory(true); // must not check for existing file here, its path is relative to config file location
     subcommand_config->add_option("-e,--TE", TE_us, "Echo time in \u00B5s")->mandatory(true)->check(CLI::PositiveNumber);; 
     subcommand_config->add_option("-t,--timestep", timestep_us, "timestep in \u00B5s")->mandatory(true)->check(CLI::PositiveNumber);; 

@@ -23,7 +23,7 @@ endif()
 # include_directories(${CMAKE_SOURCE_DIR}/include ${CMAKE_BINARY_DIR}/include ${Boost_INCLUDE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${Boost_INCLUDE_DIRS})
 
-add_executable(${project_test} test_phantom.cpp test_config.cpp test_kernel.cpp)
+add_executable(${project_test} test_phantom.cpp test_config.cpp test_kernel.cpp test_sim.cu)
 target_link_libraries(${project_test} ${Boost_LIBRARIES} SpinWalk_lib)
 set_target_properties(${project_test} PROPERTIES OUTPUT_NAME "spinwalk_test")
 

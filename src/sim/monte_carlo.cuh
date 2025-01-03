@@ -7,8 +7,6 @@
 #include "simulation_parameters.cuh"
 
 namespace sim {
-// class config_reader;
-
 class monte_carlo {
     public:
         monte_carlo(bool gpu_disabled=false, int32_t device_id=0);

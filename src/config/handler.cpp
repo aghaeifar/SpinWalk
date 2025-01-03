@@ -17,11 +17,11 @@ namespace config {
         std::string output = std::filesystem::weakly_canonical(std::filesystem::absolute(args.output)).string();
         std::transform(args.seq_name.begin(), args.seq_name.end(), seq_name.begin(), [](unsigned char c) { return std::tolower(c); });     
 
+        config_generator cgen;
         std::unordered_map<std::string, std::function<int(uint32_t, uint32_t, std::vector<std::string>, std::string)>> function_map = {
-            {"default", generate_default_config},
-            {"gre", generate_gre},
-            {"se", generate_se},
-            {"bssfp", generate_bssfp}
+            {"gre", std::bind(&config_generator::generate_gre, &cgen, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4)},
+            {"se", std::bind(&config_generator::generate_se, &cgen, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4)},
+            {"bssfp", std::bind(&config_generator::generate_bssfp, &cgen, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4)}
         };
 
         // Lookup and call the corresponding function
