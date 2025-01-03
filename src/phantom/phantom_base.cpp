@@ -62,7 +62,7 @@ void phantom_base::set_filename(std::string filename)
 
 bool phantom_base::save() const
 {
-    BOOST_LOG_TRIVIAL(info) << "Saving the results..." << std::endl;
+    BOOST_LOG_TRIVIAL(info) << "Saving the results...";
     std::filesystem::path parent_path = std::filesystem::absolute(m_filename).parent_path();
     if (std::filesystem::is_directory(parent_path) == false)
     {
