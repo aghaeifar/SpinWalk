@@ -209,6 +209,16 @@ bool config_reader::read(std::string config_filename_path)
 bool config_reader::check()
 {
     BOOST_LOG_TRIVIAL(info) << "Checking consistentcy of parameters in config file...";
+
+    if(param_hvec->diffusivity.size() == 0 || param_hvec->T1_ms.size() == 0 || param_hvec->T2_ms.size() == 0 ){
+        BOOST_LOG_TRIVIAL(error) << "Diffusivity, T1 and T2 must have at least one element";
+        return false;
+    }
+    if(param->TR_us < 0 || param->timestep_us < 0){
+        BOOST_LOG_TRIVIAL(error) << "TR and timestep must be set";
+        return false;
+    }
+
     // ============== check files ==============
     for ( const auto &files : files_container )
         for (const auto& path : files.second)
