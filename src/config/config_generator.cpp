@@ -60,6 +60,7 @@ bool config_generator::generate_default_config(uint32_t TE_us, uint32_t timestep
     ini_parent["SCAN_PARAMETERS"]["GRADIENT_Z"] = "";
     // Time to apply gradient in micro-second (integer).
     ini_parent["SCAN_PARAMETERS"]["GRADIENT_T"] = "";
+
     // time intervals per random-walk in micro-second (integer)
     ini_parent["SCAN_PARAMETERS"]["TIME_STEP"] = std::to_string(timestep_us);
     // number of dummy scans to reach steady state. The first RF pulse (RF_FA[0]) is used for excitation in dummy scans. If negative, it will be set to 5T1/TR.
@@ -104,6 +105,7 @@ bool config_generator::generate_gre(uint32_t TE_us, uint32_t timestep_us, std::v
     add_param("SCAN_PARAMETERS", "RF_FA", "90.0");
     add_param("SCAN_PARAMETERS", "RF_PH", "0");
     add_param("SCAN_PARAMETERS", "RF_T", "0");
+
     add_param("SCAN_PARAMETERS", "TIME_STEP", std::to_string(timestep_us));
 
     if(output.empty() == false)
@@ -136,6 +138,7 @@ bool config_generator::generate_se(uint32_t TE_us, uint32_t timestep_us, std::ve
         if(write_ini(output) == false)
             return false;
 
+
     return true;
 }
 
@@ -156,6 +159,7 @@ bool config_generator::generate_bssfp(uint32_t TE_us, uint32_t timestep_us, std:
     add_param("SCAN_PARAMETERS", "RF_FA", "16.0");
     add_param("SCAN_PARAMETERS", "RF_PH", "0");
     add_param("SCAN_PARAMETERS", "RF_T", "0");
+
     add_param("SCAN_PARAMETERS", "TIME_STEP", std::to_string(timestep_us));
     add_param("SCAN_PARAMETERS", "DUMMY_SCAN", "-1");
     add_param("SCAN_PARAMETERS", "PHASE_CYCLING", "180");

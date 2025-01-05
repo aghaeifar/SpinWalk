@@ -5,6 +5,7 @@
 #define VERSION_MINOR 18
 #define VERSION_PATCH 4
 
+
 // Helper macros to stringify values
 #define STRINGIFY_HELPER(x) #x
 #define STRINGIFY(x) STRINGIFY_HELPER(x)
