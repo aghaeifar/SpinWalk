@@ -99,25 +99,47 @@ bool pgse::run(std::string config_file)
 
     uint32_t start_us = start_ms*1000; // time in us
 
-    ini["SCAN_PARAMETERS"]["RF_FA[0]"] = "90";
-    ini["SCAN_PARAMETERS"]["RF_FA[1]"] = "180";
-    ini["SCAN_PARAMETERS"]["RF_PH[0]"] = "0";
-    ini["SCAN_PARAMETERS"]["RF_PH[1]"] = "90";
-    ini["SCAN_PARAMETERS"]["RF_T[0]"]  = "0";
-    ini["SCAN_PARAMETERS"]["RF_T[1]"]  = std::to_string(start_us + delta_ms*1000 + (DELTA_ms-delta_ms)*1000/2);
+    ini["SCAN_PARAMETERS"]["RF_FA"] = "90 180";
+    ini["SCAN_PARAMETERS"]["RF_PH"] = "0 90";
+    ini["SCAN_PARAMETERS"]["RF_T"]  = "0 " + std::to_string(start_us + delta_ms*1000 + (DELTA_ms-delta_ms)*1000/2);
 
-    size_t i = 0, n_points = delta_ms * 1000 / timestep_us;
-    std::string gradient_str = std::to_string(G * dir[0]) + " " + std::to_string(G * dir[1]) + " " + std::to_string(G * dir[2]);
-    for (i=0; i < n_points; i++)
-        ini["SCAN_PARAMETERS"]["GRADIENT_XYZ[" + std::to_string(i) + "]"] = gradient_str;
-    for (; i < 2*n_points; i++)
-        ini["SCAN_PARAMETERS"]["GRADIENT_XYZ[" + std::to_string(i) + "]"] = gradient_str;
+    size_t n_points = delta_ms * 1000 / timestep_us;
+    std::string gradientX_str = "0 ", gradientY_str= "0 ", gradientZ_str= "0 ";
+    for (size_t i = 0; i < n_points; i++){
+        gradientX_str += std::to_string(G * dir[0]) + " ";
+        gradientY_str += std::to_string(G * dir[1]) + " ";
+        gradientZ_str += std::to_string(G * dir[2]) + " ";
+    }
+    gradientX_str += "0 "; gradientY_str += "0 "; gradientZ_str += "0 ";
 
-    for (i=0; i < n_points; i++)
-        ini["SCAN_PARAMETERS"]["GRADIENT_T[" + std::to_string(i) + "]"] = std::to_string(start_us + i*timestep_us);
-    for (; i < 2*n_points; i++)
-        ini["SCAN_PARAMETERS"]["GRADIENT_T[" + std::to_string(i) + "]"] = std::to_string(start_us + (DELTA_ms-delta_ms)*1000 + i*timestep_us);
+    gradientX_str += "0 "; gradientY_str += "0 "; gradientZ_str += "0 ";
+    for (size_t i = 0; i < n_points; i++){
+        gradientX_str += std::to_string(G * dir[0]) + " ";
+        gradientY_str += std::to_string(G * dir[1]) + " ";
+        gradientZ_str += std::to_string(G * dir[2]) + " ";
+    }
+    gradientX_str += "0 "; gradientY_str += "0 "; gradientZ_str += "0 ";
     
+    ini["SCAN_PARAMETERS"]["GRADIENT_X"] = gradientX_str;
+    ini["SCAN_PARAMETERS"]["GRADIENT_Y"] = gradientY_str;
+    ini["SCAN_PARAMETERS"]["GRADIENT_Z"] = gradientZ_str;
+
+    // timing
+    size_t i = 0; 
+    std::string gradientT_str = std::to_string(start_us - timestep_us) + " ";
+    for (i=0; i < n_points; i++)
+        gradientT_str += std::to_string(start_us + i*timestep_us) + " ";
+    gradientT_str += std::to_string(start_us + i*timestep_us + timestep_us) + " ";
+
+    gradientT_str += std::to_string(start_us + (DELTA_ms-delta_ms)*1000 + i*timestep_us - timestep_us) + " ";
+    for (; i < 2*n_points; i++)
+        gradientT_str += std::to_string(start_us + (DELTA_ms-delta_ms)*1000 + i*timestep_us) + " ";
+    gradientT_str += std::to_string(start_us + (DELTA_ms-delta_ms)*1000 + i*timestep_us + timestep_us) + " ";
+
+    ini["SCAN_PARAMETERS"]["GRADIENT_T"] = gradientT_str;
+    
+
+    // Scales    
     ini["SIMULATION_PARAMETERS"]["WHAT_TO_SCALE"] = "1"; // 0: FoV, 1: Gradient
     for (i=0; i < b_value.size(); i++)
         ini["SIMULATION_PARAMETERS"]["SCALE[" + std::to_string(i) + "]"] = std::to_string(sqrt(b_value[i] / b_value[0]));
