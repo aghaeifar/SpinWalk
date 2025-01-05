@@ -193,7 +193,9 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
     // BOOST_LOG_TRIVIAL(info) << "\n" << std::string(20, '-') << "\nSimulation parameters:\n" << param.dump() << "\n" << std::string(20, '-') ;
     size_t trj  = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
     size_t ind_fieldmap = 0;
-    std::vector<float> gradient_mTm_orig = param_hvec.gradient_mTm;
+    std::vector<float> gradientX_mTm_orig = param_hvec.gradientX_mTm;
+    std::vector<float> gradientY_mTm_orig = param_hvec.gradientY_mTm;
+    std::vector<float> gradientZ_mTm_orig = param_hvec.gradientZ_mTm;
 
     param_uvec.copy_from_host(param_hvec);
 #ifdef __CUDACC__
@@ -262,11 +264,17 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
              } 
              // Gradient scaling
              else if (config.get_scale_type() == e_scale_type::s_gradient){                                
-                std::transform(std::execution::par_unseq, gradient_mTm_orig.begin(), gradient_mTm_orig.end(), param_hvec.gradient_mTm.begin(), [scale](auto& c){return c*scale;}); 
+                std::transform(std::execution::par_unseq, gradientX_mTm_orig.begin(), gradientX_mTm_orig.end(), param_hvec.gradientX_mTm.begin(), [scale](auto& c){return c*scale;}); 
+                std::transform(std::execution::par_unseq, gradientY_mTm_orig.begin(), gradientY_mTm_orig.end(), param_hvec.gradientY_mTm.begin(), [scale](auto& c){return c*scale;}); 
+                std::transform(std::execution::par_unseq, gradientZ_mTm_orig.begin(), gradientZ_mTm_orig.end(), param_hvec.gradientZ_mTm.begin(), [scale](auto& c){return c*scale;}); 
 #ifdef __CUDACC__
                 if (gpu_disabled == false){
-                    param_dvec.gradient_mTm = param_hvec.gradient_mTm;
-                    param_uvec.gradient_mTm.ptr = thrust::raw_pointer_cast(param_dvec.gradient_mTm.data());
+                    param_dvec.gradientX_mTm = param_hvec.gradientX_mTm;
+                    param_dvec.gradientY_mTm = param_hvec.gradientY_mTm;
+                    param_dvec.gradientZ_mTm = param_hvec.gradientZ_mTm;
+                    param_uvec.gradientX_mTm.ptr = thrust::raw_pointer_cast(param_dvec.gradientX_mTm.data());
+                    param_uvec.gradientY_mTm.ptr = thrust::raw_pointer_cast(param_dvec.gradientY_mTm.data());
+                    param_uvec.gradientZ_mTm.ptr = thrust::raw_pointer_cast(param_dvec.gradientZ_mTm.data());
                 }
 #endif
              }

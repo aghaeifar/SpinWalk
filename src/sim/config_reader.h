@@ -25,6 +25,7 @@ namespace sim {
     protected:
         bool read(std::string config_filename);
         bool check();
+        void timing_scale();
         void cleanup();
 
     private:

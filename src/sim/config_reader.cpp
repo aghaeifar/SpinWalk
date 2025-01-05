@@ -1,5 +1,7 @@
 #include <filesystem>
 #include <iostream>
+#include <iterator>
+#include <sstream>
 
 #include "../definitions.h"
 #include "config_reader.h"
@@ -11,6 +13,15 @@
 
 namespace sim{
 
+template <typename T>
+std::vector<T> str2vec(const std::string& str) {
+    std::istringstream ss(str);
+    std::vector<T> vec;
+    for (std::istream_iterator<float> it(ss), end; it != end; ++it)
+        vec.push_back(static_cast<T>(*it)); // Convert float to int
+    return vec;
+}
+
 bool config_reader::prepare(std::string config_filename, parameters *param, parameters_hvec *param_hvec)
 {
     cleanup();
@@ -18,10 +29,20 @@ bool config_reader::prepare(std::string config_filename, parameters *param, para
     this->param_hvec = param_hvec;
     this->config_filename = config_filename;
     if (this->read(config_filename) == false)
-        return false;    
+        return false;   
     if (this->check() == false)
-        return false;
+        return false; 
+    timing_scale();  
     return true;
+}
+
+void config_reader::timing_scale()
+{
+    // convert times to timepoints
+    for(auto &v:param_hvec->TE_us) v = v / param->timestep_us;
+    for(auto &v:param_hvec->RF_us) v = v / param->timestep_us;
+    for(auto &v:param_hvec->dephasing_us) v = v / param->timestep_us;
+    for(auto &v:param_hvec->gradient_us) v = v / param->timestep_us;
 }
 
 void config_reader::cleanup()
@@ -39,7 +60,6 @@ void config_reader::cleanup()
 
 bool config_reader::read(std::string config_filename_path)
 {
-    std::stringstream ss;
     if (std::filesystem::exists(config_filename_path) == false){
         BOOST_LOG_TRIVIAL(error) << "Config-file does not exist: " << config_filename_path;
         return false;
@@ -86,80 +106,44 @@ bool config_reader::read(std::string config_filename_path)
     // ============== reading section SCAN_PARAMETERS ==============
     param->TR_us = ini["SCAN_PARAMETERS"]["TR"].empty() ? param->TR_us : std::stoi(ini["SCAN_PARAMETERS"]["TR"]);
     param->timestep_us = ini["SCAN_PARAMETERS"]["TIME_STEP"].empty() ? param->timestep_us : std::stoi(ini["SCAN_PARAMETERS"]["TIME_STEP"]);
-    
+    int32_t timestep_us = param->timestep_us;
+
     // ---------------- Echo times ----------------      
-    std::vector<int32_t> TE_us; 
-    for(uint16_t i=0; ini["SCAN_PARAMETERS"]["TE[" + std::to_string(i) + "]"].empty() == false ; i++) 
-        TE_us.push_back(std::stoi(ini["SCAN_PARAMETERS"]["TE[" + std::to_string(i) + "]"]) / param->timestep_us );    
-    if(TE_us.size() > 0)
-        param_hvec->TE_us = TE_us;
-   
+    param_hvec->TE_us = ini["SCAN_PARAMETERS"]["TE"].empty() ? param_hvec->TE_us : str2vec<int32_t>(ini["SCAN_PARAMETERS"]["TE"]);
+
     // ---------------- RF pulses (start times, flip angles, phases ) ----------------
     // RF start times
-    std::vector<int32_t> RF_us; 
-    for(uint16_t i=0; ini["SCAN_PARAMETERS"]["RF_T[" + std::to_string(i) + "]"].empty() == false ; i++) 
-        RF_us.push_back(std::stoi(ini["SCAN_PARAMETERS"]["RF_T[" + std::to_string(i) + "]"]) / param->timestep_us );       
-    if (RF_us.size() > 0)
-        param_hvec->RF_us = RF_us;  
-    
+    param_hvec->RF_us = ini["SCAN_PARAMETERS"]["RF_T"].empty() ? param_hvec->RF_us : str2vec<int32_t>(ini["SCAN_PARAMETERS"]["RF_T"]);
     // RF flip angles
-    std::vector<float> RF_FA; 
-    for(uint16_t i=0; ini["SCAN_PARAMETERS"]["RF_FA[" + std::to_string(i) + "]"].empty() == false ; i++) 
-        RF_FA.push_back(std::stof(ini["SCAN_PARAMETERS"]["RF_FA[" + std::to_string(i) + "]"])); 
-    if (RF_FA.size() > 0)
-        param_hvec->RF_FA_deg = RF_FA;
-    
+    param_hvec->RF_FA_deg = ini["SCAN_PARAMETERS"]["RF_FA"].empty() ? param_hvec->RF_FA_deg : str2vec<float>(ini["SCAN_PARAMETERS"]["RF_FA"]);
     // RF phases
-    std::vector<float> RF_PH; 
-    for(uint16_t i=0; ini["SCAN_PARAMETERS"]["RF_PH[" + std::to_string(i) + "]"].empty() == false ; i++) 
-        RF_PH.push_back(std::stof(ini["SCAN_PARAMETERS"]["RF_PH[" + std::to_string(i) + "]"])); 
-    if (RF_PH.size() > 0)
-        param_hvec->RF_PH_deg = RF_PH;
+    param_hvec->RF_PH_deg = ini["SCAN_PARAMETERS"]["RF_PH"].empty() ? param_hvec->RF_PH_deg : str2vec<float>(ini["SCAN_PARAMETERS"]["RF_PH"]);
 
     // ---------------- dephasing (start times, Flip angles ) ----------------
     // Dephase start times
-    std::vector<int32_t> dephasing_us; 
-    for(uint16_t i=0; ini["SCAN_PARAMETERS"]["DEPHASING_T[" + std::to_string(i) + "]"].empty() == false ; i++) 
-        dephasing_us.push_back(std::stoi(ini["SCAN_PARAMETERS"]["DEPHASING_T[" + std::to_string(i) + "]"]) / param->timestep_us );       
-    if (dephasing_us.size() > 0)
-        param_hvec->dephasing_us = dephasing_us; 
-     
+    param_hvec->dephasing_us  = ini["SCAN_PARAMETERS"]["DEPHASING_T"].empty() ? param_hvec->dephasing_us : str2vec<int32_t>(ini["SCAN_PARAMETERS"]["DEPHASING_T"]);
     // Dephase flip angles
-    std::vector<float> dephasing_deg; 
-    for(uint16_t i=0; ini["SCAN_PARAMETERS"]["DEPHASING[" + std::to_string(i) + "]"].empty() == false ; i++) 
-        dephasing_deg.push_back(std::stof(ini["SCAN_PARAMETERS"]["DEPHASING[" + std::to_string(i) + "]"])); 
-    if (dephasing_deg.size() > 0)
-        param_hvec->dephasing_deg = dephasing_deg;
-     
+    param_hvec->dephasing_deg = ini["SCAN_PARAMETERS"]["DEPHASING"].empty() ? param_hvec->dephasing_deg : str2vec<float>(ini["SCAN_PARAMETERS"]["DEPHASING"]);
+    
     // ---------------- Gradients (start times, strength (T/m) ) ----------------
     // Gradient start times
-    std::vector<int32_t> gradient_us; 
-    for(uint16_t i=0; ini["SCAN_PARAMETERS"]["GRADIENT_T[" + std::to_string(i) + "]"].empty() == false ; i++) 
-        gradient_us.push_back(std::stoi(ini["SCAN_PARAMETERS"]["GRADIENT_T[" + std::to_string(i) + "]"]) / param->timestep_us );       
-    if (gradient_us.size() > 0)
-        param_hvec->gradient_us = gradient_us; 
-     
+    param_hvec->gradient_us   = ini["SCAN_PARAMETERS"]["GRADIENT_T"].empty() ? param_hvec->gradient_us : str2vec<int32_t>(ini["SCAN_PARAMETERS"]["GRADIENT_T"]);
     // Gradient strength
-    std::vector<float> gradient_mTm; 
-    for(uint16_t i=0; ini["SCAN_PARAMETERS"]["GRADIENT_XYZ[" + std::to_string(i) + "]"].empty() == false ; i++)     {
-        std::istringstream iss(ini["SCAN_PARAMETERS"]["GRADIENT_XYZ[" + std::to_string(i) + "]"]);
-        std::vector<float> values{std::istream_iterator<float>(iss), std::istream_iterator<float>()};
-        gradient_mTm.insert(gradient_mTm.end(), values.begin(), values.end());
-    }
-    if (gradient_mTm.size() > 0)
-        param_hvec->gradient_mTm = gradient_mTm;
+    param_hvec->gradientX_mTm = ini["SCAN_PARAMETERS"]["GRADIENT_X"].empty() ? param_hvec->gradientX_mTm : str2vec<float>(ini["SCAN_PARAMETERS"]["GRADIENT_X"]);
+    param_hvec->gradientY_mTm = ini["SCAN_PARAMETERS"]["GRADIENT_Y"].empty() ? param_hvec->gradientY_mTm : str2vec<float>(ini["SCAN_PARAMETERS"]["GRADIENT_Y"]);
+    param_hvec->gradientZ_mTm = ini["SCAN_PARAMETERS"]["GRADIENT_Z"].empty() ? param_hvec->gradientZ_mTm : str2vec<float>(ini["SCAN_PARAMETERS"]["GRADIENT_Z"]);
      
     // ============== reading section SCAN_PARAMETERS ==============
     param->n_dummy_scan = ini["SCAN_PARAMETERS"]["DUMMY_SCAN"].empty() ? param->n_dummy_scan : std::stoi(ini["SCAN_PARAMETERS"]["DUMMY_SCAN"]);
     param->phase_cycling = ini["SCAN_PARAMETERS"]["PHASE_CYCLING"].empty() ? param->phase_cycling : std::stof(ini["SCAN_PARAMETERS"]["PHASE_CYCLING"]);
      
     // ============== reading section SIMULATION_PARAMETERS ==============
-    param->B0                    = ini["SIMULATION_PARAMETERS"]["B0"].empty() ? param->B0 : std::stof(ini["SIMULATION_PARAMETERS"]["B0"]);
-    param->seed                  = ini["SIMULATION_PARAMETERS"]["SEED"].empty() ? param->seed : std::stoi(ini["SIMULATION_PARAMETERS"]["SEED"]);
-    param->n_spins               = ini["SIMULATION_PARAMETERS"]["NUMBER_OF_SPINS"].empty() ? param->n_spins : std::stod(ini["SIMULATION_PARAMETERS"]["NUMBER_OF_SPINS"]); // template type must be double since input can be of form scientific notation
-    param->enCrossFOV            = ini["SIMULATION_PARAMETERS"]["CROSS_FOV"].empty() ? param->enCrossFOV : std::stoi(ini["SIMULATION_PARAMETERS"]["CROSS_FOV"]);
-    param->enRecordTrajectory    = ini["SIMULATION_PARAMETERS"]["RECORD_TRAJECTORY"].empty() ? param->enRecordTrajectory : std::stoi(ini["SIMULATION_PARAMETERS"]["RECORD_TRAJECTORY"]);
-    param->max_iterations        = ini["SIMULATION_PARAMETERS"]["MAX_ITERATIONS"].empty() ? param->max_iterations : std::stod(ini["SIMULATION_PARAMETERS"]["MAX_ITERATIONS"]);
+    param->B0                 = ini["SIMULATION_PARAMETERS"]["B0"].empty() ? param->B0 : std::stof(ini["SIMULATION_PARAMETERS"]["B0"]);
+    param->seed               = ini["SIMULATION_PARAMETERS"]["SEED"].empty() ? param->seed : std::stoi(ini["SIMULATION_PARAMETERS"]["SEED"]);
+    param->n_spins            = ini["SIMULATION_PARAMETERS"]["NUMBER_OF_SPINS"].empty() ? param->n_spins : std::stod(ini["SIMULATION_PARAMETERS"]["NUMBER_OF_SPINS"]); // template type must be double since input can be of form scientific notation
+    param->enCrossFOV         = ini["SIMULATION_PARAMETERS"]["CROSS_FOV"].empty() ? param->enCrossFOV : std::stoi(ini["SIMULATION_PARAMETERS"]["CROSS_FOV"]);
+    param->enRecordTrajectory = ini["SIMULATION_PARAMETERS"]["RECORD_TRAJECTORY"].empty() ? param->enRecordTrajectory : std::stoi(ini["SIMULATION_PARAMETERS"]["RECORD_TRAJECTORY"]);
+    param->max_iterations     = ini["SIMULATION_PARAMETERS"]["MAX_ITERATIONS"].empty() ? param->max_iterations : std::stod(ini["SIMULATION_PARAMETERS"]["MAX_ITERATIONS"]);
      
     // Field of view Scales
     if(ini["SIMULATION_PARAMETERS"].has("SCALE[0]"))
@@ -201,7 +185,7 @@ bool config_reader::read(std::string config_filename_path)
     }
     if (pXY.size() > 0)
         param_hvec->pXY = pXY;
-         
+   
     // ============== End ==============
     return true;
 }
@@ -209,16 +193,54 @@ bool config_reader::read(std::string config_filename_path)
 bool config_reader::check()
 {
     BOOST_LOG_TRIVIAL(info) << "Checking consistentcy of parameters in config file...";
+    BOOST_LOG_TRIVIAL(info) << "Config file contains the following parameters: \n" << param->dump() << param_hvec->dump();   
+
+    // ============== check size ==============
+    if( param_hvec->RF_FA_deg.size() != param_hvec->RF_us.size() || param_hvec->RF_FA_deg.size() != param_hvec->RF_PH_deg.size()){
+        BOOST_LOG_TRIVIAL(error) << "RF_FA, RF_PH and RF_us must have the same number of elements " << param_hvec->RF_FA_deg.size() << " vs " << param_hvec->RF_PH_deg.size() << " vs " << param_hvec->RF_us.size();
+        return false;
+    }
+
+    if(param_hvec->dephasing_us.size() != param_hvec->dephasing_deg.size()){
+        BOOST_LOG_TRIVIAL(error) << "DEPHASING and DEPHASING_T must have the same number of elements " << param_hvec->dephasing_deg.size() << " vs " << param_hvec->dephasing_us.size();
+        return false;
+    }
+
+    if(param_hvec->gradientX_mTm.size() != param_hvec->gradientY_mTm.size() || param_hvec->gradientX_mTm.size() != param_hvec->gradientZ_mTm.size()){
+        BOOST_LOG_TRIVIAL(error) << "GRADIENTS must have the same number of elements " << param_hvec->gradientX_mTm.size() << " vs " << param_hvec->gradientY_mTm.size() << " vs " << param_hvec->gradientZ_mTm.size();
+        return false;
+    }
+
+    if(param_hvec->gradientX_mTm.size() != param_hvec->gradient_us.size()){
+        BOOST_LOG_TRIVIAL(error) << "GRADIENT_XYZ and GRADIENT_T must have the same number of elements " << param_hvec->gradientX_mTm.size() << " vs " << param_hvec->gradient_us.size();
+        return false;
+    }
+
+    if (param_hvec->T1_ms.size() != param_hvec->T2_ms.size()){
+        BOOST_LOG_TRIVIAL(error) << "T1 and T2 must have the same number of elements " << param_hvec->T1_ms.size() << " vs " << param_hvec->T2_ms.size();
+        return false;
+    }
+
+    if (param_hvec->T1_ms.size() != param_hvec->diffusivity.size()){
+        BOOST_LOG_TRIVIAL(error) << "T1 and diffusivity must have the same number of elements " << param_hvec->T1_ms.size() << " vs " << param_hvec->diffusivity.size();
+        return false;
+    }
+
+    if (param_hvec->T1_ms.size() * param_hvec->T1_ms.size() != param_hvec->pXY.size()){
+        BOOST_LOG_TRIVIAL(error) << "T1 and P_XY must have the same number of elements " << param_hvec->T1_ms.size() << " vs " << param_hvec->pXY.size();
+        return false;
+    }
+
+    if (scales.size() == 0){
+        BOOST_LOG_TRIVIAL(warning) << "SCALE is not set! Using default value 1.0";
+        scales.push_back(1.0);
+    }
 
     if(param_hvec->diffusivity.size() == 0 || param_hvec->T1_ms.size() == 0 || param_hvec->T2_ms.size() == 0 ){
         BOOST_LOG_TRIVIAL(error) << "Diffusivity, T1 and T2 must have at least one element";
         return false;
     }
-    if(param->TR_us < 0 || param->timestep_us < 0){
-        BOOST_LOG_TRIVIAL(error) << "TR and timestep must be set";
-        return false;
-    }
-
+    
     // ============== check files ==============
     for ( const auto &files : files_container )
         for (const auto& path : files.second)
@@ -285,40 +307,10 @@ bool config_reader::check()
         return false;
     }   
 
-    // ============== check size ==============
-    if( param_hvec->RF_FA_deg.size() != param_hvec->RF_us.size() || param_hvec->RF_FA_deg.size() != param_hvec->RF_PH_deg.size()){
-        BOOST_LOG_TRIVIAL(error) << "RF_FA, RF_PH and RF_us must have the same number of elements " << param_hvec->RF_FA_deg.size() << " vs " << param_hvec->RF_PH_deg.size() << " vs " << param_hvec->RF_us.size();
+    // ============== other checks ==============
+    if(param->TR_us < 0 || param->timestep_us < 0){
+        BOOST_LOG_TRIVIAL(error) << "TR and timestep must be set";
         return false;
-    }
-
-    if(param_hvec->dephasing_us.size() != param_hvec->dephasing_deg.size()){
-        BOOST_LOG_TRIVIAL(error) << "DEPHASING and DEPHASING_T must have the same number of elements " << param_hvec->dephasing_deg.size() << " vs " << param_hvec->dephasing_us.size();
-        return false;
-    }
-
-    if(param_hvec->gradient_mTm.size() / 3 != param_hvec->gradient_us.size()){
-        BOOST_LOG_TRIVIAL(error) << "GRADIENT_XYZ and GRADIENT_T must have the same number of elements " << param_hvec->gradient_mTm.size() << " vs " << param_hvec->gradient_us.size();
-        return false;
-    }
-
-    if (param_hvec->T1_ms.size() != param_hvec->T2_ms.size()){
-        BOOST_LOG_TRIVIAL(error) << "T1 and T2 must have the same number of elements " << param_hvec->T1_ms.size() << " vs " << param_hvec->T2_ms.size();
-        return false;
-    }
-
-    if (param_hvec->T1_ms.size() != param_hvec->diffusivity.size()){
-        BOOST_LOG_TRIVIAL(error) << "T1 and diffusivity must have the same number of elements " << param_hvec->T1_ms.size() << " vs " << param_hvec->diffusivity.size();
-        return false;
-    }
-
-    if (param_hvec->T1_ms.size() * param_hvec->T1_ms.size() != param_hvec->pXY.size()){
-        BOOST_LOG_TRIVIAL(error) << "T1 and P_XY must have the same number of elements " << param_hvec->T1_ms.size() << " vs " << param_hvec->pXY.size();
-        return false;
-    }
-
-    if (scales.size() == 0){
-        BOOST_LOG_TRIVIAL(warning) << "SCALE is not set! Using default value 1.0";
-        scales.push_back(1.0);
     }
 
     if(scale_type != s_fov && scale_type != s_gradient){

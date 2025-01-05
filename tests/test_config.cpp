@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(config_creation)
     mINI::INIFile file(temp_file.string());
     mINI::INIStructure ini;
     BOOST_REQUIRE(file.read(ini));
-    BOOST_CHECK_EQUAL(std::stoi(ini["SCAN_PARAMETERS"]["TE[0]"]), TE);
+    BOOST_CHECK_EQUAL(std::stoi(ini["SCAN_PARAMETERS"]["TE"]), TE);
     BOOST_CHECK_EQUAL(std::stoi(ini["SCAN_PARAMETERS"]["TIME_STEP"]), timestep_us);
 
     std::filesystem::remove(temp_file);

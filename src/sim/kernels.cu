@@ -189,8 +189,10 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
             // ------ apply gradient if there is any ------
             if(counter_gradient < param_uvec.gradient_us.size && param_uvec.gradient_us.ptr[counter_gradient] == current_timepoint)
             {
-                const float *Gxyz = param_uvec.gradient_mTm.ptr + 3*counter_gradient;
-                accumulated_phase += (Gxyz[0]*xyz_new[0] + Gxyz[1]*xyz_new[1] + Gxyz[2]*xyz_new[2]) * 1e-3 * param.timestep_us * 1e-6 * GAMMA * RAD2DEG; //  Gx * x + Gy * y + Gz * z
+                const float Gx = *(param_uvec.gradientX_mTm.ptr + counter_gradient);
+                const float Gy = *(param_uvec.gradientY_mTm.ptr + counter_gradient);
+                const float Gz = *(param_uvec.gradientZ_mTm.ptr + counter_gradient);
+                accumulated_phase += (Gx*xyz_new[0] + Gy*xyz_new[1] + Gz*xyz_new[2]) * 1e-3 * param.timestep_us * 1e-6 * GAMMA * RAD2DEG; //  Gx * x + Gy * y + Gz * z
                 counter_gradient++;
             }
                 

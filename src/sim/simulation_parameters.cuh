@@ -25,12 +25,43 @@
 #define RAD2DEG 57.2957795130823
 
 
+template <typename T>
+std::string vec2str(const std::vector<T>& vec) {
+    std::ostringstream oss;
+    std::copy(vec.begin(), vec.end(), std::ostream_iterator<T>(oss, ", "));
+    std::string content = oss.str();
+    if (content.size() >= 2) 
+        content.erase(content.size() - 2);
+    return content;
+}
+
 // host vectors
 typedef struct parameters_hvec
 {
     std::vector<double> diffusivity;    
-    std::vector<float> RF_FA_deg, RF_PH_deg, dephasing_deg, gradient_mTm, pXY, T1_ms, T2_ms;
+    std::vector<float> RF_FA_deg, RF_PH_deg, dephasing_deg, gradientX_mTm, gradientY_mTm, gradientZ_mTm, pXY, T1_ms, T2_ms;
     std::vector<int32_t> TE_us, RF_us, dephasing_us, gradient_us;
+
+    std::string dump() 
+    {
+        std::stringstream ss;
+        ss<<"TE = " << vec2str(TE_us) <<" ms.\n";
+        ss<<"T2 = " << vec2str(T2_ms) <<" ms.\n";
+        ss<<"T1 = " << vec2str(T1_ms) <<" ms.\n";        
+        ss<<"RF flip-angle   = " << vec2str(RF_FA_deg) <<" deg.\n";
+        ss<<"RF phase        = " << vec2str(RF_PH_deg) <<" deg.\n";
+        ss<<"RF time         = " << vec2str(RF_us) << " us.\n";
+        ss<<"dephasing       = " << vec2str(dephasing_deg) << " deg.\n";
+        ss<<"dephasing time  = " << vec2str(dephasing_us) << " us.\n";
+        ss<<"gradient X      = " << vec2str(gradientX_mTm) << " mT/m\n";
+        ss<<"gradient Y      = " << vec2str(gradientY_mTm) << " mT/m\n";
+        ss<<"gradient Z      = " << vec2str(gradientZ_mTm) <<" mT/m\n";
+        ss<<"gradient time  = " << vec2str(gradient_us) << " us\n";
+        ss<<"sqrt(2*diffusivity*timestep) = "<< vec2str(diffusivity) <<"\n";
+        int n_substrate = sqrt(pXY.size());
+        ss<<"Cross Tissue Probability =\n"; for(int i=0; i<n_substrate; i++) {for(int j=0; j<n_substrate; j++) ss<<pXY[j+i*n_substrate]<<' '; ss<<'\n';};
+        return ss.str();
+    }
 } parameters_hvec;
 
 #ifdef __CUDACC__
@@ -38,7 +69,7 @@ typedef struct parameters_hvec
 typedef struct parameters_dvec
 {
     thrust::device_vector<double> diffusivity;    
-    thrust::device_vector<float> RF_FA_deg, RF_PH_deg, dephasing_deg, gradient_mTm, pXY, T1_ms, T2_ms;
+    thrust::device_vector<float> RF_FA_deg, RF_PH_deg, dephasing_deg, gradientX_mTm, gradientY_mTm, gradientZ_mTm, pXY, T1_ms, T2_ms;
     thrust::device_vector<int32_t> TE_us, RF_us, dephasing_us, gradient_us;
     void copy_from_host(const parameters_hvec &param_hvec)
     {
@@ -46,7 +77,9 @@ typedef struct parameters_dvec
         RF_FA_deg = param_hvec.RF_FA_deg;
         RF_PH_deg = param_hvec.RF_PH_deg;
         dephasing_deg = param_hvec.dephasing_deg;
-        gradient_mTm = param_hvec.gradient_mTm;
+        gradientX_mTm = param_hvec.gradientX_mTm;
+        gradientY_mTm = param_hvec.gradientY_mTm;
+        gradientZ_mTm = param_hvec.gradientZ_mTm;
         pXY = param_hvec.pXY;
         T1_ms = param_hvec.T1_ms;
         T2_ms = param_hvec.T2_ms;
@@ -69,7 +102,7 @@ struct uvec
 typedef struct parameters_uvec
 {
     uvec<double> diffusivity;    
-    uvec<float> RF_FA_deg, RF_PH_deg, dephasing_deg, gradient_mTm, pXY, T1_ms, T2_ms;
+    uvec<float> RF_FA_deg, RF_PH_deg, dephasing_deg, gradientX_mTm, gradientY_mTm, gradientZ_mTm, pXY, T1_ms, T2_ms;
     uvec<int32_t> TE_us, RF_us, dephasing_us, gradient_us;
     void copy_from_host(const parameters_hvec &param_hvec)
     {
@@ -77,7 +110,9 @@ typedef struct parameters_uvec
         RF_FA_deg.ptr = param_hvec.RF_FA_deg.data();
         RF_PH_deg.ptr = param_hvec.RF_PH_deg.data();
         dephasing_deg.ptr = param_hvec.dephasing_deg.data();
-        gradient_mTm.ptr = param_hvec.gradient_mTm.data();
+        gradientX_mTm.ptr = param_hvec.gradientX_mTm.data();
+        gradientY_mTm.ptr = param_hvec.gradientY_mTm.data();
+        gradientZ_mTm.ptr = param_hvec.gradientZ_mTm.data();
         pXY.ptr = param_hvec.pXY.data();
         T1_ms.ptr = param_hvec.T1_ms.data();
         T2_ms.ptr = param_hvec.T2_ms.data();
@@ -90,7 +125,9 @@ typedef struct parameters_uvec
         RF_FA_deg.size = param_hvec.RF_FA_deg.size();
         RF_PH_deg.size = param_hvec.RF_PH_deg.size();
         dephasing_deg.size = param_hvec.dephasing_deg.size();
-        gradient_mTm.size = param_hvec.gradient_mTm.size();
+        gradientX_mTm.size = param_hvec.gradientX_mTm.size();
+        gradientY_mTm.size = param_hvec.gradientY_mTm.size();
+        gradientZ_mTm.size = param_hvec.gradientZ_mTm.size();
         pXY.size = param_hvec.pXY.size();
         T1_ms.size = param_hvec.T1_ms.size();
         T2_ms.size = param_hvec.T2_ms.size();
@@ -106,7 +143,9 @@ typedef struct parameters_uvec
         RF_FA_deg.ptr = thrust::raw_pointer_cast(param_dvec.RF_FA_deg.data());
         RF_PH_deg.ptr = thrust::raw_pointer_cast(param_dvec.RF_PH_deg.data());
         dephasing_deg.ptr = thrust::raw_pointer_cast(param_dvec.dephasing_deg.data());
-        gradient_mTm.ptr = thrust::raw_pointer_cast(param_dvec.gradient_mTm.data());
+        gradientX_mTm.ptr = thrust::raw_pointer_cast(param_dvec.gradientX_mTm.data());
+        gradientY_mTm.ptr = thrust::raw_pointer_cast(param_dvec.gradientY_mTm.data());
+        gradientZ_mTm.ptr = thrust::raw_pointer_cast(param_dvec.gradientZ_mTm.data());
         pXY.ptr = thrust::raw_pointer_cast(param_dvec.pXY.data());
         T1_ms.ptr = thrust::raw_pointer_cast(param_dvec.T1_ms.data());
         T2_ms.ptr = thrust::raw_pointer_cast(param_dvec.T2_ms.data());
@@ -119,7 +158,9 @@ typedef struct parameters_uvec
         RF_FA_deg.size = param_dvec.RF_FA_deg.size();
         RF_PH_deg.size = param_dvec.RF_PH_deg.size();
         dephasing_deg.size = param_dvec.dephasing_deg.size();
-        gradient_mTm.size = param_dvec.gradient_mTm.size();
+        gradientX_mTm.size = param_dvec.gradientX_mTm.size();
+        gradientY_mTm.size = param_dvec.gradientY_mTm.size();
+        gradientZ_mTm.size = param_dvec.gradientZ_mTm.size();
         pXY.size = param_dvec.pXY.size();
         T1_ms.size = param_dvec.T1_ms.size();
         T2_ms.size = param_dvec.T2_ms.size();
@@ -158,40 +199,28 @@ typedef struct parameters
     }
     
 
-    // std::string dump()
-    // {
-    //     std::stringstream ss;
-    //     ss<<"B0 = "<<B0<<" T\n";
-    //     ss<<"timestep = "<<timestep_us<<" us.\n";
-    //     ss<<"TR = "<<TR_us/1000.<<" ms.\n";
-    //     ss<<"TE = "; for(int i=0; i<TE_us.data.size(); i++) ss<<TE_us.data[i]*timestep_us/1000.<<' '; ss<<"ms.\n";
-    //     ss<<"T2 = "; for(int i=0; i<T2_ms.data.size(); i++) ss<<T2_ms.data[i]<<' '; ss<<"ms.\n";
-    //     ss<<"T1 = "; for(int i=0; i<T1_ms.data.size(); i++) ss<<T1_ms.data[i]<<' '; ss<<"ms.\n";
-    //     ss<<"sqrt(2*diffusivity*timestep) = "; for(int i=0; i<diffusivity.data.size(); i++) ss<<diffusivity.data[i]<<' '; ss<<"\n";
-    //     ss<<"Cross Tissue Probability =\n"; for(int i=0; i<n_substrate; i++) {for(int j=0; j<n_substrate; j++) ss<<pXY.data[j+i*n_substrate]<<' '; ss<<'\n';};
-    //     ss<<"RF flip-angle   = "; for(int i=0; i<RF_FA_deg.data.size(); i++) ss<<RF_FA_deg.data[i]<<' '; ss<<"deg.\n";
-    //     ss<<"RF phase        = "; for(int i=0; i<RF_PH_deg.data.size(); i++) ss<<RF_PH_deg.data[i]<<' '; ss<<"deg.\n";
-    //     ss<<"RF time         = "; for(int i=0; i<RF_us.data.size(); i++) ss<<RF_us.data[i]*timestep_us<<' '; ss<<"us.\n";
-    //     ss<<"dephasing       = "; for(int i=0; i<dephasing_deg.data.size(); i++) ss<<dephasing_deg.data[i]<<' '; ss<<"deg.\n";
-    //     ss<<"dephasing time  = "; for(int i=0; i<dephasing_us.data.size(); i++) ss<<dephasing_us.data[i]*timestep_us<<' '; ss<<"us.\n";
-    //     ss<<"FoV             = "<< fov[0] << " x " << fov[1] << " x " << fov[2] << " m" << '\n';
-    //     ss<<"fieldmap size   = "<< phantom_size[0] << " x " << phantom_size[1] << " x " << phantom_size[2] << '\n';
-    //     ss<<"matrix length   = "<< matrix_length << '\n';
-    //     ss<<"dummy scans     = "<< n_dummy_scan<<'\n';
-    //     ss<<"spins           = "<< n_spins<<'\n';
-    //     ss<<"timepoints      = "<< n_timepoints<<'\n';
-    //     ss<<"max iterations  = "<< max_iterations<<'\n';
-    //     ss<<"Pass FoV        = "<< enCrossFOV << '\n';
-    //     ss<<"Phase cycling   = "<< phase_cycling<<'\n';
-    //     ss<<"Seed            = "<< seed<<'\n';
-    //     ss<<"off-resonance exists   = "<< (fieldmap_exist ? "Yes" : "No") <<'\n';
-    //     ss<<"gradient (x,y,z) mT/m  =\n"; for(int i=0; i<gradient_mTm.data.size()/3; i++) ss<<gradient_mTm.data[3*i+0]<<' '<<gradient_mTm.data[3*i+1]<<' '<<gradient_mTm.data[3*i+2]<<'\n';
-    //     ss<<"gradient  time         = "; for(int i=0; i<gradient_us.data.size(); i++) ss<<gradient_us.data[i]*timestep_us<<' '; ss<<"us\n";
-    //     ss<<"Record Trajectory      = "<< (enRecordTrajectory ? "Yes" : "No")<<'\n';
-    //     ss<<"Number of scales   = "<< n_scales<<'\n';
-    //     ss<<"Number of substrates   = "<< n_substrate;
-    //     return ss.str();
-    // }
+    std::string dump()
+    {
+        std::stringstream ss;
+        ss<<"B0              = "<< B0<<" T\n";
+        ss<<"timestep        = "<< timestep_us <<" us.\n";
+        ss<<"TR              = "<< TR_us/1000. <<" ms.\n";
+        ss<<"FoV             = "<< fov[0] << " x " << fov[1] << " x " << fov[2] << " m" << '\n';
+        ss<<"fieldmap size   = "<< phantom_size[0] << " x " << phantom_size[1] << " x " << phantom_size[2] << '\n';
+        ss<<"matrix length   = "<< matrix_length << '\n';
+        ss<<"dummy scans     = "<< n_dummy_scan <<'\n';
+        ss<<"spins           = "<< n_spins <<'\n';
+        ss<<"timepoints      = "<< n_timepoints <<'\n';
+        ss<<"max iterations  = "<< max_iterations <<'\n';
+        ss<<"Pass FoV        = "<< enCrossFOV << '\n';
+        ss<<"Phase cycling   = "<< phase_cycling <<'\n';
+        ss<<"Seed            = "<< seed <<'\n';
+        ss<<"off-resonance   = "<< (fieldmap_exist ? "Yes" : "No") <<'\n';
+        ss<<"Save Trajectory = "<< (enRecordTrajectory ? "Yes" : "No")<<'\n';
+        ss<<"N scales        = "<< n_scales <<'\n';
+        ss<<"N substrates    = "<< n_substrate <<'\n';;
+        return ss.str();
+    }
 
     bool prepare(parameters_hvec &param_hvec)
     {

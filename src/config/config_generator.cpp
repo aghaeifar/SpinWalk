@@ -42,22 +42,24 @@ bool config_generator::generate_default_config(uint32_t TE_us, uint32_t timestep
     // repetition time in microsecond (integer)
     ini_parent["SCAN_PARAMETERS"]["TR"] = std::to_string(TE_us + timestep_us);
     // echo time in microsecond (integer)
-    ini_parent["SCAN_PARAMETERS"]["TE[0]"] = std::to_string(TE_us);
+    ini_parent["SCAN_PARAMETERS"]["TE"] = std::to_string(TE_us);
     // RF Flip angle in degree (float)
-    ini_parent["SCAN_PARAMETERS"]["RF_FA[0]"] = "90.0";
+    ini_parent["SCAN_PARAMETERS"]["RF_FA"] = "90.0";
     // RF Phase in degree (float). Note PHASE_CYCLING will be added to the phase of the first RF
-    ini_parent["SCAN_PARAMETERS"]["RF_PH[0]"] = "0.0";
+    ini_parent["SCAN_PARAMETERS"]["RF_PH"] = "0.0";
     // Time to apply RF in microsecond (integer). The first RF start time is always 0.0
-    ini_parent["SCAN_PARAMETERS"]["RF_T[0]"] = "0";
+    ini_parent["SCAN_PARAMETERS"]["RF_T"] = "0";
 
     // Dephasing in degree (float). The initial spin in the population will experience a dephasing of 0.0 degrees. Dephasing will then progressively increase in a linear manner up to the final spin, which will undergo dephasing as specified by the given parameter
-    ini_parent["SCAN_PARAMETERS"]["DEPHASING[0]"] = "";
+    ini_parent["SCAN_PARAMETERS"]["DEPHASING"] = "";
     // Time to apply dephasing in microsecond (integer).
-    ini_parent["SCAN_PARAMETERS"]["DEPHASING_T[0]"] = "";
+    ini_parent["SCAN_PARAMETERS"]["DEPHASING_T"] = "";
     // Gradient in mT/m for each axis (float). Each sample is active for one TIME_STEP
-    ini_parent["SCAN_PARAMETERS"]["GRADIENT_XYZ[0]"] = "";
+    ini_parent["SCAN_PARAMETERS"]["GRADIENT_X"] = "";
+    ini_parent["SCAN_PARAMETERS"]["GRADIENT_Y"] = "";
+    ini_parent["SCAN_PARAMETERS"]["GRADIENT_Z"] = "";
     // Time to apply gradient in micro-second (integer).
-    ini_parent["SCAN_PARAMETERS"]["GRADIENT_T[0]"] = "";
+    ini_parent["SCAN_PARAMETERS"]["GRADIENT_T"] = "";
     // time intervals per random-walk in micro-second (integer)
     ini_parent["SCAN_PARAMETERS"]["TIME_STEP"] = std::to_string(timestep_us);
     // number of dummy scans to reach steady state. The first RF pulse (RF_FA[0]) is used for excitation in dummy scans. If negative, it will be set to 5T1/TR.
@@ -98,10 +100,10 @@ bool config_generator::generate_gre(uint32_t TE_us, uint32_t timestep_us, std::v
         add_param("FILES", "PHANTOM[" + std::to_string(i) + "]", phantoms[i]);
 
     add_param("SCAN_PARAMETERS", "TR", std::to_string(TE_us + timestep_us));
-    add_param("SCAN_PARAMETERS", "TE[0]", std::to_string(TE_us));
-    add_param("SCAN_PARAMETERS", "RF_FA[0]", "90.0");
-    add_param("SCAN_PARAMETERS", "RF_PH[0]", "0");
-    add_param("SCAN_PARAMETERS", "RF_T[0]", "0");
+    add_param("SCAN_PARAMETERS", "TE", std::to_string(TE_us));
+    add_param("SCAN_PARAMETERS", "RF_FA", "90.0");
+    add_param("SCAN_PARAMETERS", "RF_PH", "0");
+    add_param("SCAN_PARAMETERS", "RF_T", "0");
     add_param("SCAN_PARAMETERS", "TIME_STEP", std::to_string(timestep_us));
 
     if(output.empty() == false)
@@ -124,13 +126,10 @@ bool config_generator::generate_se(uint32_t TE_us, uint32_t timestep_us, std::ve
         add_param("FILES", "PHANTOM[" + std::to_string(i) + "]", phantoms[i]);
 
     add_param("SCAN_PARAMETERS", "TR", std::to_string(TE_us + timestep_us));
-    add_param("SCAN_PARAMETERS", "TE[0]", std::to_string(TE_us));
-    add_param("SCAN_PARAMETERS", "RF_FA[0]", "90.0");
-    add_param("SCAN_PARAMETERS", "RF_FA[1]", "180.0");
-    add_param("SCAN_PARAMETERS", "RF_PH[0]", "0");
-    add_param("SCAN_PARAMETERS", "RF_PH[1]", "90");
-    add_param("SCAN_PARAMETERS", "RF_T[0]", "0");
-    add_param("SCAN_PARAMETERS", "RF_T[1]", std::to_string(TE_us/2));
+    add_param("SCAN_PARAMETERS", "TE", std::to_string(TE_us));
+    add_param("SCAN_PARAMETERS", "RF_FA", "90.0 180.0");
+    add_param("SCAN_PARAMETERS", "RF_PH", "0 90");
+    add_param("SCAN_PARAMETERS", "RF_T", "0 " + std::to_string(TE_us/2));
     add_param("SCAN_PARAMETERS", "TIME_STEP", std::to_string(timestep_us));
 
     if(output.empty() == false)
@@ -153,10 +152,10 @@ bool config_generator::generate_bssfp(uint32_t TE_us, uint32_t timestep_us, std:
         add_param("FILES", "PHANTOM[" + std::to_string(i) + "]", phantoms[i]);
 
     add_param("SCAN_PARAMETERS", "TR", std::to_string(TE_us*2));
-    add_param("SCAN_PARAMETERS", "TE[0]", std::to_string(TE_us));
-    add_param("SCAN_PARAMETERS", "RF_FA[0]", "16.0");
-    add_param("SCAN_PARAMETERS", "RF_PH[0]", "0");
-    add_param("SCAN_PARAMETERS", "RF_T[0]", "0");
+    add_param("SCAN_PARAMETERS", "TE", std::to_string(TE_us));
+    add_param("SCAN_PARAMETERS", "RF_FA", "16.0");
+    add_param("SCAN_PARAMETERS", "RF_PH", "0");
+    add_param("SCAN_PARAMETERS", "RF_T", "0");
     add_param("SCAN_PARAMETERS", "TIME_STEP", std::to_string(timestep_us));
     add_param("SCAN_PARAMETERS", "DUMMY_SCAN", "-1");
     add_param("SCAN_PARAMETERS", "PHASE_CYCLING", "180");
