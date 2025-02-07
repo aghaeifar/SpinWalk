@@ -30,7 +30,7 @@ namespace config {
             if(it->second(args.TE_us, args.timestep_us, args.phantoms, output) == false) // Call the function with the arguments
                 return false;
         } else {
-            std::cout << "Invalid function name!\n";
+            std::cout << "Invalid sequence name!\n";
             return false;
         }
 
