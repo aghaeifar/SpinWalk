@@ -1,7 +1,7 @@
 
 /* --------------------------------------------------------------------------
  * Project: SpinWalk
- * File: phantom_sphere.cpp
+ * File: phantom_sphere.h
  *
  * Author   : Ali Aghaeifar <ali.aghaeifar@tuebingen.mpg.de>
  * Date     : 10.02.2023

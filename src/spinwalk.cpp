@@ -31,8 +31,8 @@ namespace bl = boost::log;
 int main(int argc, char * argv[])
 {
     // ========== command line arguments ==========
-    bool arg_cyl = false, arg_sphere = false, use_cpu = false;
-    std::string arg_output, config_file, arg_seqname;
+    bool arg_cyl = false, arg_sphere = false, arg_ply = false, arg_twopools = false, use_cpu = false;
+    std::string arg_output, config_file, arg_seqname, arg_ply_in, log_filename="log_spinwalk.txt";
     float arg_radius=50.f, arg_fov=1000.f, arg_dchi=0.11e-6, arg_oxy_level=0.75, arg_ori=90.f, arg_vol_fra=4.f;
     uint32_t arg_res=500, device_id=0, TE_us=1000, timestep_us=10;
     int32_t arg_seed = -1;
@@ -46,6 +46,7 @@ int main(int argc, char * argv[])
     app.get_formatter()->column_width(40);
     app.get_formatter()->label("REQUIRED", "");
     app.set_version_flag("-v,--version", SPINWALK_VERSION);
+    app.add_option("-l,--log", log_filename, "Log file name")->capture_default_str();
     auto callback_gpu_info = [](int count){sim::print_device_info();  exit(0);};
     app.add_flag("-g,--gpu_info", callback_gpu_info, "Print GPU information");
 
@@ -57,6 +58,8 @@ int main(int argc, char * argv[])
     auto subcommand_phantom = app.add_subcommand("phantom", "Generate numerical phantom");
     subcommand_phantom->add_flag("-c,--cylinder", arg_cyl, "Fill phantom with cylinders");
     subcommand_phantom->add_flag("-s,--sphere", arg_sphere, "Fill phantom with spheres");
+    subcommand_phantom->add_flag("-t,--two_pools", arg_twopools, "Phantom with two pools each occupying half of the volume");
+    subcommand_phantom->add_flag("-p,--ply", arg_ply, "Convert triangular mesh from ply file");
     subcommand_phantom->add_option("-r,--radius", arg_radius, "Radius of the cylinders/spheres in \u00B5m (negative value = random but smaller than radius)")->capture_default_str();
     subcommand_phantom->add_option("-n,--orientation", arg_ori, "Orientation of the cylinders in degree with respect to B0")->capture_default_str();
     subcommand_phantom->add_option("-v,--volume_fraction", arg_vol_fra, "Fraction of shapes volume to FoV volume in % <0.0 100.0>")->capture_default_str();
@@ -65,13 +68,14 @@ int main(int argc, char * argv[])
     subcommand_phantom->add_option("-d,--dchi", arg_dchi, "Susceptibility difference between fully deoxygenated blood and tissue (default: 0.11e-6 in cgs units)")->capture_default_str();
     subcommand_phantom->add_option("-y,--oxy_level", arg_oxy_level, "Blood oxygenetation level <0.0 1.0> (-1 = exclude off-resonance effect and only generate the mask)")->capture_default_str();
     subcommand_phantom->add_option("-e,--seed", arg_seed, "Seed for random number generator in phantom creator (-1 = random seed)")->capture_default_str();
+    subcommand_phantom->add_option("-i,--ply_file", arg_ply_in, "Path to ply file")->check(CLI::ExistingFile);
     subcommand_phantom->add_option("-o,--output", arg_output, "Path to save phantom (h5 format)")->mandatory(true);
 
     auto subcommand_config = app.add_subcommand("config", "Generate configuration file");
     subcommand_config->add_option("-s,--seq_name", arg_seqname, "Sequence name: GRE, SE, and bSSFP")->mandatory(true); 
     subcommand_config->add_option("-p,--phantoms", phantom_files, "Path to phantom files as many as you want. e.g. -p phantom1.h5 phantom2.h5 ... phantomN.h5")->mandatory(true); // must not check for existing file here, its path is relative to config file location
     subcommand_config->add_option("-e,--TE", TE_us, "Echo time in \u00B5s")->mandatory(true)->check(CLI::PositiveNumber);; 
-    subcommand_config->add_option("-t,--timestep", timestep_us, "timestep in \u00B5s")->mandatory(true)->check(CLI::PositiveNumber);; 
+    subcommand_config->add_option("-t,--timestep", timestep_us, "timestep in \u00B5s")->mandatory(true)->check(CLI::PositiveNumber); 
     subcommand_config->add_option("-o,--output",config_file, "Path to save the configuration file")->mandatory(true);
 
     auto subcommand_diffusion = app.add_subcommand("dwi", "Generate diffusion gradient table");
@@ -85,7 +89,7 @@ int main(int argc, char * argv[])
         std::cout << app.help() << '\n';
         return 0;
     }
-    if (subcommand_phantom->parsed() && arg_cyl == arg_sphere){  
+    if (subcommand_phantom->parsed() && arg_cyl == arg_sphere && arg_cyl == arg_ply && arg_cyl == arg_twopools){  
         if (arg_cyl == true)      
             std::cout << "Error! select either --cylinder or --sphere, not both!"<< '\n';
         std::cout << subcommand_phantom->help() << '\n';
@@ -97,8 +101,7 @@ int main(int argc, char * argv[])
     std::cout << "SpinWalk Version: " << SPINWALK_VERSION << '\n';  
 
     // ========== setup log ==========
-    std::string log_filename = "spinwalk_" + std::to_string(device_id) + ".log";
-    auto fileSink = bl::add_file_log(bl::keywords::file_name=log_filename, bl::keywords::target_file_name = log_filename, bl::keywords::format = "[%TimeStamp%] [%Severity%]: %Message%", bl::keywords::auto_flush = true);
+    auto fileSink = bl::add_file_log(bl::keywords::file_name=log_filename, bl::keywords::target_file_name=log_filename, bl::keywords::format="[%TimeStamp%] [%Severity%]: %Message%", bl::keywords::auto_flush=true, bl::keywords::open_mode=std::ios_base::app);
     bl::add_common_attributes();
     std::cout << "Log file location: " << std::filesystem::current_path() / log_filename << '\n';
 
@@ -118,7 +121,7 @@ int main(int argc, char * argv[])
 
     // ========== generate phantom ==========
     if(subcommand_phantom->parsed())
-        if (phantom::handler::execute({.cylinder=arg_cyl, .sphere=arg_sphere, .radius=arg_radius, .orientation=arg_ori, .volume_fraction=arg_vol_fra, .fov=arg_fov, .resolution=arg_res, .dchi=arg_dchi, .oxy_level=arg_oxy_level, .seed=arg_seed, .output=arg_output}) == false){
+        if (phantom::handler::execute({.cylinder=arg_cyl, .sphere=arg_sphere, .twopools=arg_twopools, .ply=arg_ply, .radius=arg_radius, .orientation=arg_ori, .volume_fraction=arg_vol_fra, .fov=arg_fov, .resolution=arg_res, .dchi=arg_dchi, .oxy_level=arg_oxy_level, .seed=arg_seed, .ply_file=arg_ply_in, .output=arg_output}) == false){
             std::cout << ERR_MSG << "Phantom generation failed. See the log file " << log_filename <<", Aborting...!" << "\n";
             return 1;
         }

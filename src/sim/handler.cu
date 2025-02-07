@@ -10,7 +10,7 @@ namespace sim {
         for(const auto& config_file : args.config_files){
             std::cout << "<" << std::filesystem::path(config_file).filename().string() << ">\n";       
             if(mc.run(config_file) == false)
-                return 1;                
+                return false;                
         }  
         std::cout << "Simulation completed successfully. See the log file\n";
         return true;

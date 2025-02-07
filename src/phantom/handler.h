@@ -9,6 +9,8 @@ namespace phantom {
     struct execute_args {
         bool cylinder = false;
         bool sphere = false;
+        bool twopools = false;
+        bool ply = false;        
         float radius = 0.0f;
         float orientation = 0.0f;
         float volume_fraction = 0.0f;
@@ -17,6 +19,7 @@ namespace phantom {
         float dchi = 0.0f;
         float oxy_level = 0.0f;
         int32_t seed = 0;
+        std::string ply_file = "";
         std::string output = "default.h5"; // Default value for name
     };
 

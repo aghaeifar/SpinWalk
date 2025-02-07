@@ -20,6 +20,10 @@ class monte_carlo {
         virtual bool initialize_position(std::string filename, size_t seed);
         virtual bool initialize_magnetization(std::string filename);
         virtual size_t get_total_memory() const;
+        #ifdef __CUDACC__
+        virtual void cleanup_device();
+        #endif
+
 
     private:        
         std::vector<float>      fieldmap;        

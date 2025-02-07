@@ -173,7 +173,8 @@ bool config_generator::generate_bssfp(uint32_t TE_us, uint32_t timestep_us, std:
 
 
 bool config_generator::write_ini(std::string output){
-    auto output_file = std::filesystem::absolute(std::filesystem::path(output));
+    // auto output_file = std::filesystem::absolute(std::filesystem::path(output));
+    auto output_file = std::filesystem::path(output);
     try {
         std::filesystem::create_directories(output_file.parent_path());
     } catch (const std::exception& e) {
