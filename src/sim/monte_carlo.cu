@@ -82,6 +82,19 @@ size_t monte_carlo::get_total_memory() const
     return total_memory >> 20; // convert to MB
 }
 
+#ifdef __CUDACC__
+void monte_carlo::cleanup_device()
+{
+    d_fieldmap.clear();
+    d_mask.clear();
+    d_XYZ0.clear();
+    d_XYZ1.clear();
+    d_M0.clear();
+    d_M1.clear();
+    d_T.clear();
+}
+#endif
+
 bool monte_carlo::read_phantom(std::string filename)
 {
     fov.resize(3);
@@ -162,6 +175,9 @@ void monte_carlo::save(std::string filename)
     }
 #endif
 
+    if (std::filesystem::exists(filename)) 
+        std::filesystem::remove(filename);
+
     std::vector<size_t> dims = {param.n_scales, param.n_spins, param_hvec.TE_us.size(), 3};
     h5_helper::write(filename, "M", dims, M1);
 
@@ -190,7 +206,6 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
         return false;
     allocate_memory();
     
-    // BOOST_LOG_TRIVIAL(info) << "\n" << std::string(20, '-') << "\nSimulation parameters:\n" << param.dump() << "\n" << std::string(20, '-') ;
     size_t trj  = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
     size_t ind_fieldmap = 0;
     std::vector<float> gradientX_mTm_orig = param_hvec.gradientX_mTm;
@@ -204,6 +219,7 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
         param_uvec.copy_from_device(param_dvec);
     }
 #endif
+    // loop over phantoms and simulate
     for (auto &file_phantom : config.get_filename("PHANTOM")){
         BOOST_LOG_TRIVIAL(info) << "Simulating phantom: " << file_phantom;
         if(read_phantom(file_phantom) == false)
@@ -227,6 +243,7 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
 #ifdef __CUDACC__
         if (gpu_disabled == false) { 
             BOOST_LOG_TRIVIAL(info) << "Moving data to GPU memory.";
+            cleanup_device();
             // calculate required memory and avaialbe memory 
             if (check_memory_size(get_total_memory()) == false)
                 return false; 
@@ -317,14 +334,15 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
         BOOST_LOG_TRIVIAL(info) << "Simulation took " << std::fixed << std::setprecision(precision) <<  elapsed_sim << " seconds.";
 
         // ========== save results ========== 
-        BOOST_LOG_TRIVIAL(info) << "Saving the results to disk.";
+        BOOST_LOG_TRIVIAL(info) << "Saving the results to disk." ;
         save(config.get_output_filename(ind_fieldmap));
+        BOOST_LOG_TRIVIAL(info) << "\r" + std::string(100, '-') + "\n";
         ind_fieldmap++;
     }
 
     auto elapsed_run = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_run).count() / 1000.0;
     int precision = elapsed_run>10 ? 0 : (elapsed_run > 1 ? 1 : 3);
-    BOOST_LOG_TRIVIAL(info) << "Entire run took " << std::fixed << std::setprecision(precision) <<  elapsed_run << " seconds.";
+    BOOST_LOG_TRIVIAL(info) << "Entire run took " << std::fixed << std::setprecision(precision) <<  elapsed_run << " seconds." << "\n" + std::string(100, '=') + "\n";
     return true;
 } 
 
