@@ -33,8 +33,6 @@ class phantom_base
         virtual bool run(bool write_to_disk) = 0; 
         virtual bool save() const;
         virtual bool create_grid();
-        virtual bool generate_shapes() = 0;
-        virtual bool generate_mask_fieldmap() = 0;
         float get_actual_volume_fraction() const {return m_volume_fraction;}
 
         friend std::ostream& operator<<(std::ostream& os, const phantom_base& obj);
@@ -54,18 +52,93 @@ class phantom_base
     private: 
 };
 
-   
-float dot_product(const float *a, const float *b);
-float norm(const float *a);
-float norm_p2(const float *a);
-void cross_product(const float *a, const float *b, float *c);
-void normalize(float *a, float n = -1.0f);
-void subtract(const float *a, const float *b, float *c);
-void add(const float *a, const float *b, float *c);
-void multiply(const float a, const float *b, float *c);
-void multiply(const float *a, const float *b, float *c);
-void copy(const float *a, float *b);
-void roty(float theta, const float *m0, float *m1);
+
+template< class T>
+T dot_product(const T *a, const T *b)
+{
+    return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+}
+
+template< class T>
+T norm(const T *a)
+{
+    return sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
+}
+
+template< class T>
+T norm_p2(const T *a)
+{
+    return a[0]*a[0] + a[1]*a[1] + a[2]*a[2]; // avoid sqrt
+}
+
+template< class T>
+void cross_product(const T *a, const T *b, T *c)
+{
+    c[0] = a[1]*b[2] - a[2]*b[1];
+    c[1] = a[2]*b[0] - a[0]*b[2];
+    c[2] = a[0]*b[1] - a[1]*b[0];
+}
+
+template< class T>
+void normalize(T *a, T n=-1.0)
+{
+    if (n < 0)
+        n = norm(a);
+    a[0] /= n;
+    a[1] /= n;
+    a[2] /= n;
+}
+
+template< class T>
+void subtract(const T *a, const T *b, T *c)
+{
+    c[0] = a[0] - b[0];
+    c[1] = a[1] - b[1];
+    c[2] = a[2] - b[2];
+}
+
+template< class T>
+void add(const T *a, const T *b, T *c)
+{
+    c[0] = a[0] + b[0];
+    c[1] = a[1] + b[1];
+    c[2] = a[2] + b[2];
+}
+
+template< class T>
+void multiply(const T a, const T *b, T *c)
+{
+    c[0] = a * b[0];
+    c[1] = a * b[1];
+    c[2] = a * b[2];
+}
+
+template< class T>
+void multiply(const T *a, const T *b, T *c)
+{
+    c[0] = a[0] * b[0];
+    c[1] = a[1] * b[1];
+    c[2] = a[2] * b[2];
+}
+
+template< class T>
+void copy(const T *a, T *b)
+{
+    b[0] = a[0];
+    b[1] = a[1];
+    b[2] = a[2];
+}
+
+template< class T>
+void roty(T theta, const T *m0, T *m1)
+{
+    T deg2rad = 0.0174532925199433; // = M_PI/180 
+    T s = sin(theta * deg2rad);
+    T c = cos(theta * deg2rad);
+    m1[0] =  c*m0[0] + s*m0[2];
+    m1[1] =  m0[1];
+    m1[2] = -s*m0[0] + c*m0[2];
+}
 
 }
 
