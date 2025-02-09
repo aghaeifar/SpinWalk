@@ -104,8 +104,8 @@ bool config_reader::read(std::string config_filename_path)
         output_dir = std::filesystem::weakly_canonical(std::filesystem::absolute(config_filename).parent_path() / output_dir).string();
     
     // ============== reading section SCAN_PARAMETERS ==============
-    param->TR_us = ini["SCAN_PARAMETERS"]["TR"].empty() ? param->TR_us : std::stoi(ini["SCAN_PARAMETERS"]["TR"]);
-    param->timestep_us = ini["SCAN_PARAMETERS"]["TIME_STEP"].empty() ? param->timestep_us : std::stoi(ini["SCAN_PARAMETERS"]["TIME_STEP"]);
+    param->TR_us = ini["SCAN_PARAMETERS"]["TR"].empty() ? param->TR_us : std::stof(ini["SCAN_PARAMETERS"]["TR"]);
+    param->timestep_us = ini["SCAN_PARAMETERS"]["TIME_STEP"].empty() ? param->timestep_us : std::stof(ini["SCAN_PARAMETERS"]["TIME_STEP"]);
     int32_t timestep_us = param->timestep_us;
 
     // ---------------- Echo times ----------------      
