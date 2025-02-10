@@ -44,7 +44,7 @@ RUN rm -rf ./build && cmake -B ./build && cmake --build ./build --config Release
 # Stage 2: Runtime
 FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04
 USER root
-RUN apt-get update && apt install -y libboost-log1.74.0 libtbb-dev libhdf5-103 libgomp1 --no-install-recommends && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/* 
+RUN apt-get update && apt install -y libboost-log1.74.0 libtbb-dev libhdf5-103 libgomp1 bc --no-install-recommends && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/* 
 COPY --from=builder /opt/SpinWalk/build/spinwalk /usr/local/bin/
 LABEL org.opencontainers.image.authors="Ali Aghaeifar"
 

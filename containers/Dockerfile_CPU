@@ -34,7 +34,7 @@ RUN rm -rf ./build && cmake -B ./build && cmake --build ./build --config Release
 # Stage 2: Runtime
 FROM ubuntu:24.04
 USER root
-RUN apt-get update && apt install -y libboost-log1.83.0 libtbb-dev libhdf5-103-1 libomp5 --no-install-recommends && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/* 
+RUN apt-get update && apt install -y libboost-log1.83.0 libtbb-dev libhdf5-103-1 libomp5 bc --no-install-recommends && apt-get clean && apt-get -y autoremove && rm -rf /var/lib/apt/lists/* 
 COPY --from=builder /opt/SpinWalk/build/spinwalk /usr/local/bin/
 COPY --from=builder /opt/SpinWalk/build/tests/spinwalk_test /usr/local/bin/
 LABEL org.opencontainers.image.authors="Ali Aghaeifar"
