@@ -149,12 +149,12 @@ bool sphere::generate_mask_fieldmap()
         // find the bounding box of the sphere
         if (m_calc_fieldmap)
         {
-            x_min = std::max(0, sph_center_vox[0] - sph_rad_vox*4);
-            x_max = std::min((int32_t)m_resolution, sph_center_vox[0] + sph_rad_vox*4);
-            y_min = std::max(0, sph_center_vox[1] - sph_rad_vox*4);
-            y_max = std::min((int32_t)m_resolution, sph_center_vox[1] + sph_rad_vox*4);
-            z_min = std::max(0, sph_center_vox[2] - sph_rad_vox*4);
-            z_max = std::min((int32_t)m_resolution, sph_center_vox[2] + sph_rad_vox*4);
+            x_min = std::max(0, sph_center_vox[0] - sph_rad_vox*20);
+            x_max = std::min((int32_t)m_resolution, sph_center_vox[0] + sph_rad_vox*20);
+            y_min = std::max(0, sph_center_vox[1] - sph_rad_vox*20);
+            y_max = std::min((int32_t)m_resolution, sph_center_vox[1] + sph_rad_vox*20);
+            z_min = std::max(0, sph_center_vox[2] - sph_rad_vox*20);
+            z_max = std::min((int32_t)m_resolution, sph_center_vox[2] + sph_rad_vox*20);
 
         } else 
         {

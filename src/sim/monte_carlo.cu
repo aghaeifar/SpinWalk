@@ -85,13 +85,13 @@ size_t monte_carlo::get_total_memory() const
 #ifdef __CUDACC__
 void monte_carlo::cleanup_device()
 {
-    d_fieldmap.clear();
-    d_mask.clear();
-    d_XYZ0.clear();
-    d_XYZ1.clear();
-    d_M0.clear();
-    d_M1.clear();
-    d_T.clear();
+    d_fieldmap.clear(); d_fieldmap.shrink_to_fit();
+    d_mask.clear();     d_mask.shrink_to_fit();
+    d_XYZ0.clear();     d_XYZ0.shrink_to_fit();
+    d_XYZ1.clear();     d_XYZ1.shrink_to_fit();
+    d_M0.clear();       d_M0.shrink_to_fit();
+    d_M1.clear();       d_M1.shrink_to_fit();
+    d_T.clear();        d_T.shrink_to_fit();
 }
 #endif
 

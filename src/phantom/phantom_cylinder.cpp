@@ -223,10 +223,10 @@ bool cylinder::generate_mask_fieldmap()
         z_max = m_resolution;
         if (m_calc_fieldmap)
         {
-            x_min = std::max(0, cyl_pnt_vox[0] - cyl_rad_vox*8);
-            x_max = std::min((int32_t)m_resolution, cyl_pnt_vox[0] + cyl_rad_vox*10);
-            y_min = std::max(0, cyl_pnt_vox[1] - cyl_rad_vox*8);
-            y_max = std::min((int32_t)m_resolution, cyl_pnt_vox[1] + cyl_rad_vox*10);
+            x_min = std::max(0, cyl_pnt_vox[0] - cyl_rad_vox*20);
+            x_max = std::min((int32_t)m_resolution, cyl_pnt_vox[0] + cyl_rad_vox*20);
+            y_min = std::max(0, cyl_pnt_vox[1] - cyl_rad_vox*20);
+            y_max = std::min((int32_t)m_resolution, cyl_pnt_vox[1] + cyl_rad_vox*20);
         } else 
         {
             x_min = std::max(0, cyl_pnt_vox[0] - cyl_rad_vox);

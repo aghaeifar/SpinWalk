@@ -6,7 +6,7 @@ pushd "$SCRIPT_DIR" > /dev/null
 # docker system prune -a --volumes --force
 docker system prune --force
 
-CUDA_VERSIONS=("12.0.0" "12.6.3")
+CUDA_VERSIONS=("12.6.3")
 
 for VERSION in "${CUDA_VERSIONS[@]}"; do
     echo "Building Docker image for CUDA version $VERSION..."

@@ -45,7 +45,7 @@ typedef struct parameters_hvec
     std::string dump() 
     {
         std::stringstream ss;
-        ss<<"TE = " << vec2str(TE_us) <<" ms.\n";
+        ss<<"TE = " << vec2str(TE_us) <<" us.\n";
         ss<<"T2 = " << vec2str(T2_ms) <<" ms.\n";
         ss<<"T1 = " << vec2str(T1_ms) <<" ms.\n";        
         ss<<"RF flip-angle   = " << vec2str(RF_FA_deg) <<" deg.\n";
@@ -56,8 +56,8 @@ typedef struct parameters_hvec
         ss<<"gradient X      = " << vec2str(gradientX_mTm) << " mT/m\n";
         ss<<"gradient Y      = " << vec2str(gradientY_mTm) << " mT/m\n";
         ss<<"gradient Z      = " << vec2str(gradientZ_mTm) <<" mT/m\n";
-        ss<<"gradient time  = " << vec2str(gradient_us) << " us\n";
-        ss<<"sqrt(2*diffusivity*timestep) = "<< vec2str(diffusivity) <<"\n";
+        ss<<"gradient time   = " << vec2str(gradient_us) << " us\n";
+        ss<<"diffusivity     = "<< vec2str(diffusivity) <<"\n";
         int n_substrate = sqrt(pXY.size());
         ss<<"Cross Tissue Probability =\n"; for(int i=0; i<n_substrate; i++) {for(int j=0; j<n_substrate; j++) ss<<pXY[j+i*n_substrate]<<' '; ss<<'\n';};
         return ss.str();
