@@ -32,6 +32,7 @@ class phantom_base
         void set_filename(std::string filename = "shape.h5");      
         virtual bool run(bool write_to_disk) = 0; 
         virtual bool save() const;
+        virtual bool save(float fov[3], std::vector<size_t> resolution) const;
         virtual bool create_grid();
         float get_actual_volume_fraction() const {return m_volume_fraction;}
 

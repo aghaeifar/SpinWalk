@@ -9,6 +9,8 @@
  * -------------------------------------------------------------------------- */
 #include <filesystem>
 #include <random>
+#include <ranges>
+
 // boost includes
 #include <boost/log/trivial.hpp> 
 
@@ -62,6 +64,13 @@ void phantom_base::set_filename(std::string filename)
 
 bool phantom_base::save() const
 {
+    float fov[3] = {m_fov*1e-6f, m_fov*1e-6f, m_fov*1e-6f}; // convert um to m
+    std::vector<size_t> resolution(3, m_resolution);
+    return save(fov, resolution);
+}
+
+bool phantom_base::save(float fov[3], std::vector<size_t> resolution) const
+{
     BOOST_LOG_TRIVIAL(info) << "Saving the results...";
     std::filesystem::path parent_path = std::filesystem::absolute(m_filename).parent_path();
     if (std::filesystem::is_directory(parent_path) == false)
@@ -76,16 +85,14 @@ bool phantom_base::save() const
 
     HighFive::File file(m_filename, HighFive::File::Truncate);    
     // save fieldmap and mask
-    std::vector<size_t> dims(3, m_resolution);
     if (m_Y >= 0)
     {
-        HighFive::DataSet dataset_fieldmap = file.createDataSet<float>("fieldmap", HighFive::DataSpace(dims));
+        HighFive::DataSet dataset_fieldmap = file.createDataSet<float>("fieldmap", HighFive::DataSpace(resolution));
         dataset_fieldmap.write_raw((float *)m_fieldmap.data());
     }
-    HighFive::DataSet dataset_mask = file.createDataSet<uint8_t>("mask", HighFive::DataSpace(dims));
+    HighFive::DataSet dataset_mask = file.createDataSet<uint8_t>("mask", HighFive::DataSpace(resolution));
     dataset_mask.write_raw((int8_t *)m_mask.data());
     // save fov
-    float fov[3] = {m_fov*1e-6f, m_fov*1e-6f, m_fov*1e-6f}; // convert um to m
     std::vector<size_t> dims_fov(1, 3);
     HighFive::DataSet dataset_fov = file.createDataSet<float>("fov", HighFive::DataSpace(dims_fov));
     dataset_fov.write_raw(fov);
@@ -106,23 +113,25 @@ bool phantom_base::create_grid()
         return false;
     }
     auto s = std::chrono::high_resolution_clock::now();
-    size_t res1 = m_resolution;
-    size_t res2 = res1 * res1;
-    size_t res3 = res1 * res2;
-    m_grid.reserve(res3 * 3);
-    // create a base grid
-    std::vector<float> grid_base(res1, 0.f);
-    double start = m_fov/res1/2.0;
-    double end   = m_fov - m_fov/res1/2.0;
-    double step  = (end - start) / (res1 - 1.0);
-    for (int i = 0; i < res1; ++i) 
-        grid_base[i] = start + i * step;
+    const size_t resolution = m_resolution;
+    const size_t resolutionSquared = resolution * resolution;
+    const size_t resolutionCubed = resolution * resolutionSquared;
+    // Reserve space for 3D coordinates (x, y, z for each point)
+    m_grid.reserve(resolutionCubed * 3);
+    // Create base grid using modern initialization
+    std::vector<float> gridBase(resolution, 0.0f);
+    // Calculate step parameters using const for immutable values
+    const double start = m_fov / resolution / 2.0;
+    const double end = m_fov - m_fov / resolution / 2.0;
+    const double step = (end - start) / (resolution - 1.0);
+    for (size_t i : std::views::iota(size_t(0), resolution)) 
+        gridBase[i] = static_cast<float>(start + i * step);
+    
     // data is stored in row-major order in h5!!! 
     float *grid = (float *)m_grid.data();
-    for (const auto& x : grid_base) 
-        for (const auto& y : grid_base) 
-            for (const auto& z : grid_base) 
-            {
+    for (const auto& x : gridBase) 
+        for (const auto& y : gridBase) 
+            for (const auto& z : gridBase) {
                 grid[0] = x;
                 grid[1] = y;
                 grid[2] = z;
