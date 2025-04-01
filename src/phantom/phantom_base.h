@@ -85,6 +85,8 @@ void normalize(T *a, T n=-1.0)
 {
     if (n < 0)
         n = norm(a);
+    if (n == 0)
+        return;
     a[0] /= n;
     a[1] /= n;
     a[2] /= n;
