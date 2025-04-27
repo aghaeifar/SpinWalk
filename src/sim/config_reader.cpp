@@ -313,8 +313,8 @@ bool config_reader::check()
         return false;
     }
 
-    if(scale_type != s_fov && scale_type != s_gradient){
-        BOOST_LOG_TRIVIAL(error) << "WHAT_TO_SCALE must be 0 or 1, but is " << scale_type;
+    if(scale_type != s_fov && scale_type != s_gradient && scale_type != s_phase_cycling){
+        BOOST_LOG_TRIVIAL(error) << "WHAT_TO_SCALE must be 0, 1, or 2, but is " << scale_type;
         return false;
     }
     
