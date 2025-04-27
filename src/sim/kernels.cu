@@ -92,8 +92,7 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
     float m0[3], m1[3]; 
     double xyz_old[3], xyz_new[3], scale2grid[3];
 
-    for(uint32_t i=0, shift=3*spin_no; i<3; i++)
-    {
+    for(uint32_t i=0, shift=3*spin_no; i<3; i++) {
         xyz_old[i] = xyz_new[i] = xyz1[i] = XYZ0[shift + i];
         m0[i] = M0[shift + i];
         scale2grid[i] = param.phantom_size[i] / param.fov[i];
@@ -105,8 +104,7 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
     double diffusivity_scale = param_uvec.diffusivity.ptr[ts_old];
     
     bool is_lastscan = false;
-    for (uint32_t dummy_scan = 0; dummy_scan < param.n_dummy_scan + 1; dummy_scan++)
-    {
+    for (uint32_t dummy_scan = 0; dummy_scan < param.n_dummy_scan + 1; dummy_scan++) {
         is_lastscan = (dummy_scan == param.n_dummy_scan);
         
         while (rf_phase > 360.0)
@@ -126,11 +124,9 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
         uint16_t current_rf = 1, current_te = 0, counter_dephasing = 0, counter_gradient = 0;
         float accumulated_phase = 0.f;      
         // ------ loop over timepoints ------
-        while (current_timepoint < param.n_timepoints) // param.n_timepoints is the total number of timepoints (= TR/dwelltime)
-        {
+        while (current_timepoint < param.n_timepoints) { // param.n_timepoints is the total number of timepoints (= TR/dwelltime)
             // ------ generate random walks and wrap around the boundries ------
-            for (uint8_t i=0; i<3; i++)
-            {
+            for (uint8_t i=0; i<3; i++) {
                 double rnd_wlk = dist_random_walk_xyz(gen_r) * diffusivity_scale;
                 xyz_new[i] = xyz_old[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)
@@ -141,8 +137,7 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
             
             // ------ subscripts to linear indices ------
             ind = sub2ind(xyz_new[0]*scale2grid[0], xyz_new[1]*scale2grid[1], xyz_new[2]*scale2grid[2], param.phantom_size[0], param.phantom_size[1], param.phantom_size[2]);
-            if(ind >= param.matrix_length || ind < 0)
-            {
+            if(ind >= param.matrix_length || ind < 0) {
                 printf("\n--------------------- <Error> ---------------------\n");
                 printf("spin = %d\ntimepoint = %d\nind = %" PRId64 "\nMatrixSize = %" PRId64 "\nPhantomSize = (%" PRId64 ", %" PRId64 ", %" PRId64 ")\n", spin_no, current_timepoint, ind, param.matrix_length, param.phantom_size[0], param.phantom_size[1], param.phantom_size[2]);
                 printf("FoV     = (%.10f, %.10f, %.10f)\nxyz_new = (%.10f, %.10f, %.10f)\nxyz_old = (%.10f, %.10f, %.10f)\n", param.fov[0], param.fov[1], param.fov[2], xyz_new[0], xyz_new[1], xyz_new[2], xyz_old[0], xyz_old[1], xyz_old[2]);
@@ -151,16 +146,12 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
             }
               
             // ------ accumulate phase ------
-            if(ind != ind_old) // fewer access to the global memory which is slow. Helpful for large samples!
-            {   
+            if(ind != ind_old) {  // fewer access to the global memory which is slow. Helpful for large samples!
                 // cross-tissue diffusion
                 ts = pMask[ind];          
-                if (ts != ts_old) 
-                {
-                    if (dist_cross_tissue(gen_u) >= param_uvec.pXY.ptr[ts_old*param.n_substrate + ts])
-                    {
-                        if(itr++ > param.max_iterations)
-                        {
+                if (ts != ts_old) {
+                    if (dist_cross_tissue(gen_u) >= param_uvec.pXY.ptr[ts_old*param.n_substrate + ts]) {
+                        if(itr++ > param.max_iterations) {
                             printf("Warning! spin %d is stuck at (%f, %f, %f) and is considered lost (dummy=%d time=%d).\n", spin_no, xyz_new[0], xyz_new[1], xyz_new[2], dummy_scan, current_timepoint);
                             // we must reset magnetization for all echoes here! 
                             return;
@@ -180,15 +171,13 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
             itr = 0;
 
             // ------ apply ideal dephasing if there is any ------
-            if(counter_dephasing < param_uvec.dephasing_us.size && param_uvec.dephasing_us.ptr[counter_dephasing] == current_timepoint)
-            {
+            if(counter_dephasing < param_uvec.dephasing_us.size && param_uvec.dephasing_us.ptr[counter_dephasing] == current_timepoint) {
                 accumulated_phase += (float)spin_no * param_uvec.dephasing_deg.ptr[counter_dephasing] / (float)param.n_spins; // assign dephasing linearly to spins 
                 counter_dephasing++;
             }
 
             // ------ apply gradient if there is any ------
-            if(counter_gradient < param_uvec.gradient_us.size && param_uvec.gradient_us.ptr[counter_gradient] == current_timepoint)
-            {
+            if(counter_gradient < param_uvec.gradient_us.size && param_uvec.gradient_us.ptr[counter_gradient] == current_timepoint) {
                 const float Gx = *(param_uvec.gradientX_mTm.ptr + counter_gradient);
                 const float Gy = *(param_uvec.gradientY_mTm.ptr + counter_gradient);
                 const float Gz = *(param_uvec.gradientZ_mTm.ptr + counter_gradient);
@@ -197,8 +186,7 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
             }
                 
             // ------ apply other RF pulse if there is any ------
-            if(current_rf < param_uvec.RF_us.size && param_uvec.RF_us.ptr[current_rf] == current_timepoint)
-            {
+            if(current_rf < param_uvec.RF_us.size && param_uvec.RF_us.ptr[current_rf] == current_timepoint) {
                 // dephase and relax    
                 time_elapsed = (current_timepoint - old_timepoint) * param.timestep_us * 1e-6;
                 dephase_relax(m0, m1, accumulated_phase, T1, T2, time_elapsed);
@@ -210,8 +198,7 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
             }
 
             // ------ echoes are only recorded in the last scan ------
-            if (is_lastscan && current_te < param_uvec.TE_us.size && param_uvec.TE_us.ptr[current_te] == current_timepoint)
-            {
+            if (is_lastscan && current_te < param_uvec.TE_us.size && param_uvec.TE_us.ptr[current_te] == current_timepoint) {
                 // dephase and relax                
                 time_elapsed = (current_timepoint - old_timepoint) * param.timestep_us * 1e-6;
                 dephase_relax(m0, m1, accumulated_phase, T1, T2, time_elapsed);

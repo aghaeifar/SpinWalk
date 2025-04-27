@@ -323,7 +323,7 @@ bool config_reader::check()
 
 void config_reader::dump() const
 {
-
+    
     mINI::INIFile file(config_filename);
     mINI::INIStructure ini;
     if(file.read(ini) == false){
