@@ -234,8 +234,10 @@ typedef struct parameters
         for (int i = 0; i < n_substrate; i++)
             param_hvec.diffusivity[i] = 1e-3 * sqrt(2. * param_hvec.diffusivity[i] * timestep_us); // 1e-3 is the conversion factor from us to seconds for timestep_us
 
-        if (n_dummy_scan < 0)
-            n_dummy_scan = 5.0 * param_hvec.T1_ms[0] / TR_us * 1e3;
+        if (n_dummy_scan < 0){
+            n_dummy_scan = 5.0 * param_hvec.T1_ms[0] / float(TR_us * 1e-3);
+            BOOST_LOG_TRIVIAL(info) << "Dummy scans is set to " << n_dummy_scan;
+        }
 
         return true;
     }

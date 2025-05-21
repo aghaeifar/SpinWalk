@@ -10,7 +10,7 @@ struct parameters;
 struct parameters_hvec;
 
 namespace sim {
-    enum e_scale_type {s_fov=0, s_gradient=1};
+    enum e_scale_type {s_fov=0, s_gradient=1, s_phase_cycling=2};
     class config_reader {
     public:
         config_reader() {};
