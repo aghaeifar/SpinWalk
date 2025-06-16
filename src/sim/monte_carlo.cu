@@ -208,7 +208,8 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
     
     size_t trj  = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
     size_t ind_fieldmap = 0;
-    float phase_cycling_orig = param.phase_cycling;
+    float linear_phase_cycling_orig = param.linear_phase_cycling;
+    float quadratic_phase_cycling_orig = param.quadratic_phase_cycling;
     std::vector<float> gradientX_mTm_orig = param_hvec.gradientX_mTm;
     std::vector<float> gradientY_mTm_orig = param_hvec.gradientY_mTm;
     std::vector<float> gradientZ_mTm_orig = param_hvec.gradientZ_mTm;
@@ -297,7 +298,8 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
 #endif
              }
              else if (config.get_scale_type() == e_scale_type::s_phase_cycling){
-                param.phase_cycling = phase_cycling_orig * scale;
+                param.linear_phase_cycling    = linear_phase_cycling_orig * scale;
+                param.quadratic_phase_cycling = quadratic_phase_cycling_orig;
              }
 
             // here we need to check voxel size and step size to make sure that the simulation is stable: doi:10.1016/j.neuroimage.2018.06.046 & https://submissions.mirasmart.com/ISMRM2024/Itinerary/PresentationDetail.aspx?evdid=4684
