@@ -208,8 +208,10 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
     
     size_t trj  = param.enRecordTrajectory ? param.n_timepoints * (param.n_dummy_scan + 1) : 1;
     size_t ind_fieldmap = 0;
+
     float linear_phase_cycling_orig = param.linear_phase_cycling;
     float quadratic_phase_cycling_orig = param.quadratic_phase_cycling;
+
     std::vector<float> gradientX_mTm_orig = param_hvec.gradientX_mTm;
     std::vector<float> gradientY_mTm_orig = param_hvec.gradientY_mTm;
     std::vector<float> gradientZ_mTm_orig = param_hvec.gradientZ_mTm;
