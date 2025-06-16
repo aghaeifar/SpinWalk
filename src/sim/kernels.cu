@@ -107,13 +107,14 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
     for (uint32_t dummy_scan = 0; dummy_scan < param.n_dummy_scan + 1; dummy_scan++) {
         is_lastscan = (dummy_scan == param.n_dummy_scan);
         
-        while (rf_phase > 360.0)
-            rf_phase -= 360.0;
-        while (rf_phase < 0)
-            rf_phase += 360.0;
+        float new_rf_phase = rf_phase + dummy_scan*param.linear_phase_cycling + dummy_scan*(dummy_scan+1)/2.0*param.quadratic_phase_cycling;
+        while (new_rf_phase > 360.0)
+            new_rf_phase -= 360.0;
+        while (new_rf_phase < 0)
+            new_rf_phase += 360.0;
         
         // ------ apply the first RF pulse. The start time for the first RF pulse is always 0 ------
-        xrot_withphase (param.s, param.c, rf_phase += param.phase_cycling, m0, m1);
+        xrot_withphase (param.s, param.c, new_rf_phase, m0, m1);
 
         for(uint8_t i=0; i<3; i++) // copy m1 to m0
             m0[i] = m1[i];
@@ -126,7 +127,7 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
         // ------ loop over timepoints ------
         while (current_timepoint < param.n_timepoints) { // param.n_timepoints is the total number of timepoints (= TR/dwelltime)
             // ------ generate random walks and wrap around the boundries ------
-            for (uint8_t i=0; i<3; i++) {
+            for (uint8_t i=0; i<3 && diffusivity_scale != 0.; i++) {
                 double rnd_wlk = dist_random_walk_xyz(gen_r) * diffusivity_scale;
                 xyz_new[i] = xyz_old[i] + rnd_wlk; // new spin position after random-walk
                 if (xyz_new[i] < 0)

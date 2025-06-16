@@ -177,7 +177,8 @@ typedef struct parameters
 {
     double fov[3];
     float B0=9.4, c, s;
-    float phase_cycling;
+    float linear_phase_cycling;
+    float quadratic_phase_cycling;
     int32_t timestep_us, TR_us, n_dummy_scan=0;
     uint32_t n_spins=1e3, n_timepoints=0, n_substrate=0, n_scales=1;
     size_t phantom_size[3], seed=0, max_iterations=9999;
@@ -187,7 +188,8 @@ typedef struct parameters
     parameters() :
         TR_us(-1),
         timestep_us(-1),
-        phase_cycling(0.),
+        linear_phase_cycling(0.),
+        quadratic_phase_cycling(0.),
         enCrossFOV(true),
         enRecordTrajectory(false),
         fieldmap_exist(true),
@@ -213,7 +215,7 @@ typedef struct parameters
         ss<<"timepoints      = "<< n_timepoints <<'\n';
         ss<<"max iterations  = "<< max_iterations <<'\n';
         ss<<"Pass FoV        = "<< enCrossFOV << '\n';
-        ss<<"Phase cycling   = "<< phase_cycling <<'\n';
+        ss<<"Phase cycling   = "<< linear_phase_cycling << " " << quadratic_phase_cycling << '\n';
         ss<<"Seed            = "<< seed <<'\n';
         ss<<"off-resonance   = "<< (fieldmap_exist ? "Yes" : "No") <<'\n';
         ss<<"Save Trajectory = "<< (enRecordTrajectory ? "Yes" : "No")<<'\n';

@@ -66,7 +66,8 @@ bool config_generator::generate_default_config(uint32_t TE_us, uint32_t timestep
     // number of dummy scans to reach steady state. The first RF pulse (RF_FA[0]) is used for excitation in dummy scans. If negative, it will be set to 5T1/TR.
     ini_parent["SCAN_PARAMETERS"]["DUMMY_SCAN"] = "0";
     // Phase cycling in degrees
-    ini_parent["SCAN_PARAMETERS"]["PHASE_CYCLING"] = "0";
+    ini_parent["SCAN_PARAMETERS"]["LINEAR_PHASE_CYCLING"] = "0";
+    ini_parent["SCAN_PARAMETERS"]["QUADRATIC_PHASE_CYCLING"] = "0";
 
     // static magnetic field in Tesla, set to 0 for no field.
     ini_parent["SIMULATION_PARAMETERS"]["B0"] = "9.4";
@@ -162,7 +163,8 @@ bool config_generator::generate_bssfp(uint32_t TE_us, uint32_t timestep_us, std:
 
     add_param("SCAN_PARAMETERS", "TIME_STEP", std::to_string(timestep_us));
     add_param("SCAN_PARAMETERS", "DUMMY_SCAN", "-1");
-    add_param("SCAN_PARAMETERS", "PHASE_CYCLING", "180");
+    add_param("SCAN_PARAMETERS", "LINEAR_PHASE_CYCLING", "180");
+    add_param("SCAN_PARAMETERS", "QUADRATIC_PHASE_CYCLING", "0");
 
     if(output.empty() == false)
         if(write_ini(output) == false)

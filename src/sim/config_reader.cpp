@@ -135,8 +135,10 @@ bool config_reader::read(std::string config_filename_path)
      
     // ============== reading section SCAN_PARAMETERS ==============
     param->n_dummy_scan = ini["SCAN_PARAMETERS"]["DUMMY_SCAN"].empty() ? param->n_dummy_scan : std::stoi(ini["SCAN_PARAMETERS"]["DUMMY_SCAN"]);
-    param->phase_cycling = ini["SCAN_PARAMETERS"]["PHASE_CYCLING"].empty() ? param->phase_cycling : std::stof(ini["SCAN_PARAMETERS"]["PHASE_CYCLING"]);
-     
+    param->linear_phase_cycling = ini["SCAN_PARAMETERS"]["LINEAR_PHASE_CYCLING"].empty() ? param->linear_phase_cycling : std::stof(ini["SCAN_PARAMETERS"]["LINEAR_PHASE_CYCLING"]);
+    param->quadratic_phase_cycling = ini["SCAN_PARAMETERS"]["QUADRATIC_PHASE_CYCLING"].empty() ? param->quadratic_phase_cycling : std::stof(ini["SCAN_PARAMETERS"]["QUADRATIC_PHASE_CYCLING"]);
+
+
     // ============== reading section SIMULATION_PARAMETERS ==============
     param->B0                 = ini["SIMULATION_PARAMETERS"]["B0"].empty() ? param->B0 : std::stof(ini["SIMULATION_PARAMETERS"]["B0"]);
     param->seed               = ini["SIMULATION_PARAMETERS"]["SEED"].empty() ? param->seed : std::stoi(ini["SIMULATION_PARAMETERS"]["SEED"]);
