@@ -25,6 +25,12 @@
 
 namespace sim {
 
+#ifdef __CUDACC__
+__host__  __device__ __forceinline__ 
+#else
+inline
+#endif
+
 uint8_t find_max(const std::vector<uint8_t> &data)
 {
 #ifdef __CUDACC__
@@ -140,16 +146,17 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
             ind = sub2ind(xyz_new[0]*scale2grid[0], xyz_new[1]*scale2grid[1], xyz_new[2]*scale2grid[2], param.phantom_size[0], param.phantom_size[1], param.phantom_size[2]);
             if(ind >= param.matrix_length || ind < 0) {
                 printf("\n--------------------- <Error> ---------------------\n");
-                printf("spin = %d\ntimepoint = %d\nind = %" PRId64 "\nMatrixSize = %" PRId64 "\nPhantomSize = (%" PRId64 ", %" PRId64 ", %" PRId64 ")\n", spin_no, current_timepoint, ind, param.matrix_length, param.phantom_size[0], param.phantom_size[1], param.phantom_size[2]);
-                printf("FoV     = (%.10f, %.10f, %.10f)\nxyz_new = (%.10f, %.10f, %.10f)\nxyz_old = (%.10f, %.10f, %.10f)\n", param.fov[0], param.fov[1], param.fov[2], xyz_new[0], xyz_new[1], xyz_new[2], xyz_old[0], xyz_old[1], xyz_old[2]);
+                printf("spin  = %d\ntimepoint = %d\nind = %" PRId64 "\nMatrixSize = %" PRId64 "\nPhantomSize = (%" PRId64 ", %" PRId64 ", %" PRId64 ")\n", spin_no, current_timepoint, ind, param.matrix_length, param.phantom_size[0], param.phantom_size[1], param.phantom_size[2]);
+                printf("FoV   = (%.10f, %.10f, %.10f)\nxyz_new = (%.10f, %.10f, %.10f)\nxyz_old = (%.10f, %.10f, %.10f)\n", param.fov[0], param.fov[1], param.fov[2], xyz_new[0], xyz_new[1], xyz_new[2], xyz_old[0], xyz_old[1], xyz_old[2]);
                 printf("Error = (%d, %d, %d)\nscale2grid = (%.5f, %.5f, %.5f)\nscale2grid*xyz_new = (%.10f, %.10f, %.10f)\n", xyz_new[0] >= param.fov[0], xyz_new[1] >= param.fov[1], xyz_new[2] >= param.fov[2], scale2grid[0], scale2grid[1], scale2grid[2], scale2grid[0]*xyz_new[0], scale2grid[1]*xyz_new[1], scale2grid[2]*xyz_new[2]);
                 return;
             }
               
             // ------ accumulate phase ------
             if(ind != ind_old) {  // fewer access to the global memory which is slow. Helpful for large samples!
+                // check if the line from old to new crosses different compartments
                 // cross-tissue diffusion
-                ts = pMask[ind];          
+                ts = pMask[ind];
                 if (ts != ts_old) {
                     if (dist_cross_tissue(gen_u) >= param_uvec.pXY.ptr[ts_old*param.n_substrate + ts]) {
                         if(itr++ > param.max_iterations) {
@@ -169,7 +176,7 @@ void sim(const parameters &param, const parameters_uvec &param_uvec, const float
                 diffusivity_scale = param_uvec.diffusivity.ptr[ts_old];
             }   
             accumulated_phase += field;
-            itr = 0;
+            itr = 0;    
 
             // ------ apply ideal dephasing if there is any ------
             if(counter_dephasing < param_uvec.dephasing_us.size && param_uvec.dephasing_us.ptr[counter_dephasing] == current_timepoint) {

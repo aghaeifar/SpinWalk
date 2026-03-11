@@ -168,7 +168,7 @@ bool monte_carlo::initialize_magnetization(std::string filename)
 void monte_carlo::save(std::string filename)
 {
 #ifdef __CUDACC__
-    if(gpu_disabled == false){
+    if(gpu_disabled == false) {
         thrust::copy(d_M1.begin(), d_M1.end(), M1.begin());
         thrust::copy(d_XYZ1.begin(), d_XYZ1.end(), XYZ1.begin());
         thrust::copy(d_T.begin(), d_T.end(), T.begin());
@@ -224,7 +224,7 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
     }
 #endif
     // loop over phantoms and simulate
-    for (auto &file_phantom : config.get_filename("PHANTOM")){
+    for (auto &file_phantom : config.get_filename("PHANTOM")) {
         BOOST_LOG_TRIVIAL(info) << "Simulating phantom: " << file_phantom;
         if(read_phantom(file_phantom) == false)
             return false;        
@@ -270,11 +270,10 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
         
         auto start_sim = std::chrono::high_resolution_clock::now();
         auto bar = barkeep::ProgressBar(&ind_scale, {.total = param.n_scales, .message = "Simulating", .style = barkeep::ProgressBarStyle::Rich,});
-        for (const auto scale : config.get_scales())
-        {   
+        for (const auto scale : config.get_scales()) {   
             BOOST_LOG_TRIVIAL(info) << "Simulating scale " << scale; 
             // FoV scaling
-            if(config.get_scale_type() == e_scale_type::s_fov){           
+            if(config.get_scale_type() == e_scale_type::s_fov) {           
                 std::transform(std::execution::par_unseq, XYZ0.begin(), XYZ0.end(), XYZ0_scaled.begin(), [scale](auto& c){return c*scale;}); 
                 for (int i = 0; i < 3; i++) // FoV scaling
                     param.fov[i] = scale * fov[i]; 
@@ -284,7 +283,7 @@ bool monte_carlo::run(std::string config_filename) // simulation_parameters para
 #endif
              } 
              // Gradient scaling
-             else if (config.get_scale_type() == e_scale_type::s_gradient){                                
+             else if (config.get_scale_type() == e_scale_type::s_gradient) {                                
                 std::transform(std::execution::par_unseq, gradientX_mTm_orig.begin(), gradientX_mTm_orig.end(), param_hvec.gradientX_mTm.begin(), [scale](auto& c){return c*scale;}); 
                 std::transform(std::execution::par_unseq, gradientY_mTm_orig.begin(), gradientY_mTm_orig.end(), param_hvec.gradientY_mTm.begin(), [scale](auto& c){return c*scale;}); 
                 std::transform(std::execution::par_unseq, gradientZ_mTm_orig.begin(), gradientZ_mTm_orig.end(), param_hvec.gradientZ_mTm.begin(), [scale](auto& c){return c*scale;}); 
