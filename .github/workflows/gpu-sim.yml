@@ -1,0 +1,63 @@
+name: GPU Simulator
+
+# Manual-only check: run it from Actions > GPU Simulator > Run workflow. The
+# hosted runners have no GPU, so this builds SpinWalk and runs its Boost.Test
+# suite (`ctest`, target `check`) on a simulated NVIDIA H100
+# (https://github.com/pantheongpu/pantheonsim). A simulator cannot reproduce
+# hardware-specific behavior or timing, so it complements real-GPU testing and
+# does not replace it.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests (CUDA 13.0 and simulated H100)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Set up the simulated GPU and CUDA toolkit
+        uses: pantheongpu/setup-pantheonsim@ab71a07326835be678918901c340d53a83358067 # v0.1.6
+        with:
+          gpu: nvidia/h100
+          cuda-toolkit: "13.0"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libhdf5-dev libtbb-dev libboost-log-dev libboost-test-dev libomp-dev
+
+      # CMakeLists.txt hardcodes `set(CMAKE_CUDA_ARCHITECTURES 75 86 89)`, which
+      # builds SASS that the simulator cannot run. In this CI checkout only, that
+      # line is changed to 90-virtual (PTX only, which the simulator runs), and the
+      # shared CUDA runtime that the simulator needs is selected. CMAKE_CUDA_COMPILER
+      # is given explicitly because check_language() probes with CMake's default
+      # architecture, which CUDA 13 rejects.
+      - name: Configure
+        run: |
+          sed -i 's/set(CMAKE_CUDA_ARCHITECTURES 75 86 89)/set(CMAKE_CUDA_ARCHITECTURES 90-virtual)/' CMakeLists.txt
+          grep -n 'CMAKE_CUDA_ARCHITECTURES 90-virtual' CMakeLists.txt
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CUDA_COMPILER=/usr/local/cuda-13.0/bin/nvcc \
+            -DCMAKE_CUDA_RUNTIME_LIBRARY=Shared
+
+      - name: Build
+        run: cmake --build build -j3
+
+      # include(CTest) is in tests/CMakeLists.txt, so the `check` test is registered
+      # in build/tests (a top-level ctest reports "No tests were found").
+      - name: Test
+        run: vgpu run ctest --test-dir build/tests --output-on-failure
