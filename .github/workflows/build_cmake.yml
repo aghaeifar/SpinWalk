@@ -13,7 +13,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
   
     steps:
 
@@ -49,7 +49,7 @@ jobs:
 
   # Separate Test Job
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build  # This job depends on the successful completion of the "build" job
     
     steps:
